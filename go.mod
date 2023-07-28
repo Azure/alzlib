@@ -1,4 +1,4 @@
-module github.com/matt-FFFFFF/alzlib
+module github.com/Azure/alzlib
 
 go 1.20
 
