@@ -24,6 +24,25 @@ type DeploymentType struct {
 	mu  sync.RWMutex // mu is a mutex to concurrency protect the Deployment map, not the AlzManagementGroup maps which are protected by the AlzManagementGroup mutex)
 }
 
+// GetManagementGroup returns the management group with the given name.
+func (d *DeploymentType) GetManagementGroup(name string) *AlzManagementGroup {
+	if mg, ok := d.mgs[name]; ok {
+		return mg
+	}
+	return nil
+}
+
+// ListManagementGroups returns the management group names as a slice of string.
+func (d *DeploymentType) ListManagementGroups() []string {
+	res := make([]string, len(d.mgs))
+	i := 0
+	for mgname := range d.mgs {
+		res[i] = mgname
+		i++
+	}
+	return res
+}
+
 // policyDefinitionToMg returns a map on policy definition names to the deployed management group name.
 func (d *DeploymentType) policyDefinitionToMg() map[string]string {
 	res := make(map[string]string, 0)
