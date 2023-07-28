@@ -4,7 +4,6 @@ before:
     # You may remove this if you don't use go modules.
     - go mod tidy
     - go mod vendor
-    - make test
 archives:
   - format: tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
