@@ -1,0 +1,11 @@
+{
+  "name": "test",
+  "policy_assignments": [
+    "Deploy-AzActivity-Log"
+  ],
+  "policy_definitions": [
+    "test-policy-definition"
+  ],
+  "policy_set_definitions": [],
+  "role_definitions": []
+}
