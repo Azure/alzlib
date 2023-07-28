@@ -10,10 +10,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	sets "github.com/deckarep/golang-set/v2"
-	"github.com/matt-FFFFFF/alzlib/to"
 )
 
 // AlzManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.

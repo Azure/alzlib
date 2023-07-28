@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	"github.com/matt-FFFFFF/alzlib/to"
 	"github.com/stretchr/testify/assert"
 )
 

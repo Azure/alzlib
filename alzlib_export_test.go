@@ -3,7 +3,7 @@ package alzlib_test
 import (
 	"testing"
 
-	"github.com/matt-FFFFFF/alzlib"
+	"github.com/Azure/alzlib"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
