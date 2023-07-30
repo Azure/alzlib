@@ -31,6 +31,7 @@ var Lib embed.FS
 
 // AlzLib is the structure that gets built from the the library files
 // do not create this directly, use NewAlzLib instead.
+// Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type AlzLib struct {
 	Options    *AlzLibOptions
 	Deployment *DeploymentType // Deployment is the deployment object that stores the management group hierarchy
@@ -81,7 +82,6 @@ func NewAlzLib() *AlzLib {
 		archetypes: make(map[string]*Archetype),
 		Deployment: &DeploymentType{
 			mgs: make(map[string]*AlzManagementGroup),
-			mu:  sync.RWMutex{},
 		},
 		policyAssignments:    make(map[string]*armpolicy.Assignment),
 		policyDefinitions:    make(map[string]*armpolicy.Definition),
@@ -181,7 +181,7 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	}
 
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
-	assignedPolicyDefinitionIds := sets.NewSet[string]()
+	assignedPolicyDefinitionIds := sets.NewThreadUnsafeSet[string]()
 	for archname, arch := range az.archetypes {
 		for pa := range arch.PolicyAssignments.Iter() {
 			if !az.PolicyAssignmentExists(pa) {
@@ -207,8 +207,6 @@ func (az *AlzLib) AddManagementGroupToDeployment(name, displayName, parent strin
 		return errors.New("archetype well known values not set, use Archetype.WithWellKnownPolicyValues() to update")
 	}
 
-	az.Deployment.mu.Lock()
-	defer az.Deployment.mu.Unlock()
 	if _, exists := az.Deployment.mgs[name]; exists {
 		return fmt.Errorf("management group %s already exists", name)
 	}
@@ -269,7 +267,7 @@ func (az *AlzLib) AddManagementGroupToDeployment(name, displayName, parent strin
 	az.Deployment.mgs[name] = alzmg
 
 	// run Update to change all refs, etc.
-	if err := az.Deployment.mgs[name].Update(az, nil); err != nil {
+	if err := az.Deployment.mgs[name].update(az, nil); err != nil {
 		return err
 	}
 
@@ -280,8 +278,8 @@ func (az *AlzLib) AddManagementGroupToDeployment(name, displayName, parent strin
 // It then fetches them from Azure if needed and adds them to the AlzLib struct.
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
-	policyDefsToGet := sets.NewSet[string]()
-	policySetDefsToGet := sets.NewSet[string]()
+	policyDefsToGet := sets.NewThreadUnsafeSet[string]()
+	policySetDefsToGet := sets.NewThreadUnsafeSet[string]()
 	for _, pd := range pds {
 		switch strings.ToLower(lastButOneSegment(pd)) {
 		case "policydefinitions":
@@ -313,21 +311,21 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 	// Add the referenced built-in definitions and set definitions to the AlzLib struct
 	// so that we can use the data to determine the correct role assignments at scope.
 	if policyDefsToGet.Cardinality() != 0 {
-		if err := az.GetBuiltInPolicies(ctx, policyDefsToGet.ToSlice()); err != nil {
+		if err := az.getBuiltInPolicies(ctx, policyDefsToGet.ToSlice()); err != nil {
 			return err
 		}
 	}
 	if policySetDefsToGet.Cardinality() != 0 {
-		if err := az.GetBuiltInPolicySets(ctx, policySetDefsToGet.ToSlice()); err != nil {
+		if err := az.getBuiltInPolicySets(ctx, policySetDefsToGet.ToSlice()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// GetBuiltInPolicies retrieves the built-in policy definitions with the given names
+// getBuiltInPolicies retrieves the built-in policy definitions with the given names
 // and adds them to the AlzLib struct.
-func (az *AlzLib) GetBuiltInPolicies(ctx context.Context, names []string) error {
+func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error {
 	if az.clients.policyClient == nil {
 		return errors.New("policy client not set")
 	}
@@ -356,9 +354,9 @@ func (az *AlzLib) GetBuiltInPolicies(ctx context.Context, names []string) error 
 	return nil
 }
 
-// GetBuiltInPolicySets retrieves the built-in policy set definitions with the given names
+// getBuiltInPolicySets retrieves the built-in policy set definitions with the given names
 // and adds them to the AlzLib struct.
-func (az *AlzLib) GetBuiltInPolicySets(ctx context.Context, names []string) error {
+func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) error {
 	if az.clients.policyClient == nil {
 		return errors.New("policy client not set")
 	}
@@ -404,7 +402,7 @@ func (az *AlzLib) GetBuiltInPolicySets(ctx context.Context, names []string) erro
 			defnames = append(defnames, lastSegment(*ref.PolicyDefinitionID))
 		}
 	}
-	if err := az.GetBuiltInPolicies(ctx, defnames); err != nil {
+	if err := az.getBuiltInPolicies(ctx, defnames); err != nil {
 		return err
 	}
 

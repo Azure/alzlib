@@ -5,7 +5,6 @@ package alzlib
 
 import (
 	"strings"
-	"sync"
 
 	"github.com/google/uuid"
 )
@@ -19,9 +18,9 @@ const (
 )
 
 // DeploymentType represents a deployment of Azure management group.
+// Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type DeploymentType struct {
 	mgs map[string]*AlzManagementGroup
-	mu  sync.RWMutex // mu is a mutex to concurrency protect the Deployment map, not the AlzManagementGroup maps which are protected by the AlzManagementGroup mutex)
 }
 
 // GetManagementGroup returns the management group with the given name.
