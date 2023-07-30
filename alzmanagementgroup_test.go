@@ -3,7 +3,6 @@ package alzlib
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/Azure/alzlib/to"
@@ -45,7 +44,6 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 		policyDefinitions:    make(map[string]*armpolicy.Definition),
 		policySetDefinitions: make(map[string]*armpolicy.SetDefinition),
 		policyAssignments:    make(map[string]*armpolicy.Assignment),
-		mu:                   sync.RWMutex{},
 	}
 
 	// create a new policy assignment for the definition.
@@ -204,12 +202,12 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	// check that the additional role assignments were generated correctly.
 	additionalRas, ok := alzmg.additionalRoleAssignmentsByPolicyAssignment[*paDef.Name]
 	assert.True(t, ok)
-	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition"}, additionalRas.RoleDefinitionIds.ToSlice())
-	assert.Equal(t, []string{paDef.Properties.Parameters["parameter1"].Value.(string)}, additionalRas.AdditionalScopes.ToSlice()) //nolint:forcetypeassert
+	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition"}, additionalRas.RoleDefinitionIds)
+	assert.Equal(t, []string{paDef.Properties.Parameters["parameter1"].Value.(string)}, additionalRas.AdditionalScopes) //nolint:forcetypeassert
 	additionalSetRas, ok := alzmg.additionalRoleAssignmentsByPolicyAssignment[*paSetDef.Name]
 	assert.True(t, ok)
-	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition2"}, additionalSetRas.RoleDefinitionIds.ToSlice())
-	assert.Equal(t, []string{paSetDef.Properties.Parameters["setparameter1"].Value.(string)}, additionalSetRas.AdditionalScopes.ToSlice()) //nolint:forcetypeassert
+	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition2"}, additionalSetRas.RoleDefinitionIds)
+	assert.Equal(t, []string{paSetDef.Properties.Parameters["setparameter1"].Value.(string)}, additionalSetRas.AdditionalScopes) //nolint:forcetypeassert
 }
 
 func TestExtractParameterNameFromArmFunction(t *testing.T) {
@@ -255,7 +253,6 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		wkpv: &WellKnownPolicyValues{
 			DefaultLocation: "eastus",
 		},
-		mu: sync.RWMutex{},
 	}
 	pd2mg := map[string]string{
 		"pd1": "mg1",
@@ -300,7 +297,6 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		wkpv: &WellKnownPolicyValues{
 			DefaultLocation: "eastus",
 		},
-		mu: sync.RWMutex{},
 	}
 	pd2mg = map[string]string{
 		"pd1": "mg1",
@@ -342,7 +338,6 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		wkpv: &WellKnownPolicyValues{
 			DefaultLocation: "eastus",
 		},
-		mu: sync.RWMutex{},
 	}
 	pd2mg = map[string]string{}
 	psd2mg = map[string]string{}
@@ -538,7 +533,6 @@ func TestUpsertPolicyAssignments(t *testing.T) {
 	// Create a new AlzManagementGroup instance.
 	alzmg := &AlzManagementGroup{
 		policyAssignments: make(map[string]*armpolicy.Assignment),
-		mu:                sync.RWMutex{},
 	}
 
 	// Create a new policy assignment to upsert.
