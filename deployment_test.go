@@ -28,7 +28,14 @@ func TestWellKnownParameterReplacement(t *testing.T) {
 
 	arch, err := az.CopyArchetype("test", vals)
 	assert.NoError(t, err)
-	assert.NoError(t, az.AddManagementGroupToDeployment("test", "test", "external", true, arch))
+	req := AlzManagementGroupAddRequest{
+		Id:               "test",
+		DisplayName:      "test",
+		ParentId:         "external",
+		ParentIsExternal: true,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
 
 	paramValue := az.Deployment.mgs["test"].policyAssignments["Deploy-AzActivity-Log"].Properties.Parameters["logAnalytics"].Value
 	assert.Equal(t, "testlaworkspaceid", paramValue)

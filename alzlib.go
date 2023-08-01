@@ -75,8 +75,8 @@ type WellKnownPolicyValues struct {
 	DefaultLogAnalyticsWorkspaceId string
 }
 
-type AlzManagementGroupAdd struct {
-	Name             string
+type AlzManagementGroupAddRequest struct {
+	Id               string
 	DisplayName      string
 	ParentId         string
 	ParentIsExternal bool
@@ -211,17 +211,17 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 // If the parent is not specified, the management group is considered the root of the hierarchy.
 // The archetype should have been obtained using the `AlzLib.CopyArchetype` method, together with the `WellKnownPolicyValues`.
 // This allows for customization and ensures the correct policy assignment values have been set.
-func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzManagementGroupAdd) error {
+func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzManagementGroupAddRequest) error {
 	if req.Archetype.wellKnownPolicyValues == nil {
 		return errors.New("archetype well known values not set, use Alzlib.CopyArchetype() to get a copy and update")
 	}
 
-	if _, exists := az.Deployment.mgs[req.Name]; exists {
-		return fmt.Errorf("management group %s already exists", req.Name)
+	if _, exists := az.Deployment.mgs[req.Id]; exists {
+		return fmt.Errorf("management group %s already exists", req.Id)
 	}
 	alzmg := newAlzManagementGroup()
 
-	alzmg.name = req.Name
+	alzmg.name = req.Id
 	alzmg.displayName = req.DisplayName
 	alzmg.children = sets.NewSet[*AlzManagementGroup]()
 	if req.ParentIsExternal {
@@ -244,7 +244,7 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 	if req.ParentIsExternal {
 		for mgname, mg := range az.Deployment.mgs {
 			if mg.parentExternal != nil {
-				return fmt.Errorf("multiple root management groups: %s and %s", mgname, req.Name)
+				return fmt.Errorf("multiple root management groups: %s and %s", mgname, req.Id)
 			}
 		}
 	}
@@ -286,10 +286,10 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 	alzmg.wkpv = req.Archetype.wellKnownPolicyValues
 
 	// add the management group to the deployment.
-	az.Deployment.mgs[req.Name] = alzmg
+	az.Deployment.mgs[req.Id] = alzmg
 
 	// run Update to change all refs, etc.
-	if err := az.Deployment.mgs[req.Name].update(az, nil); err != nil {
+	if err := az.Deployment.mgs[req.Id].update(az, nil); err != nil {
 		return err
 	}
 

@@ -28,7 +28,14 @@ func TestE2E(t *testing.T) {
 	}
 	arch, err := az.CopyArchetype("root", vals)
 	assert.NoError(t, err)
-	assert.NoError(t, az.AddManagementGroupToDeployment("root", "root", "external", true, arch))
+	req := AlzManagementGroupAddRequest{
+		Id:               "root",
+		DisplayName:      "root",
+		ParentId:         "external",
+		ParentIsExternal: true,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
 	err = az.Deployment.mgs["root"].GeneratePolicyAssignmentAdditionalRoleAssignments(az)
 	assert.NoError(t, err)
 }

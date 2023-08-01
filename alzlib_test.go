@@ -61,7 +61,14 @@ func TestAddManagementGroup(t *testing.T) {
 	arch.wellKnownPolicyValues = wkvs
 
 	// test adding a new management group with no parent.
-	err := az.AddManagementGroupToDeployment("mg1", "mg1", "external", true, arch)
+	req := AlzManagementGroupAddRequest{
+		Id:               "mg1",
+		DisplayName:      "mg1",
+		ParentId:         "external",
+		ParentIsExternal: true,
+		Archetype:        arch,
+	}
+	err := az.AddManagementGroupToDeployment(context.Background(), req)
 	assert.NoError(t, err)
 	assert.Len(t, az.Deployment.mgs, 1)
 	assert.Contains(t, az.Deployment.mgs, "mg1")
@@ -72,8 +79,15 @@ func TestAddManagementGroup(t *testing.T) {
 	assert.True(t, az.Deployment.mgs["mg1"].ParentIsExternal())
 	assert.Equal(t, fmt.Sprintf(managementGroupIdFmt, "mg1"), az.Deployment.mgs["mg1"].GetResourceId())
 
+	req = AlzManagementGroupAddRequest{
+		Id:               "mg2",
+		DisplayName:      "mg2",
+		ParentId:         "mg1",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
 	// test adding a new management group with a parent.
-	err = az.AddManagementGroupToDeployment("mg2", "mg2", "mg1", false, arch)
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
 	assert.NoError(t, err)
 	assert.Len(t, az.Deployment.mgs, 2)
 	assert.Contains(t, az.Deployment.mgs, "mg2")
@@ -86,24 +100,45 @@ func TestAddManagementGroup(t *testing.T) {
 	assert.False(t, az.Deployment.mgs["mg2"].ParentIsExternal())
 	assert.Equal(t, az.Deployment.mgs["mg1"], az.Deployment.mgs["mg2"].GetParentMg())
 
+	req = AlzManagementGroupAddRequest{
+		Id:               "mg3",
+		DisplayName:      "mg3",
+		ParentId:         "mg4",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
 	// test adding a new management group with a non-existent parent.
-	err = az.AddManagementGroupToDeployment("mg3", "mg3", "mg4", false, arch)
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
 	assert.Error(t, err)
 	assert.Len(t, az.Deployment.mgs, 2)
 	assert.Contains(t, az.Deployment.mgs, "mg1")
 	assert.Contains(t, az.Deployment.mgs, "mg2")
 	assert.NotContains(t, az.Deployment.mgs, "mg3")
 
+	req = AlzManagementGroupAddRequest{
+		Id:               "mg4",
+		DisplayName:      "mg4",
+		ParentId:         "external",
+		ParentIsExternal: true,
+		Archetype:        arch,
+	}
 	// test adding a new management group with multiple root management groups.
-	err = az.AddManagementGroupToDeployment("mg4", "mg4", "external", true, arch)
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
 	assert.Error(t, err)
 	assert.Len(t, az.Deployment.mgs, 2)
 	assert.Contains(t, az.Deployment.mgs, "mg1")
 	assert.Contains(t, az.Deployment.mgs, "mg2")
 	assert.NotContains(t, az.Deployment.mgs, "mg4")
 
+	req = AlzManagementGroupAddRequest{
+		Id:               "mg1",
+		DisplayName:      "mg1",
+		ParentId:         "external",
+		ParentIsExternal: true,
+		Archetype:        arch,
+	}
 	// test adding a new management group with an existing name.
-	err = az.AddManagementGroupToDeployment("mg1", "mg1", "external", true, arch)
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
 	assert.Error(t, err)
 	assert.Len(t, az.Deployment.mgs, 2)
 	assert.Contains(t, az.Deployment.mgs, "mg1")
