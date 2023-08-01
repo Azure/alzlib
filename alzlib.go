@@ -64,6 +64,7 @@ type Archetype struct {
 	PolicySetDefinitions  sets.Set[string]
 	RoleDefinitions       sets.Set[string]
 	wellKnownPolicyValues *WellKnownPolicyValues // options are used to populate the Archetype with well known parameter values
+	name                  string
 }
 
 // WellKnownPolicyValues represents options for a deployment
@@ -72,6 +73,14 @@ type Archetype struct {
 type WellKnownPolicyValues struct {
 	DefaultLocation                string
 	DefaultLogAnalyticsWorkspaceId string
+}
+
+type AlzManagementGroupAdd struct {
+	Name             string
+	DisplayName      string
+	ParentId         string
+	ParentIsExternal bool
+	Archetype        *Archetype
 }
 
 // NewAlzLib returns a new instance of the alzlib library, optionally using the supplied directory
@@ -200,74 +209,87 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 
 // AddManagementGroupToDeployment adds a management group to the deployment, with a parent if specified.
 // If the parent is not specified, the management group is considered the root of the hierarchy.
-// You should pass the source Archetype through the .WithWellKnownPolicyParameters() method
-// to ensure that the values in the wellKnownPolicyValues are honored.
-func (az *AlzLib) AddManagementGroupToDeployment(name, displayName, parent string, parentIsExternal bool, arch *Archetype) error {
-	if arch.wellKnownPolicyValues == nil {
-		return errors.New("archetype well known values not set, use Archetype.WithWellKnownPolicyValues() to update")
+// The archetype should have been obtained using the `AlzLib.CopyArchetype` method, together with the `WellKnownPolicyValues`.
+// This allows for customization and ensures the correct policy assignment values have been set.
+func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzManagementGroupAdd) error {
+	if req.Archetype.wellKnownPolicyValues == nil {
+		return errors.New("archetype well known values not set, use Alzlib.CopyArchetype() to get a copy and update")
 	}
 
-	if _, exists := az.Deployment.mgs[name]; exists {
-		return fmt.Errorf("management group %s already exists", name)
+	if _, exists := az.Deployment.mgs[req.Name]; exists {
+		return fmt.Errorf("management group %s already exists", req.Name)
 	}
 	alzmg := newAlzManagementGroup()
 
-	alzmg.name = name
-	alzmg.displayName = displayName
+	alzmg.name = req.Name
+	alzmg.displayName = req.DisplayName
 	alzmg.children = sets.NewSet[*AlzManagementGroup]()
-	if parentIsExternal {
-		if _, ok := az.Deployment.mgs[parent]; ok {
+	if req.ParentIsExternal {
+		if _, ok := az.Deployment.mgs[req.ParentId]; ok {
 
-			return fmt.Errorf("external parent management group set, but already exists %s", parent)
+			return fmt.Errorf("external parent management group set, but already exists %s", req.ParentId)
 		}
-		alzmg.parentExternal = to.Ptr[string](parent)
+		alzmg.parentExternal = to.Ptr[string](req.ParentId)
 	}
-	if !parentIsExternal && parent != "" {
-		mg, ok := az.Deployment.mgs[parent]
+	if !req.ParentIsExternal && req.ParentId != "" {
+		mg, ok := az.Deployment.mgs[req.ParentId]
 		if !ok {
-			return fmt.Errorf("parent management group not found %s", parent)
+			return fmt.Errorf("parent management group not found %s", req.ParentId)
 		}
 		alzmg.parent = mg
-		az.Deployment.mgs[parent].children.Add(alzmg)
+		az.Deployment.mgs[req.ParentId].children.Add(alzmg)
 	}
 
 	// We only allow one intermediate root management group, so check if this is the first one.
-	if parentIsExternal {
+	if req.ParentIsExternal {
 		for mgname, mg := range az.Deployment.mgs {
 			if mg.parentExternal != nil {
-				return fmt.Errorf("multiple root management groups: %s and %s", mgname, name)
+				return fmt.Errorf("multiple root management groups: %s and %s", mgname, req.Name)
 			}
 		}
 	}
 
+	// Get the policy definitions and policy set definitions referenced by the policy assignments.
+	assignedPolicyDefinitionIds := sets.NewThreadUnsafeSet[string]()
+	for pa := range req.Archetype.PolicyAssignments.Iter() {
+		if !az.PolicyAssignmentExists(pa) {
+			return fmt.Errorf("policy assignment %s referenced in archetype %s does not exist in the library", pa, req.Archetype.name)
+		}
+		assignedPolicyDefinitionIds.Add(*az.policyAssignments[pa].Properties.PolicyDefinitionID)
+	}
+
+	if err := az.GetDefinitionsFromAzure(ctx, assignedPolicyDefinitionIds.ToSlice()); err != nil {
+		return err
+	}
+
 	// make copies of the archetype resources for modification in the Deployment management group.
-	for name := range arch.PolicyDefinitions.Iter() {
+	for name := range req.Archetype.PolicyDefinitions.Iter() {
 		newdef := new(armpolicy.Definition)
 		*newdef = *az.policyDefinitions[name]
 		alzmg.policyDefinitions[name] = newdef
 	}
-	for name := range arch.PolicySetDefinitions.Iter() {
+	for name := range req.Archetype.PolicySetDefinitions.Iter() {
 		newdef := new(armpolicy.SetDefinition)
 		*newdef = *az.policySetDefinitions[name]
 		alzmg.policySetDefinitions[name] = newdef
 	}
-	for name := range arch.PolicyAssignments.Iter() {
+	for name := range req.Archetype.PolicyAssignments.Iter() {
 		newpolassign := new(armpolicy.Assignment)
 		*newpolassign = *az.policyAssignments[name]
 		alzmg.policyAssignments[name] = newpolassign
 	}
-	for name := range arch.RoleDefinitions.Iter() {
+	for name := range req.Archetype.RoleDefinitions.Iter() {
 		newroledef := new(armauthorization.RoleDefinition)
 		*newroledef = *az.roleDefinitions[name]
 		alzmg.roleDefinitions[name] = newroledef
 	}
-	alzmg.wkpv = arch.wellKnownPolicyValues
+	alzmg.wkpv = req.Archetype.wellKnownPolicyValues
 
 	// add the management group to the deployment.
-	az.Deployment.mgs[name] = alzmg
+	az.Deployment.mgs[req.Name] = alzmg
 
 	// run Update to change all refs, etc.
-	if err := az.Deployment.mgs[name].update(az, nil); err != nil {
+	if err := az.Deployment.mgs[req.Name].update(az, nil); err != nil {
 		return err
 	}
 
@@ -462,6 +484,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 			PolicyAssignments:    sets.NewSet[string](),
 			PolicySetDefinitions: sets.NewSet[string](),
 			RoleDefinitions:      sets.NewSet[string](),
+			name:                 v.Name,
 		}
 		for _, pd := range v.PolicyDefinitions {
 			if _, ok := az.policyDefinitions[pd]; !ok {
