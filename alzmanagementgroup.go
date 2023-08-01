@@ -12,7 +12,7 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
 // AlzManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
@@ -26,7 +26,7 @@ type AlzManagementGroup struct {
 	roleDefinitions                             map[string]*armauthorization.RoleDefinition
 	roleAssignments                             map[string]*armauthorization.RoleAssignment
 	additionalRoleAssignmentsByPolicyAssignment map[string]*PolicyAssignmentAdditionalRoleAssignments
-	children                                    sets.Set[*AlzManagementGroup]
+	children                                    mapset.Set[*AlzManagementGroup]
 	parent                                      *AlzManagementGroup
 	parentExternal                              *string
 	wkpv                                        *WellKnownPolicyValues
@@ -133,8 +133,8 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 		}
 
 		additionalRas := new(PolicyAssignmentAdditionalRoleAssignments)
-		roleDefinitionIds := sets.NewThreadUnsafeSet[string]()
-		additionalScopes := sets.NewThreadUnsafeSet[string]()
+		roleDefinitionIds := mapset.NewThreadUnsafeSet[string]()
+		additionalScopes := mapset.NewThreadUnsafeSet[string]()
 
 		// get the policy definition name using the resource id
 		defId := pa.Properties.PolicyDefinitionID
@@ -273,7 +273,7 @@ func (alzmg *AlzManagementGroup) update(az *AlzLib, papv PolicyAssignmentsParame
 // If the assignment already exists, its attributes will be updated, but not entirely replaced.
 func (alzmg *AlzManagementGroup) UpsertPolicyAssignments(ctx context.Context, pas map[string]*armpolicy.Assignment, az *AlzLib) error {
 	papv := make(PolicyAssignmentsParameterValues)
-	defsToGet := sets.NewSet[string]()
+	defsToGet := mapset.NewSet[string]()
 
 	for name, pa := range pas {
 		if _, ok := alzmg.policyAssignments[name]; !ok {
