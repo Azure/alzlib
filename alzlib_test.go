@@ -12,7 +12,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,10 +53,10 @@ func TestAddManagementGroup(t *testing.T) {
 
 	// create a new archetype
 	arch := &Archetype{
-		PolicyDefinitions:    sets.NewSet[string](),
-		PolicySetDefinitions: sets.NewSet[string](),
-		PolicyAssignments:    sets.NewSet[string](),
-		RoleDefinitions:      sets.NewSet[string](),
+		PolicyDefinitions:    mapset.NewSet[string](),
+		PolicySetDefinitions: mapset.NewSet[string](),
+		PolicyAssignments:    mapset.NewSet[string](),
+		RoleDefinitions:      mapset.NewSet[string](),
 	}
 	arch.wellKnownPolicyValues = wkvs
 

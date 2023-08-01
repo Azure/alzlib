@@ -16,7 +16,7 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -59,10 +59,10 @@ type AlzLibOptions struct {
 // Archetype represents an archetype definition that hasn't been assigned to a management group
 // The contents of the sets represent the map keys of the corresponding AlzLib maps.
 type Archetype struct {
-	PolicyDefinitions     sets.Set[string]
-	PolicyAssignments     sets.Set[string]
-	PolicySetDefinitions  sets.Set[string]
-	RoleDefinitions       sets.Set[string]
+	PolicyDefinitions     mapset.Set[string]
+	PolicyAssignments     mapset.Set[string]
+	PolicySetDefinitions  mapset.Set[string]
+	RoleDefinitions       mapset.Set[string]
 	wellKnownPolicyValues *WellKnownPolicyValues // options are used to populate the Archetype with well known parameter values
 	name                  string
 }
@@ -190,7 +190,7 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	}
 
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
-	assignedPolicyDefinitionIds := sets.NewThreadUnsafeSet[string]()
+	assignedPolicyDefinitionIds := mapset.NewThreadUnsafeSet[string]()
 	for archname, arch := range az.archetypes {
 		for pa := range arch.PolicyAssignments.Iter() {
 			if !az.PolicyAssignmentExists(pa) {
@@ -223,7 +223,7 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 
 	alzmg.name = req.Id
 	alzmg.displayName = req.DisplayName
-	alzmg.children = sets.NewSet[*AlzManagementGroup]()
+	alzmg.children = mapset.NewSet[*AlzManagementGroup]()
 	if req.ParentIsExternal {
 		if _, ok := az.Deployment.mgs[req.ParentId]; ok {
 
@@ -250,7 +250,7 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 	}
 
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
-	assignedPolicyDefinitionIds := sets.NewThreadUnsafeSet[string]()
+	assignedPolicyDefinitionIds := mapset.NewThreadUnsafeSet[string]()
 	for pa := range req.Archetype.PolicyAssignments.Iter() {
 		if !az.PolicyAssignmentExists(pa) {
 			return fmt.Errorf("policy assignment %s referenced in archetype %s does not exist in the library", pa, req.Archetype.name)
@@ -300,8 +300,8 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 // It then fetches them from Azure if needed and adds them to the AlzLib struct.
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
-	policyDefsToGet := sets.NewThreadUnsafeSet[string]()
-	policySetDefsToGet := sets.NewThreadUnsafeSet[string]()
+	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
+	policySetDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	for _, pd := range pds {
 		switch strings.ToLower(lastButOneSegment(pd)) {
 		case "policydefinitions":
@@ -480,10 +480,10 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 			return fmt.Errorf("archetype %s already exists in the library", v.Name)
 		}
 		arch := &Archetype{
-			PolicyDefinitions:    sets.NewSet[string](),
-			PolicyAssignments:    sets.NewSet[string](),
-			PolicySetDefinitions: sets.NewSet[string](),
-			RoleDefinitions:      sets.NewSet[string](),
+			PolicyDefinitions:    mapset.NewSet[string](),
+			PolicyAssignments:    mapset.NewSet[string](),
+			PolicySetDefinitions: mapset.NewSet[string](),
+			RoleDefinitions:      mapset.NewSet[string](),
 			name:                 v.Name,
 		}
 		for _, pd := range v.PolicyDefinitions {
