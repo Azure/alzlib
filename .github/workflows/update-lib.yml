@@ -1,5 +1,5 @@
 ---
-name: Update Library Templates
+name: update lib
 
 # yamllint disable-line rule:truthy
 on:
@@ -16,8 +16,8 @@ env:
     Please review the 'files changed' tab to review changes."
 
 jobs:
-  update-templates:
-    name: Update Library Templates
+  update-lib:
+    name: update
     runs-on: ubuntu-latest
     steps:
       - name: Local repository checkout
