@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestE2E(t *testing.T) {
+// TestFullAlz tests the ALZ reference architecture creation in full.
+func TestFullAlz(t *testing.T) {
 	az := NewAlzLib()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -26,6 +27,8 @@ func TestE2E(t *testing.T) {
 		DefaultLocation:                "eastus",
 		DefaultLogAnalyticsWorkspaceId: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.OperationalInsights/workspaces/testlaworkspaceid",
 	}
+
+	t.Log("Creating root management group")
 	arch, err := az.CopyArchetype("root", vals)
 	assert.NoError(t, err)
 	req := AlzManagementGroupAddRequest{
@@ -36,7 +39,112 @@ func TestE2E(t *testing.T) {
 		Archetype:        arch,
 	}
 	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	err = az.Deployment.mgs["root"].GeneratePolicyAssignmentAdditionalRoleAssignments(az)
+	assert.NoError(t, az.Deployment.mgs["root"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating landing_zones management group")
+	arch, err = az.CopyArchetype("landing_zones", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "landing_zones",
+		DisplayName:      "landing_zones",
+		ParentId:         "root",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["landing_zones"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating platform management group")
+	arch, err = az.CopyArchetype("platform", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "platform",
+		DisplayName:      "platform",
+		ParentId:         "root",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["platform"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating sandboxes management group")
+	arch, err = az.CopyArchetype("sandboxes", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "sandboxes",
+		DisplayName:      "sandboxes",
+		ParentId:         "root",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["sandboxes"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating management management group")
+	arch, err = az.CopyArchetype("management", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "management",
+		DisplayName:      "management",
+		ParentId:         "platform",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["management"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating identity management group")
+	arch, err = az.CopyArchetype("identity", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "identity",
+		DisplayName:      "identity",
+		ParentId:         "platform",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["identity"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating connectivity management group")
+	arch, err = az.CopyArchetype("connectivity", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "connectivity",
+		DisplayName:      "connectivity",
+		ParentId:         "platform",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["connectivity"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating corp management group")
+	arch, err = az.CopyArchetype("corp", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "corp",
+		DisplayName:      "corp",
+		ParentId:         "landing_zones",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["corp"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
+	t.Log("Creating online management group")
+	arch, err = az.CopyArchetype("online", vals)
+	assert.NoError(t, err)
+	req = AlzManagementGroupAddRequest{
+		Id:               "online",
+		DisplayName:      "online",
+		ParentId:         "landing_zones",
+		ParentIsExternal: false,
+		Archetype:        arch,
+	}
+	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	assert.NoError(t, az.Deployment.mgs["online"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+
 	assert.NoError(t, err)
 }
 
