@@ -6,6 +6,7 @@ package alzlib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -46,7 +47,7 @@ type PolicyAssignmentAdditionalRoleAssignments struct {
 type policyDefinitionRule struct {
 	Then *struct {
 		Details *struct {
-			RoleDefinitionIds []string `json:"roleDefinitionIds"`
+			RoleDefinitionIds []string `json:"roleDefinitionIds,omitempty"`
 		} `json:"details"`
 	} `json:"then"`
 }
@@ -146,7 +147,6 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 			if !ok {
 				return fmt.Errorf("policy definition %s not found in AlzLib", lastSegment(*defId))
 			}
-
 			// get the role definition ids from the policy definition and add to the additional role assignment data
 			rids, err := getPolicyDefRoleDefinitionIds(pd.Properties.PolicyRule)
 			if err != nil {
@@ -372,6 +372,15 @@ func getPolicyDefRoleDefinitionIds(rule any) ([]string, error) {
 	}
 	r := new(policyDefinitionRule)
 	if err := json.Unmarshal(j, r); err != nil {
+		// For append policies, the `then.details` field is an array, so we need to handle this case.
+		// There are no roleDefinitionIds here anyway, so we can just return an empty slice.
+		// This explains why the PolicyRule field if of type any.
+		jsonerr := new(json.UnmarshalTypeError)
+		if errors.As(err, &jsonerr) {
+			if jsonerr.Value == "array" && jsonerr.Field == "then.details" {
+				return []string{}, nil
+			}
+		}
 		return nil, fmt.Errorf("could not unmarshall policy rule: %w", err)
 	}
 	if r.Then.Details == nil || r.Then.Details.RoleDefinitionIds == nil || len(r.Then.Details.RoleDefinitionIds) == 0 {
