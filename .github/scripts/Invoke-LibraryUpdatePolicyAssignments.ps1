@@ -8,7 +8,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param (
   [Parameter()][String]$AlzToolsPath = "$PWD/enterprise-scale/src/Alz.Tools",
-  [Parameter()][String]$TargetPath = "$PWD/terraform-azurerm-caf-enterprise-scale",
+  [Parameter()][String]$TargetPath = "$PWD/alzlib",
   [Parameter()][String]$SourcePath = "$PWD/enterprise-scale",
   [Parameter()][String]$LineEnding = "unix",
   [Parameter()][String]$ParserToolUrl = "https://github.com/jaredfholgate/template-parser/releases/download/0.1.18"
@@ -40,7 +40,7 @@ if (!(Test-Path $parser)) {
 # Update the policy assignments if enabled
 Write-Information "Updating Policy Assignments." -InformationAction Continue
 $policyAssignmentSourcePath = "$SourcePath/eslzArm/managementGroupTemplates/policyAssignments"
-$policyAssignmentTargetPath = "$TargetPath/modules/archetypes/lib/policy_assignments"
+$policyAssignmentTargetPath = "$TargetPath/lib/policy_assignments"
 $sourcePolicyAssignmentFiles = Get-ChildItem -Path $policyAssignmentSourcePath -File
 $targetPolicyAssignmentFiles = Get-ChildItem -Path $policyAssignmentTargetPath -File
 
