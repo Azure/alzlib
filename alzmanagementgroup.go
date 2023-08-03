@@ -19,13 +19,13 @@ import (
 // AlzManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
 // Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type AlzManagementGroup struct {
-	name                  string
-	displayName           string
-	policyDefinitions     map[string]*armpolicy.Definition
-	policySetDefinitions  map[string]*armpolicy.SetDefinition
-	policyAssignments     map[string]*armpolicy.Assignment
-	roleDefinitions       map[string]*armauthorization.RoleDefinition
-	roleAssignments       map[string]*armauthorization.RoleAssignment
+	name                 string
+	displayName          string
+	policyDefinitions    map[string]*armpolicy.Definition
+	policySetDefinitions map[string]*armpolicy.SetDefinition
+	policyAssignments    map[string]*armpolicy.Assignment
+	roleDefinitions      map[string]*armauthorization.RoleDefinition
+	//roleAssignments       map[string]*armauthorization.RoleAssignment
 	policyRoleAssignments map[string]*PolicyRoleAssignments
 	children              mapset.Set[*AlzManagementGroup]
 	parent                *AlzManagementGroup
@@ -113,9 +113,9 @@ func (alzmg *AlzManagementGroup) GetRoleDefinitionsMap() map[string]armauthoriza
 }
 
 // GetRoleAssignmentsMap returns a copy of the role Assignments map.
-func (alzmg *AlzManagementGroup) GetRoleAssignmentsMap() map[string]armauthorization.RoleAssignment {
-	return copyMap[string, armauthorization.RoleAssignment](alzmg.roleAssignments)
-}
+// func (alzmg *AlzManagementGroup) GetRoleAssignmentsMap() map[string]armauthorization.RoleAssignment {
+// 	return copyMap[string, armauthorization.RoleAssignment](alzmg.roleAssignments)
+// }
 
 // GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments by policy assignment map.
 func (alzmg *AlzManagementGroup) GetPolicyRoleAssignmentsMap() map[string]PolicyRoleAssignments {
@@ -496,8 +496,8 @@ func newAlzManagementGroup() *AlzManagementGroup {
 		policyDefinitions:     make(map[string]*armpolicy.Definition),
 		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
 		policyAssignments:     make(map[string]*armpolicy.Assignment),
-		roleAssignments:       make(map[string]*armauthorization.RoleAssignment),
-		roleDefinitions:       make(map[string]*armauthorization.RoleDefinition),
+		//roleAssignments:       make(map[string]*armauthorization.RoleAssignment),
+		roleDefinitions: make(map[string]*armauthorization.RoleDefinition),
 	}
 }
 
