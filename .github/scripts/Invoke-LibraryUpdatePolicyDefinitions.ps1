@@ -22,7 +22,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param (
   [Parameter()][String]$AlzToolsPath = "$PWD/enterprise-scale/src/Alz.Tools",
-  [Parameter()][String]$TargetPath = "$PWD/terraform-azurerm-caf-enterprise-scale",
+  [Parameter()][String]$TargetPath = "$PWD/alzlib",
   [Parameter()][String]$SourcePath = "$PWD/enterprise-scale",
   [Parameter()][String]$LineEnding = "unix",
   [Parameter()][Switch]$Reset,
@@ -50,7 +50,7 @@ if (!$UpdateProviderApiVersions -and (Test-Path "$AlzToolsPath/ProviderApiVersio
 $defaultConfig = @{
   inputFilter        = "*.json"
   resourceTypeFilter = @()
-  outputPath         = $TargetPath + "/modules/archetypes/lib"
+  outputPath         = $TargetPath + "/lib"
   fileNamePrefix     = ""
   fileNameSuffix     = ".json"
   exportFormat       = "Terraform"
