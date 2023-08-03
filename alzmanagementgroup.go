@@ -163,13 +163,13 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 			}
 
 			// for each parameter with assignPermissions = true
-			// add the additional role assignment data
+			// add the additional role assignment data unless the parameter value is empty
 			for paramName, paramVal := range pd.Properties.Parameters {
 				if paramVal.Metadata == nil || paramVal.Metadata.AssignPermissions == nil || !*paramVal.Metadata.AssignPermissions {
 					continue
 				}
 				paParamVal, err := getPolicyAssignmentParametersValueValue(pa, paramName)
-				if err != nil {
+				if err != nil || paParamVal == "" {
 					continue
 				}
 				additionalScopes.Add(paParamVal)
