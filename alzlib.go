@@ -189,21 +189,6 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		}
 	}
 
-	// Get the policy definitions and policy set definitions referenced by the policy assignments.
-	assignedPolicyDefinitionIds := mapset.NewThreadUnsafeSet[string]()
-	for archname, arch := range az.archetypes {
-		for pa := range arch.PolicyAssignments.Iter() {
-			if !az.PolicyAssignmentExists(pa) {
-				return fmt.Errorf("policy assignment %s referenced in archetype %s does not exist in the library", pa, archname)
-			}
-			assignedPolicyDefinitionIds.Add(*az.policyAssignments[pa].Properties.PolicyDefinitionID)
-		}
-	}
-
-	if err := az.GetDefinitionsFromAzure(ctx, assignedPolicyDefinitionIds.ToSlice()); err != nil {
-		return err
-	}
-
 	return nil
 }
 
