@@ -102,9 +102,9 @@ $exportConfig += $policySetDefinitionFilePaths | ForEach-Object {
 # artefacts (by resource type) from the library
 if ($Reset) {
   Write-Information "Deleting existing Policy Definitions from library." -InformationAction Continue
-  Remove-Item -Path "$TargetPath/modules/archetypes/lib/policy_definitions/" -Recurse -Force
+  Remove-Item -Path "$TargetPath/lib/policy_definitions/" -Recurse -Force
   Write-Information "Deleting existing Policy Set Definitions from library." -InformationAction Continue
-  Remove-Item -Path "$TargetPath/modules/archetypes/lib/policy_set_definitions/" -Recurse -Force
+  Remove-Item -Path "$TargetPath/lib/policy_set_definitions/" -Recurse -Force
 }
 
 # Process the files added to $exportConfig, to add content
@@ -124,13 +124,13 @@ foreach ($config in $exportConfig) {
 }
 
 # Get a list of current Policy Definition names
-$policyDefinitionFiles = Get-ChildItem -Path "$TargetPath/modules/archetypes/lib/policy_definitions/"
+$policyDefinitionFiles = Get-ChildItem -Path "$TargetPath/lib/policy_definitions/"
 $policyDefinitionNames = $policyDefinitionFiles | ForEach-Object {
     (Get-Content -Path $_ | ConvertFrom-Json).Name
 }
 
 # Get a list of current Policy Set Definition names
-$policySetDefinitionFiles = Get-ChildItem -Path "$TargetPath/modules/archetypes/lib/policy_set_definitions/"
+$policySetDefinitionFiles = Get-ChildItem -Path "$TargetPath/lib/policy_set_definitions/"
 $policySetDefinitionNames = $policySetDefinitionFiles | ForEach-Object {
     (Get-Content -Path $_ | ConvertFrom-Json).Name
 }
