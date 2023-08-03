@@ -155,10 +155,10 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 
 	// create a new AlzManagementGroup instance.
 	alzmg := &AlzManagementGroup{
-		additionalRoleAssignmentsByPolicyAssignment: make(map[string]*PolicyAssignmentAdditionalRoleAssignments),
-		policyDefinitions:    make(map[string]*armpolicy.Definition),
-		policySetDefinitions: make(map[string]*armpolicy.SetDefinition),
-		policyAssignments:    make(map[string]*armpolicy.Assignment),
+		policyRoleAssignments: make(map[string]*PolicyRoleAssignments),
+		policyDefinitions:     make(map[string]*armpolicy.Definition),
+		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
+		policyAssignments:     make(map[string]*armpolicy.Assignment),
 	}
 
 	// create a new policy assignment for the definition.
@@ -315,14 +315,18 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	assert.NoError(t, err)
 
 	// check that the additional role assignments were generated correctly.
-	additionalRas, ok := alzmg.additionalRoleAssignmentsByPolicyAssignment[*paDef.Name]
+	additionalRas, ok := alzmg.policyRoleAssignments[*paDef.Name]
 	assert.True(t, ok)
 	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition"}, additionalRas.RoleDefinitionIds)
-	assert.Equal(t, []string{paDef.Properties.Parameters["parameter1"].Value.(string)}, additionalRas.AdditionalScopes) //nolint:forcetypeassert
-	additionalSetRas, ok := alzmg.additionalRoleAssignmentsByPolicyAssignment[*paSetDef.Name]
+	assert.Contains(t, additionalRas.Scopes, paDef.Properties.Parameters["parameter1"].Value.(string)) //nolint:forcetypeassert
+	assert.Contains(t, additionalRas.Scopes, alzmg.GetResourceId())
+	assert.Len(t, additionalRas.Scopes, 2)
+	additionalSetRas, ok := alzmg.policyRoleAssignments[*paSetDef.Name]
 	assert.True(t, ok)
 	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition2"}, additionalSetRas.RoleDefinitionIds)
-	assert.Equal(t, []string{paSetDef.Properties.Parameters["setparameter1"].Value.(string)}, additionalSetRas.AdditionalScopes) //nolint:forcetypeassert
+	assert.Contains(t, additionalSetRas.Scopes, paSetDef.Properties.Parameters["setparameter1"].Value.(string)) //nolint:forcetypeassert
+	assert.Contains(t, additionalSetRas.Scopes, alzmg.GetResourceId())
+	assert.Len(t, additionalSetRas.Scopes, 2)
 }
 
 func TestExtractParameterNameFromArmFunction(t *testing.T) {

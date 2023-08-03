@@ -19,26 +19,26 @@ import (
 // AlzManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
 // Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type AlzManagementGroup struct {
-	name                                        string
-	displayName                                 string
-	policyDefinitions                           map[string]*armpolicy.Definition
-	policySetDefinitions                        map[string]*armpolicy.SetDefinition
-	policyAssignments                           map[string]*armpolicy.Assignment
-	roleDefinitions                             map[string]*armauthorization.RoleDefinition
-	roleAssignments                             map[string]*armauthorization.RoleAssignment
-	additionalRoleAssignmentsByPolicyAssignment map[string]*PolicyAssignmentAdditionalRoleAssignments
-	children                                    mapset.Set[*AlzManagementGroup]
-	parent                                      *AlzManagementGroup
-	parentExternal                              *string
-	wkpv                                        *WellKnownPolicyValues
+	name                  string
+	displayName           string
+	policyDefinitions     map[string]*armpolicy.Definition
+	policySetDefinitions  map[string]*armpolicy.SetDefinition
+	policyAssignments     map[string]*armpolicy.Assignment
+	roleDefinitions       map[string]*armauthorization.RoleDefinition
+	roleAssignments       map[string]*armauthorization.RoleAssignment
+	policyRoleAssignments map[string]*PolicyRoleAssignments
+	children              mapset.Set[*AlzManagementGroup]
+	parent                *AlzManagementGroup
+	parentExternal        *string
+	wkpv                  *WellKnownPolicyValues
 }
 
-// PolicyAssignmentAdditionalRoleAssignments represents the additional role assignments that need to be created for a management group.
+// PolicyRoleAssignments represents the role assignments that need to be created for a management group.
 // Since we could be using system assigned identities, we don't know the principal ID until after the deployment.
 // Therefore this data can be used to create the role assignments after the deployment.
-type PolicyAssignmentAdditionalRoleAssignments struct {
+type PolicyRoleAssignments struct {
 	RoleDefinitionIds []string
-	AdditionalScopes  []string
+	Scopes            []string
 }
 
 // policyDefinitionRule represents the opinionated rule section of a policy definition.
@@ -117,9 +117,9 @@ func (alzmg *AlzManagementGroup) GetRoleAssignmentsMap() map[string]armauthoriza
 	return copyMap[string, armauthorization.RoleAssignment](alzmg.roleAssignments)
 }
 
-// GetAdditionalRoleAssignmentsByPolicyAssignmentMap returns a copy of the additional role assignments by policy assignment map.
-func (alzmg *AlzManagementGroup) GetAdditionalRoleAssignmentsByPolicyAssignmentMap() map[string]PolicyAssignmentAdditionalRoleAssignments {
-	return copyMap[string, PolicyAssignmentAdditionalRoleAssignments](alzmg.additionalRoleAssignmentsByPolicyAssignment)
+// GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments by policy assignment map.
+func (alzmg *AlzManagementGroup) GetPolicyRoleAssignmentsMap() map[string]PolicyRoleAssignments {
+	return copyMap[string, PolicyRoleAssignments](alzmg.policyRoleAssignments)
 }
 
 // GeneratePolicyAssignmentAdditionalRoleAssignments generates the additional role assignment data needed for the policy assignments
@@ -133,9 +133,12 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 			continue
 		}
 
-		additionalRas := new(PolicyAssignmentAdditionalRoleAssignments)
+		additionalRas := new(PolicyRoleAssignments)
 		roleDefinitionIds := mapset.NewThreadUnsafeSet[string]()
 		additionalScopes := mapset.NewThreadUnsafeSet[string]()
+
+		// add this management group as an additional scope
+		additionalScopes.Add(alzmg.GetResourceId())
 
 		// get the policy definition name using the resource id
 		defId := pa.Properties.PolicyDefinitionID
@@ -226,9 +229,9 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 				}
 			}
 		}
-		additionalRas.AdditionalScopes = additionalScopes.ToSlice()
+		additionalRas.Scopes = additionalScopes.ToSlice()
 		additionalRas.RoleDefinitionIds = roleDefinitionIds.ToSlice()
-		alzmg.additionalRoleAssignmentsByPolicyAssignment[paName] = additionalRas
+		alzmg.policyRoleAssignments[paName] = additionalRas
 	}
 	return nil
 }
@@ -489,12 +492,12 @@ func modifyRoleDefinitions(alzmg *AlzManagementGroup) {
 
 func newAlzManagementGroup() *AlzManagementGroup {
 	return &AlzManagementGroup{
-		additionalRoleAssignmentsByPolicyAssignment: make(map[string]*PolicyAssignmentAdditionalRoleAssignments),
-		policyDefinitions:    make(map[string]*armpolicy.Definition),
-		policySetDefinitions: make(map[string]*armpolicy.SetDefinition),
-		policyAssignments:    make(map[string]*armpolicy.Assignment),
-		roleAssignments:      make(map[string]*armauthorization.RoleAssignment),
-		roleDefinitions:      make(map[string]*armauthorization.RoleDefinition),
+		policyRoleAssignments: make(map[string]*PolicyRoleAssignments),
+		policyDefinitions:     make(map[string]*armpolicy.Definition),
+		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
+		policyAssignments:     make(map[string]*armpolicy.Assignment),
+		roleAssignments:       make(map[string]*armauthorization.RoleAssignment),
+		roleDefinitions:       make(map[string]*armauthorization.RoleDefinition),
 	}
 }
 
