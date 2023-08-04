@@ -127,17 +127,17 @@ foreach ($key in $parsedAssignments.Keys | Sort-Object) {
 
   $sourceFileName = $parsedAssignments[$key].file.Name
 
-  if ($originalAssignments.ContainsKey($mappedKey)) {
-    $originalFileName = $originalAssignments[$mappedKey].file.Name
+  if ($originalAssignments.ContainsKey($key)) {
+    $originalFileName = $originalAssignments[$key].file.Name
 
     Write-Information "Found match for $mappedKey $key $originalFileName $sourceFileName $targetPolicyAssignmentFileName" -InformationAction Continue
-    if ($originalFileName -ne $targetPolicyAssignmentFileName) {
-      Write-Information "Renaming $originalFileName to $targetPolicyAssignmentFileName" -InformationAction Continue
-      Set-Location $policyAssignmentTargetPath
-      git mv $originalAssignments[$mappedKey].file.FullName $targetPolicyAssignmentFileName
-      Set-Location $SourcePath
-      Set-Location ..
-    }
+    # if ($originalFileName -ne $targetPolicyAssignmentFileName) {
+    #   Write-Information "Renaming $originalFileName to $targetPolicyAssignmentFileName" -InformationAction Continue
+    #   Set-Location $policyAssignmentTargetPath
+    #   git mv $originalAssignments[$key].file.FullName $targetPolicyAssignmentFileName
+    #   Set-Location $SourcePath
+    #   Set-Location ..
+    # }
   }
   else {
     Write-Information "No match found for $mappedKey $key $sourceFileName $targetPolicyAssignmentFileName" -InformationAction Continue

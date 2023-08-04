@@ -109,7 +109,7 @@ foreach ($managementGroup in $policyAssignments.Keys) {
 $policyAssignmentTargetPath = "$TargetPath/lib/archetype_definitions"
 
 foreach ($managementGroup in $finalPolicyAssignments.Keys) {
-  $archetypeFilePath = "$policyAssignmentTargetPath/archetype_definition_es_$managementGroup.json"
+  $archetypeFilePath = "$policyAssignmentTargetPath/archetype_definition_$managementGroup.json"
   $archetypeJson = Get-Content $archetypeFilePath | ConvertFrom-Json
 
   $archetypeJson.policy_assignments = @($finalPolicyAssignments[$managementGroup] | Sort-Object)
