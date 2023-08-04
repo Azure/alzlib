@@ -10,8 +10,8 @@
   "properties": {
     "description": "Deploy Microsoft Defender for Cloud and Security Contacts",
     "displayName": "Deploy Microsoft Defender for Cloud configuration",
-    "policyDefinitionId": "${root_scope_resource_id}/providers/Microsoft.Authorization/policySetDefinitions/Deploy-MDFC-Config",
-    "enforcementMode": null,
+    "policyDefinitionId": "/providers/Microsoft.Management/managementGroups/alz/providers/Microsoft.Authorization/policySetDefinitions/Deploy-MDFC-Config",
+    "enforcementMode": "Default",
     "nonComplianceMessages": [
       {
         "message": "Microsoft Defender for Cloud and Security Contacts {enforcementMode} be deployed."
@@ -22,10 +22,10 @@
         "value": "security_contact@replace_me"
       },
       "logAnalytics": {
-        "value": "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/${root_scope_id}-mgmt/providers/Microsoft.OperationalInsights/workspaces/${root_scope_id}-la"
+        "value": "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/placeholder/providers/Microsoft.OperationalInsights/workspaces/placeholder"
       },
       "ascExportResourceGroupName": {
-        "value": "rg-ascexport"
+        "value": "alz-asc-export"
       },
       "ascExportResourceGroupLocation": {
         "value": "${default_location}"
@@ -76,7 +76,6 @@
         "value": "Disabled"
       }
     },
-    "scope": "${current_scope_resource_id}",
     "notScopes": []
   }
 }
