@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -22,8 +23,8 @@ func TestWellKnownParameterReplacement(t *testing.T) {
 	require.NoError(t, err)
 
 	vals := &WellKnownPolicyValues{
-		DefaultLocation:                "eastus",
-		DefaultLogAnalyticsWorkspaceId: "testlaworkspaceid",
+		DefaultLocation:                to.Ptr("eastus"),
+		DefaultLogAnalyticsWorkspaceId: to.Ptr("testlaworkspaceid"),
 	}
 
 	arch, err := az.CopyArchetype("test", vals)

@@ -24,8 +24,8 @@ func TestFullAlz(t *testing.T) {
 	az.AddPolicyClient(cf)
 	assert.NoError(t, az.Init(ctx, Lib))
 	vals := &WellKnownPolicyValues{
-		DefaultLocation:                "eastus",
-		DefaultLogAnalyticsWorkspaceId: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.OperationalInsights/workspaces/testlaworkspaceid",
+		DefaultLocation:                to.Ptr("eastus"),
+		DefaultLogAnalyticsWorkspaceId: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.OperationalInsights/workspaces/testlaworkspaceid"),
 	}
 
 	t.Log("Creating root management group")
@@ -370,7 +370,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 			},
 		},
 		wkpv: &WellKnownPolicyValues{
-			DefaultLocation: "eastus",
+			DefaultLocation: to.Ptr("eastus"),
 		},
 	}
 	pd2mg := map[string]string{
@@ -378,7 +378,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	}
 	psd2mg := map[string]string{}
 	wkpv := &WellKnownPolicyValues{
-		DefaultLocation: "eastus",
+		DefaultLocation: to.Ptr("eastus"),
 	}
 	papv := getWellKnownPolicyAssignmentParameterValues(wkpv)
 	err := modifyPolicyAssignments(alzmg, pd2mg, psd2mg, papv)
@@ -414,7 +414,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 			},
 		},
 		wkpv: &WellKnownPolicyValues{
-			DefaultLocation: "eastus",
+			DefaultLocation: to.Ptr("eastus"),
 		},
 	}
 	pd2mg = map[string]string{
@@ -455,7 +455,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 			},
 		},
 		wkpv: &WellKnownPolicyValues{
-			DefaultLocation: "eastus",
+			DefaultLocation: to.Ptr("eastus"),
 		},
 	}
 	pd2mg = map[string]string{}

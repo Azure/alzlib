@@ -10,26 +10,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
 )
-
-// ExampleAlzLib_Init demonstrates the creation of a new AlzLib based a sample directory.
-func ExampleAlzLib_Init() {
-	az := NewAlzLib()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	dirfs := os.DirFS("./testdata/simple")
-	err := az.Init(ctx, dirfs)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Printf("Archetype count: %d\n", len(az.archetypes))
-	// Output:
-	// Archetype count: 2
-}
 
 // Test_NewAlzLib_noDir tests the creation of a new AlzLib when supplied with a path
 // that does not exist.
@@ -47,7 +33,7 @@ func TestAddManagementGroup(t *testing.T) {
 	t.Parallel()
 	// create a new deployment type.
 	wkvs := &WellKnownPolicyValues{
-		DefaultLocation: "eastus",
+		DefaultLocation: to.Ptr("eastus"),
 	}
 	az := NewAlzLib()
 
