@@ -8,7 +8,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param (
   [Parameter()][String]$AlzToolsPath = "$PWD/enterprise-scale/src/Alz.Tools",
-  [Parameter()][String]$TargetPath = "$PWD/terraform-azurerm-caf-enterprise-scale",
+  [Parameter()][String]$TargetPath = "$PWD/alzlib",
   [Parameter()][String]$SourcePath = "$PWD/enterprise-scale",
   [Parameter()][String]$LineEnding = "unix",
   [Parameter()][String]$ParserToolUrl = "https://github.com/jaredfholgate/template-parser/releases/download/0.1.18"
@@ -40,7 +40,7 @@ if (!(Test-Path $parser)) {
 # Update the policy assignments if enabled
 Write-Information "Updating Policy Assignments." -InformationAction Continue
 $policyAssignmentSourcePath = "$SourcePath/eslzArm/managementGroupTemplates/policyAssignments"
-$policyAssignmentTargetPath = "$TargetPath/modules/archetypes/lib/policy_assignments"
+$policyAssignmentTargetPath = "$TargetPath/lib/policy_assignments"
 $sourcePolicyAssignmentFiles = Get-ChildItem -Path $policyAssignmentSourcePath -File
 $targetPolicyAssignmentFiles = Get-ChildItem -Path $policyAssignmentTargetPath -File
 
@@ -59,7 +59,7 @@ $defaultParameterValues = @(
   "-p retentionInDays=30",
   "-p rgName=placeholder",
   "-p logAnalyticsResourceId=/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/placeholder/providers/Microsoft.OperationalInsights/workspaces/placeholder",
-  "-p topLevelManagementGroupPrefix=placeholder",
+  "-p topLevelManagementGroupPrefix=alz",
   "-p dnsZoneResourceGroupId=placeholder",
   "-p ddosPlanResourceId=/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/placeholder/providers/Microsoft.Network/ddosProtectionPlans/placeholder",
   "-p emailContactAsc=security_contact@replace_me"
@@ -127,17 +127,17 @@ foreach ($key in $parsedAssignments.Keys | Sort-Object) {
 
   $sourceFileName = $parsedAssignments[$key].file.Name
 
-  if ($originalAssignments.ContainsKey($mappedKey)) {
-    $originalFileName = $originalAssignments[$mappedKey].file.Name
+  if ($originalAssignments.ContainsKey($key)) {
+    $originalFileName = $originalAssignments[$key].file.Name
 
     Write-Information "Found match for $mappedKey $key $originalFileName $sourceFileName $targetPolicyAssignmentFileName" -InformationAction Continue
-    if ($originalFileName -ne $targetPolicyAssignmentFileName) {
-      Write-Information "Renaming $originalFileName to $targetPolicyAssignmentFileName" -InformationAction Continue
-      Set-Location $policyAssignmentTargetPath
-      git mv $originalAssignments[$mappedKey].file.FullName $targetPolicyAssignmentFileName
-      Set-Location $SourcePath
-      Set-Location ..
-    }
+    # if ($originalFileName -ne $targetPolicyAssignmentFileName) {
+    #   Write-Information "Renaming $originalFileName to $targetPolicyAssignmentFileName" -InformationAction Continue
+    #   Set-Location $policyAssignmentTargetPath
+    #   git mv $originalAssignments[$key].file.FullName $targetPolicyAssignmentFileName
+    #   Set-Location $SourcePath
+    #   Set-Location ..
+    # }
   }
   else {
     Write-Information "No match found for $mappedKey $key $sourceFileName $targetPolicyAssignmentFileName" -InformationAction Continue

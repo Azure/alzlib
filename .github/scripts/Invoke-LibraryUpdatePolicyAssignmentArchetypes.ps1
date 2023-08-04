@@ -8,7 +8,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param (
   [Parameter()][String]$AlzToolsPath = "$PWD/enterprise-scale/src/Alz.Tools",
-  [Parameter()][String]$TargetPath = "$PWD/terraform-azurerm-caf-enterprise-scale",
+  [Parameter()][String]$TargetPath = "$PWD/alzlib",
   [Parameter()][String]$SourcePath = "$PWD/enterprise-scale",
   [Parameter()][String]$LineEnding = "unix",
   [Parameter()][String]$ParserToolUrl = "https://github.com/jaredfholgate/template-parser/releases/download/0.1.18"
@@ -109,7 +109,7 @@ foreach ($managementGroup in $policyAssignments.Keys) {
 $policyAssignmentTargetPath = "$TargetPath/lib/archetype_definitions"
 
 foreach ($managementGroup in $finalPolicyAssignments.Keys) {
-  $archetypeFilePath = "$policyAssignmentTargetPath/archetype_definition_es_$managementGroup.json"
+  $archetypeFilePath = "$policyAssignmentTargetPath/archetype_definition_$managementGroup.json"
   $archetypeJson = Get-Content $archetypeFilePath | ConvertFrom-Json
 
   $archetypeJson.policy_assignments = @($finalPolicyAssignments[$managementGroup] | Sort-Object)

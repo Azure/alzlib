@@ -71,8 +71,9 @@ type Archetype struct {
 // These are values that are typically replaced in the deployed resources
 // E.g. location, log analytics workspace ID, etc.
 type WellKnownPolicyValues struct {
-	DefaultLocation                string
-	DefaultLogAnalyticsWorkspaceId string
+	DefaultLocation                *string
+	DefaultLogAnalyticsWorkspaceId *string
+	PrivateDnsZoneResourceGroupId  *string // PrivateDnsZoneResourceGroupId is used in the Deploy-Private-Dns-Zones policy assignment
 }
 
 type AlzManagementGroupAddRequest struct {

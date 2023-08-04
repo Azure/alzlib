@@ -457,7 +457,7 @@ func modifyPolicyAssignments(alzmg *AlzManagementGroup, pd2mg, psd2mg map[string
 		assignment.ID = to.Ptr(fmt.Sprintf(policyAssignmentIdFmt, alzmg.name, assignmentName))
 		assignment.Properties.Scope = to.Ptr(fmt.Sprintf(managementGroupIdFmt, alzmg.name))
 		if assignment.Location != nil {
-			assignment.Location = to.Ptr(alzmg.wkpv.DefaultLocation)
+			assignment.Location = alzmg.wkpv.DefaultLocation
 		}
 
 		// rewrite the referenced policy definition id
