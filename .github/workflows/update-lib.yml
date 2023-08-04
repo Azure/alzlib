@@ -98,7 +98,7 @@ jobs:
         if: steps.git_status.outputs.changes > 0
         run: |
           echo "Pushing changes to origin..."
-          git add modules/archetypes/lib
+          git add lib
           git commit -m '${{ env.pr_title }}'
           git push origin ${{ env.branch_name }}
         working-directory: ${{ github.repository }}
