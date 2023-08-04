@@ -144,8 +144,6 @@ func TestFullAlz(t *testing.T) {
 	}
 	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
 	assert.NoError(t, az.Deployment.mgs["online"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
-
-	assert.NoError(t, err)
 }
 
 func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {

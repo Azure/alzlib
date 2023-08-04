@@ -132,7 +132,7 @@ func TestAddManagementGroup(t *testing.T) {
 }
 
 // Test_NewAlzLibDuplicateArchetypeDefinition tests the creation of a new AlzLib from a invalid source directory.
-func Test_NewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
+func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
 	az := NewAlzLib()
 	dir := os.DirFS("./testdata/badlib-duplicatearchetypedef")
 	err := az.Init(context.Background(), dir)

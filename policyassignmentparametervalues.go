@@ -37,10 +37,10 @@ func getWellKnownPolicyAssignmentParameterValues(wkpv *WellKnownPolicyValues) Po
 	const (
 		privateDnsZoneProviderPath = "/providers/Microsoft.Network/privateDnsZones"
 	)
-	if wkpv == nil {
-		return nil
-	}
 	res := make(PolicyAssignmentsParameterValues)
+	if wkpv == nil {
+		return res
+	}
 	if wkpv.DefaultLocation != nil {
 		res.upsertParameterValue("Deploy-Log-Analytics", "automationRegion", *wkpv.DefaultLocation)
 		res.upsertParameterValue("Deploy-Log-Analytics", "workspaceRegion", *wkpv.DefaultLocation)

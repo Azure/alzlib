@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPolicyAssignmentsParameterValues_Merge(t *testing.T) {
@@ -44,4 +45,35 @@ func TestPolicyAssignmentsParameterValues_Merge(t *testing.T) {
 	if result["assignment2"]["param4"].Value != "value5" || result["assignment2"]["param5"].Value != "value6" {
 		t.Errorf("Merge returned incorrect parameter values for assignment2")
 	}
+}
+
+func TestPolicyAssignmentsParameterValues_upsertParameterValue(t *testing.T) {
+	// Create a new PolicyAssignmentsParameterValues instance.
+	papv := PolicyAssignmentsParameterValues{}
+
+	// Upsert a new parameter value.
+	papv.upsertParameterValue("assignment1", "param1", "value1")
+
+	// Verify that the parameter value was added to the PolicyAssignmentsParameterValues instance.
+	assert.Equal(t, 1, len(papv))
+	assert.Equal(t, 1, len(papv["assignment1"]))
+	assert.Equal(t, "value1", papv["assignment1"]["param1"].Value)
+
+	// Update an existing parameter value.
+	papv.upsertParameterValue("assignment1", "param1", "value2")
+
+	// Verify that the parameter value was updated in the PolicyAssignmentsParameterValues instance.
+	assert.Equal(t, 1, len(papv))
+	assert.Equal(t, 1, len(papv["assignment1"]))
+	assert.Equal(t, "value2", papv["assignment1"]["param1"].Value)
+
+	// Upsert a new parameter value for a different assignment.
+	papv.upsertParameterValue("assignment2", "param2", "value3")
+
+	// Verify that the new parameter value was added to the PolicyAssignmentsParameterValues instance.
+	assert.Equal(t, 2, len(papv))
+	assert.Equal(t, 1, len(papv["assignment1"]))
+	assert.Equal(t, "value2", papv["assignment1"]["param1"].Value)
+	assert.Equal(t, 1, len(papv["assignment2"]))
+	assert.Equal(t, "value3", papv["assignment2"]["param2"].Value)
 }
