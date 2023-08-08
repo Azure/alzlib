@@ -195,7 +195,7 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					return fmt.Errorf("error getting role definition ids for policy definition %s: %w", *pd.Name, err)
 				}
 				for _, rid := range rids {
-					roleDefinitionIds.Add(rid)
+					roleDefinitionIds.Add(normalizeRoleDefinitionId(rid))
 				}
 
 				// for each parameter with assignPermissions = true
@@ -228,6 +228,10 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					additionalScopes.Add(paParamVal)
 				}
 			}
+		}
+		// If we haven't found any role definition ids, skip this policy assignment.
+		if roleDefinitionIds.Cardinality() == 0 {
+			continue
 		}
 		additionalRas.Scopes = additionalScopes.ToSlice()
 		additionalRas.RoleDefinitionIds = roleDefinitionIds.ToSlice()
@@ -508,4 +512,9 @@ func copyMap[E comparable, T any](m map[E]*T) map[E]T {
 		m2[k] = *v
 	}
 	return m2
+}
+
+// normalizeRoleDefinitionId takes a Azure builtin role definition id and returns a normalized id.
+func normalizeRoleDefinitionId(id string) string {
+	return fmt.Sprintf("/providers/Microsoft.Authorization/roleDefinitions/%s", strings.ToLower((lastSegment(id))))
 }
