@@ -52,6 +52,7 @@ func getWellKnownPolicyAssignmentParameterValues(wkpv *WellKnownPolicyValues) Po
 		res.upsertParameterValue("Deploy-MDFC-Config", "logAnalytics", *wkpv.DefaultLogAnalyticsWorkspaceId)
 		res.upsertParameterValue("Deploy-Resource-Diag", "logAnalytics", *wkpv.DefaultLogAnalyticsWorkspaceId)
 		res.upsertParameterValue("Deploy-VM-Monitoring", "logAnalytics_1", *wkpv.DefaultLogAnalyticsWorkspaceId)
+		res.upsertParameterValue("Deploy-VMSS-Monitoring", "logAnalytics_1", *wkpv.DefaultLogAnalyticsWorkspaceId)
 	}
 	if wkpv.PrivateDnsZoneResourceGroupId != nil {
 		res.upsertParameterValue("Deploy-Private-Dns-Zones", "azureAcrPrivateDnsZoneId", fmt.Sprintf("%s%s/privatelink.azurecr.io", *wkpv.PrivateDnsZoneResourceGroupId, privateDnsZoneProviderPath))
