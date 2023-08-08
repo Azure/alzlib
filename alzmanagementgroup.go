@@ -395,7 +395,7 @@ func getPolicyDefRoleDefinitionIds(rule any) ([]string, error) {
 // getPolicyAssignmentParametersValueValue returns the value of a policy assignment parameter.
 // We always expect the value to be a string as it's used in calculating the additional role assignments for
 // policy parameters with the assignPermissions metadata set to true.
-// Therefore the value should be am ARM resourceId.
+// Therefore the value should be an ARM resourceId.
 func getPolicyAssignmentParametersValueValue(pa *armpolicy.Assignment, paramname string) (string, error) {
 	if pa.Properties.Parameters == nil {
 		return "", fmt.Errorf("parameters is nil in policy assignment %s", *pa.Name)
