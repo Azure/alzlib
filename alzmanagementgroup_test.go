@@ -344,6 +344,7 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 		Source:           fmt.Sprintf("%s(%s)/%s", *ps.Name, *pd2.Name, "parameter1"),
 		SourceType:       SetDefinitionParameterMetadata,
 	}))
+	assert.True(t, slices.Equal(alzmg.policyRoleAssignments, alzmg.GetPolicyRoleAssignments()))
 }
 
 func TestExtractParameterNameFromArmFunction(t *testing.T) {

@@ -56,7 +56,7 @@ const (
 
 // String implements Stringer interface for PolicyRoleAssignmentSource.
 func (p PolicyRoleAssignmentSource) String() string {
-	return [...]string{"AssignmentScope", "ParameterMetadata"}[p]
+	return [...]string{"AssignmentScope", "DefinitionParameterMetadata", "SetDefinitionParameterMetadata"}[p]
 }
 
 // policyDefinitionRule represents the opinionated rule section of a policy definition.
