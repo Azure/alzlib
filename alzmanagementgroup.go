@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Azure/alzlib/to"
@@ -26,19 +27,36 @@ type AlzManagementGroup struct {
 	policyAssignments    map[string]*armpolicy.Assignment
 	roleDefinitions      map[string]*armauthorization.RoleDefinition
 	//roleAssignments       map[string]*armauthorization.RoleAssignment
-	policyRoleAssignments map[string]*PolicyRoleAssignments
+	policyRoleAssignments []PolicyRoleAssignment
 	children              mapset.Set[*AlzManagementGroup]
 	parent                *AlzManagementGroup
 	parentExternal        *string
 	wkpv                  *WellKnownPolicyValues
 }
 
-// PolicyRoleAssignments represents the role assignments that need to be created for a management group.
+// PolicyRoleAssignment represents the role assignments that need to be created for a management group.
 // Since we could be using system assigned identities, we don't know the principal ID until after the deployment.
 // Therefore this data can be used to create the role assignments after the deployment.
-type PolicyRoleAssignments struct {
-	RoleDefinitionIds []string
-	Scopes            []string
+type PolicyRoleAssignment struct {
+	RoleDefinitionId string
+	Scope            string
+	Source           string
+	SourceType       PolicyRoleAssignmentSource
+	AssignmentName   string
+}
+
+type PolicyRoleAssignmentSource uint8
+
+const (
+	// PolicyRoleAssignmentSource.
+	AssignmentScope = PolicyRoleAssignmentSource(iota)
+	DefinitionParameterMetadata
+	SetDefinitionParameterMetadata
+)
+
+// String implements Stringer interface for PolicyRoleAssignmentSource.
+func (p PolicyRoleAssignmentSource) String() string {
+	return [...]string{"AssignmentScope", "ParameterMetadata"}[p]
 }
 
 // policyDefinitionRule represents the opinionated rule section of a policy definition.
@@ -117,9 +135,9 @@ func (alzmg *AlzManagementGroup) GetRoleDefinitionsMap() map[string]armauthoriza
 // 	return copyMap[string, armauthorization.RoleAssignment](alzmg.roleAssignments)
 // }
 
-// GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments by policy assignment map.
-func (alzmg *AlzManagementGroup) GetPolicyRoleAssignmentsMap() map[string]PolicyRoleAssignments {
-	return copyMap[string, PolicyRoleAssignments](alzmg.policyRoleAssignments)
+// GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
+func (alzmg *AlzManagementGroup) GetPolicyRoleAssignmentsMap() []PolicyRoleAssignment {
+	return slices.Clone(alzmg.policyRoleAssignments)
 }
 
 // GeneratePolicyAssignmentAdditionalRoleAssignments generates the additional role assignment data needed for the policy assignments
@@ -127,18 +145,12 @@ func (alzmg *AlzManagementGroup) GetPolicyRoleAssignmentsMap() map[string]Policy
 // It will iterate through all policy assignments and generate the additional role assignments for each one,
 // storing them in the AdditionalRoleAssignmentsByPolicyAssignment map.
 func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments(az *AlzLib) error {
+	additionalRas := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
 	for paName, pa := range alzmg.policyAssignments {
 		// we only care about policy assignments that use an identity
 		if pa.Identity == nil || pa.Identity.Type == nil || *pa.Identity.Type == "None" {
 			continue
 		}
-
-		additionalRas := new(PolicyRoleAssignments)
-		roleDefinitionIds := mapset.NewThreadUnsafeSet[string]()
-		additionalScopes := mapset.NewThreadUnsafeSet[string]()
-
-		// add this management group as an additional scope
-		additionalScopes.Add(alzmg.GetResourceId())
 
 		// get the policy definition name using the resource id
 		defId := pa.Properties.PolicyDefinitionID
@@ -159,7 +171,13 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 				return fmt.Errorf("policy definition %s has no role definition ids", *pd.Name)
 			}
 			for _, rid := range rids {
-				roleDefinitionIds.Add(rid)
+				additionalRas.Add(PolicyRoleAssignment{
+					AssignmentName:   paName,
+					RoleDefinitionId: normalizeRoleDefinitionId(rid),
+					Scope:            alzmg.GetResourceId(),
+					Source:           *pa.Name,
+					SourceType:       AssignmentScope,
+				})
 			}
 
 			// for each parameter with assignPermissions = true
@@ -172,7 +190,15 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 				if err != nil || paParamVal == "" {
 					continue
 				}
-				additionalScopes.Add(paParamVal)
+				for _, rid := range rids {
+					additionalRas.Add(PolicyRoleAssignment{
+						RoleDefinitionId: normalizeRoleDefinitionId(rid),
+						Scope:            paParamVal,
+						Source:           fmt.Sprintf("%s/%s", *pd.Name, paramName),
+						SourceType:       DefinitionParameterMetadata,
+						AssignmentName:   paName,
+					})
+				}
 			}
 
 		case "policySetDefinitions":
@@ -195,7 +221,13 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					return fmt.Errorf("error getting role definition ids for policy definition %s: %w", *pd.Name, err)
 				}
 				for _, rid := range rids {
-					roleDefinitionIds.Add(normalizeRoleDefinitionId(rid))
+					additionalRas.Add(PolicyRoleAssignment{
+						RoleDefinitionId: normalizeRoleDefinitionId(rid),
+						Scope:            alzmg.GetResourceId(),
+						Source:           *pa.Name,
+						SourceType:       AssignmentScope,
+						AssignmentName:   paName,
+					})
 				}
 
 				// for each parameter with assignPermissions = true
@@ -225,18 +257,24 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					if err != nil {
 						continue
 					}
-					additionalScopes.Add(paParamVal)
+					for _, rid := range rids {
+						additionalRas.Add(PolicyRoleAssignment{
+							RoleDefinitionId: normalizeRoleDefinitionId(rid),
+							Scope:            paParamVal,
+							Source:           fmt.Sprintf("%s(%s)/%s", *psd.Name, *pd.Name, paramName),
+							SourceType:       SetDefinitionParameterMetadata,
+							AssignmentName:   paName,
+						})
+					}
 				}
 			}
 		}
 		// If we haven't found any role definition ids, skip this policy assignment.
-		if roleDefinitionIds.Cardinality() == 0 {
+		if additionalRas.Cardinality() == 0 {
 			continue
 		}
-		additionalRas.Scopes = additionalScopes.ToSlice()
-		additionalRas.RoleDefinitionIds = roleDefinitionIds.ToSlice()
-		alzmg.policyRoleAssignments[paName] = additionalRas
 	}
+	alzmg.policyRoleAssignments = additionalRas.ToSlice()
 	return nil
 }
 
@@ -496,7 +534,7 @@ func modifyRoleDefinitions(alzmg *AlzManagementGroup) {
 
 func newAlzManagementGroup() *AlzManagementGroup {
 	return &AlzManagementGroup{
-		policyRoleAssignments: make(map[string]*PolicyRoleAssignments),
+		policyRoleAssignments: make([]PolicyRoleAssignment, 0),
 		policyDefinitions:     make(map[string]*armpolicy.Definition),
 		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
 		policyAssignments:     make(map[string]*armpolicy.Assignment),

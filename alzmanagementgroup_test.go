@@ -3,6 +3,7 @@ package alzlib
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/Azure/alzlib/to"
@@ -153,7 +154,7 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 
 	// create a new AlzManagementGroup instance.
 	alzmg := &AlzManagementGroup{
-		policyRoleAssignments: make(map[string]*PolicyRoleAssignments),
+		policyRoleAssignments: make([]PolicyRoleAssignment, 0),
 		policyDefinitions:     make(map[string]*armpolicy.Definition),
 		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
 		policyAssignments:     make(map[string]*armpolicy.Assignment),
@@ -313,18 +314,36 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	assert.NoError(t, err)
 
 	// check that the additional role assignments were generated correctly.
-	additionalRas, ok := alzmg.policyRoleAssignments[*paDef.Name]
-	assert.True(t, ok)
-	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition"}, additionalRas.RoleDefinitionIds)
-	assert.Contains(t, additionalRas.Scopes, paDef.Properties.Parameters["parameter1"].Value.(string)) //nolint:forcetypeassert
-	assert.Contains(t, additionalRas.Scopes, alzmg.GetResourceId())
-	assert.Len(t, additionalRas.Scopes, 2)
-	additionalSetRas, ok := alzmg.policyRoleAssignments[*paSetDef.Name]
-	assert.True(t, ok)
-	assert.Equal(t, []string{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition2"}, additionalSetRas.RoleDefinitionIds)
-	assert.Contains(t, additionalSetRas.Scopes, paSetDef.Properties.Parameters["setparameter1"].Value.(string)) //nolint:forcetypeassert
-	assert.Contains(t, additionalSetRas.Scopes, alzmg.GetResourceId())
-	assert.Len(t, additionalSetRas.Scopes, 2)
+	//additionalRas, ok := alzmg.policyRoleAssignments[*paDef.Name]
+	assert.Len(t, alzmg.policyRoleAssignments, 4)
+	assert.True(t, slices.Contains(alzmg.policyRoleAssignments, PolicyRoleAssignment{
+		AssignmentName:   *paDef.Name,
+		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            alzmg.GetResourceId(),
+		Source:           *paDef.Name,
+		SourceType:       AssignmentScope,
+	}))
+	assert.True(t, slices.Contains(alzmg.policyRoleAssignments, PolicyRoleAssignment{
+		AssignmentName:   *paDef.Name,
+		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            paDef.Properties.Parameters["parameter1"].Value.(string),                                                                                 //nolint:forcetypeassert
+		Source:           fmt.Sprintf("%s/%s", *pd1.Name, "parameter1"),
+		SourceType:       DefinitionParameterMetadata,
+	}))
+	assert.True(t, slices.Contains(alzmg.policyRoleAssignments, PolicyRoleAssignment{
+		AssignmentName:   *paSetDef.Name,
+		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            alzmg.GetResourceId(),
+		Source:           *paSetDef.Name,
+		SourceType:       AssignmentScope,
+	}))
+	assert.True(t, slices.Contains(alzmg.policyRoleAssignments, PolicyRoleAssignment{
+		AssignmentName:   *paSetDef.Name,
+		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            paSetDef.Properties.Parameters["setparameter1"].Value.(string),                                                                           //nolint:forcetypeassert
+		Source:           fmt.Sprintf("%s(%s)/%s", *ps.Name, *pd2.Name, "parameter1"),
+		SourceType:       SetDefinitionParameterMetadata,
+	}))
 }
 
 func TestExtractParameterNameFromArmFunction(t *testing.T) {
