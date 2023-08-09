@@ -136,7 +136,7 @@ func (alzmg *AlzManagementGroup) GetRoleDefinitionsMap() map[string]armauthoriza
 // }
 
 // GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
-func (alzmg *AlzManagementGroup) GetPolicyRoleAssignmentsMap() []PolicyRoleAssignment {
+func (alzmg *AlzManagementGroup) GetPolicyRoleAssignments() []PolicyRoleAssignment {
 	return slices.Clone(alzmg.policyRoleAssignments)
 }
 
