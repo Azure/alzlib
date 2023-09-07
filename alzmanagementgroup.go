@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/Azure/alzlib/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
@@ -20,14 +20,13 @@ import (
 // AlzManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
 // Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type AlzManagementGroup struct {
-	name                 string
-	displayName          string
-	policyDefinitions    map[string]*armpolicy.Definition
-	policySetDefinitions map[string]*armpolicy.SetDefinition
-	policyAssignments    map[string]*armpolicy.Assignment
-	roleDefinitions      map[string]*armauthorization.RoleDefinition
-	//roleAssignments       map[string]*armauthorization.RoleAssignment
-	policyRoleAssignments []PolicyRoleAssignment
+	name                  string
+	displayName           string
+	policyDefinitions     map[string]*armpolicy.Definition
+	policySetDefinitions  map[string]*armpolicy.SetDefinition
+	policyAssignments     map[string]*armpolicy.Assignment
+	roleDefinitions       map[string]*armauthorization.RoleDefinition
+	policyRoleAssignments mapset.Set[PolicyRoleAssignment]
 	children              mapset.Set[*AlzManagementGroup]
 	parent                *AlzManagementGroup
 	parentExternal        *string
@@ -40,8 +39,6 @@ type AlzManagementGroup struct {
 type PolicyRoleAssignment struct {
 	RoleDefinitionId string
 	Scope            string
-	Source           string
-	SourceType       PolicyRoleAssignmentSource
 	AssignmentName   string
 }
 
@@ -137,7 +134,7 @@ func (alzmg *AlzManagementGroup) GetRoleDefinitionsMap() map[string]armauthoriza
 
 // GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
 func (alzmg *AlzManagementGroup) GetPolicyRoleAssignments() []PolicyRoleAssignment {
-	return slices.Clone(alzmg.policyRoleAssignments)
+	return alzmg.policyRoleAssignments.ToSlice()
 }
 
 // GeneratePolicyAssignmentAdditionalRoleAssignments generates the additional role assignment data needed for the policy assignments
@@ -145,7 +142,6 @@ func (alzmg *AlzManagementGroup) GetPolicyRoleAssignments() []PolicyRoleAssignme
 // It will iterate through all policy assignments and generate the additional role assignments for each one,
 // storing them in the AdditionalRoleAssignmentsByPolicyAssignment map.
 func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments(az *AlzLib) error {
-	additionalRas := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
 	for paName, pa := range alzmg.policyAssignments {
 		// we only care about policy assignments that use an identity
 		if pa.Identity == nil || pa.Identity.Type == nil || *pa.Identity.Type == "None" {
@@ -171,12 +167,10 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 				return fmt.Errorf("policy definition %s has no role definition ids", *pd.Name)
 			}
 			for _, rid := range rids {
-				additionalRas.Add(PolicyRoleAssignment{
-					AssignmentName:   paName,
-					RoleDefinitionId: normalizeRoleDefinitionId(rid),
+				alzmg.policyRoleAssignments.Add(PolicyRoleAssignment{
 					Scope:            alzmg.GetResourceId(),
-					Source:           *pa.Name,
-					SourceType:       AssignmentScope,
+					RoleDefinitionId: normalizeRoleDefinitionId(rid),
+					AssignmentName:   paName,
 				})
 			}
 
@@ -191,11 +185,9 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					continue
 				}
 				for _, rid := range rids {
-					additionalRas.Add(PolicyRoleAssignment{
-						RoleDefinitionId: normalizeRoleDefinitionId(rid),
+					alzmg.policyRoleAssignments.Add(PolicyRoleAssignment{
 						Scope:            paParamVal,
-						Source:           fmt.Sprintf("%s/%s", *pd.Name, paramName),
-						SourceType:       DefinitionParameterMetadata,
+						RoleDefinitionId: normalizeRoleDefinitionId(rid),
 						AssignmentName:   paName,
 					})
 				}
@@ -221,11 +213,9 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					return fmt.Errorf("error getting role definition ids for policy definition %s: %w", *pd.Name, err)
 				}
 				for _, rid := range rids {
-					additionalRas.Add(PolicyRoleAssignment{
-						RoleDefinitionId: normalizeRoleDefinitionId(rid),
+					alzmg.policyRoleAssignments.Add(PolicyRoleAssignment{
 						Scope:            alzmg.GetResourceId(),
-						Source:           *pa.Name,
-						SourceType:       AssignmentScope,
+						RoleDefinitionId: normalizeRoleDefinitionId(rid),
 						AssignmentName:   paName,
 					})
 				}
@@ -257,24 +247,21 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					if err != nil {
 						continue
 					}
+					resid, err := arm.ParseResourceID(paParamVal)
+					if err != nil {
+						continue
+					}
 					for _, rid := range rids {
-						additionalRas.Add(PolicyRoleAssignment{
+						alzmg.policyRoleAssignments.Add(PolicyRoleAssignment{
+							Scope:            resid.String(),
 							RoleDefinitionId: normalizeRoleDefinitionId(rid),
-							Scope:            paParamVal,
-							Source:           fmt.Sprintf("%s(%s)/%s", *psd.Name, *pd.Name, paramName),
-							SourceType:       SetDefinitionParameterMetadata,
 							AssignmentName:   paName,
 						})
 					}
 				}
 			}
 		}
-		// If we haven't found any role definition ids, skip this policy assignment.
-		if additionalRas.Cardinality() == 0 {
-			continue
-		}
 	}
-	alzmg.policyRoleAssignments = additionalRas.ToSlice()
 	return nil
 }
 
@@ -534,7 +521,7 @@ func modifyRoleDefinitions(alzmg *AlzManagementGroup) {
 
 func newAlzManagementGroup() *AlzManagementGroup {
 	return &AlzManagementGroup{
-		policyRoleAssignments: make([]PolicyRoleAssignment, 0),
+		policyRoleAssignments: mapset.NewThreadUnsafeSet[PolicyRoleAssignment](),
 		policyDefinitions:     make(map[string]*armpolicy.Definition),
 		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
 		policyAssignments:     make(map[string]*armpolicy.Assignment),
