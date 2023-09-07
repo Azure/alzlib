@@ -40,8 +40,6 @@ type AlzManagementGroup struct {
 type PolicyRoleAssignment struct {
 	RoleDefinitionId string
 	Scope            string
-	Source           string
-	SourceType       PolicyRoleAssignmentSource
 	AssignmentName   string
 }
 
@@ -145,7 +143,7 @@ func (alzmg *AlzManagementGroup) GetPolicyRoleAssignments() []PolicyRoleAssignme
 // It will iterate through all policy assignments and generate the additional role assignments for each one,
 // storing them in the AdditionalRoleAssignmentsByPolicyAssignment map.
 func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments(az *AlzLib) error {
-	additionalRas := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
+	additionalRas := make(map[string]mapset.Set[PolicyRoleAssignment])
 	for paName, pa := range alzmg.policyAssignments {
 		// we only care about policy assignments that use an identity
 		if pa.Identity == nil || pa.Identity.Type == nil || *pa.Identity.Type == "None" {
@@ -171,12 +169,15 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 				return fmt.Errorf("policy definition %s has no role definition ids", *pd.Name)
 			}
 			for _, rid := range rids {
-				additionalRas.Add(PolicyRoleAssignment{
-					AssignmentName:   paName,
-					RoleDefinitionId: normalizeRoleDefinitionId(rid),
+				key := fmt.Sprintf("%s/%s/%s", *pa.Name, "assignmentScope", lastSegment(rid))
+				_, ok := additionalRas[key]
+				if !ok {
+					additionalRas[key] = mapset.NewSet[PolicyRoleAssignment]()
+				}
+				additionalRas[key].Add(PolicyRoleAssignment{
 					Scope:            alzmg.GetResourceId(),
-					Source:           *pa.Name,
-					SourceType:       AssignmentScope,
+					RoleDefinitionId: normalizeRoleDefinitionId(rid),
+					AssignmentName:   paName,
 				})
 			}
 
@@ -191,11 +192,14 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					continue
 				}
 				for _, rid := range rids {
-					additionalRas.Add(PolicyRoleAssignment{
+					key := fmt.Sprintf("%s/%s/%s", *pa.Name, "assignmentScope", lastSegment(rid))
+					_, ok := additionalRas[key]
+					if !ok {
+						additionalRas[key] = mapset.NewSet[PolicyRoleAssignment]()
+					}
+					additionalRas[key].Add(PolicyRoleAssignment{
+						Scope:            alzmg.GetResourceId(),
 						RoleDefinitionId: normalizeRoleDefinitionId(rid),
-						Scope:            paParamVal,
-						Source:           fmt.Sprintf("%s/%s", *pd.Name, paramName),
-						SourceType:       DefinitionParameterMetadata,
 						AssignmentName:   paName,
 					})
 				}
