@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/Azure/alzlib/to"
@@ -27,7 +26,7 @@ type AlzManagementGroup struct {
 	policyAssignments    map[string]*armpolicy.Assignment
 	roleDefinitions      map[string]*armauthorization.RoleDefinition
 	//roleAssignments       map[string]*armauthorization.RoleAssignment
-	policyRoleAssignments []PolicyRoleAssignment
+	policyRoleAssignments map[string]mapset.Set[PolicyRoleAssignment]
 	children              mapset.Set[*AlzManagementGroup]
 	parent                *AlzManagementGroup
 	parentExternal        *string
@@ -134,8 +133,15 @@ func (alzmg *AlzManagementGroup) GetRoleDefinitionsMap() map[string]armauthoriza
 // }
 
 // GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
-func (alzmg *AlzManagementGroup) GetPolicyRoleAssignments() []PolicyRoleAssignment {
-	return slices.Clone(alzmg.policyRoleAssignments)
+func (alzmg *AlzManagementGroup) GetPolicyRoleAssignments() map[string]PolicyRoleAssignment {
+	rtn := make(map[string]PolicyRoleAssignment, len(alzmg.policyRoleAssignments))
+	for k, v := range alzmg.policyRoleAssignments {
+		if v.Cardinality() != 1 {
+			continue
+		}
+		rtn[k] = v.ToSlice()[0]
+	}
+	return rtn
 }
 
 // GeneratePolicyAssignmentAdditionalRoleAssignments generates the additional role assignment data needed for the policy assignments
@@ -169,7 +175,7 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 				return fmt.Errorf("policy definition %s has no role definition ids", *pd.Name)
 			}
 			for _, rid := range rids {
-				key := fmt.Sprintf("%s/%s/%s", *pa.Name, "assignmentScope", lastSegment(rid))
+				key := fmt.Sprintf("%s-%s-%s", *pa.Name, strings.ToLower(alzmg.GetResourceId()), lastSegment(rid))
 				_, ok := additionalRas[key]
 				if !ok {
 					additionalRas[key] = mapset.NewSet[PolicyRoleAssignment]()
@@ -192,13 +198,13 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					continue
 				}
 				for _, rid := range rids {
-					key := fmt.Sprintf("%s/%s/%s", *pa.Name, "assignmentScope", lastSegment(rid))
+					key := fmt.Sprintf("%s-%s-%s", *pa.Name, strings.ToLower(paParamVal), lastSegment(rid))
 					_, ok := additionalRas[key]
 					if !ok {
 						additionalRas[key] = mapset.NewSet[PolicyRoleAssignment]()
 					}
 					additionalRas[key].Add(PolicyRoleAssignment{
-						Scope:            alzmg.GetResourceId(),
+						Scope:            paParamVal,
 						RoleDefinitionId: normalizeRoleDefinitionId(rid),
 						AssignmentName:   paName,
 					})
@@ -225,11 +231,14 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 					return fmt.Errorf("error getting role definition ids for policy definition %s: %w", *pd.Name, err)
 				}
 				for _, rid := range rids {
-					additionalRas.Add(PolicyRoleAssignment{
-						RoleDefinitionId: normalizeRoleDefinitionId(rid),
+					key := fmt.Sprintf("%s-%s-%s", *pa.Name, strings.ToLower(alzmg.GetResourceId()), lastSegment(rid))
+					_, ok := additionalRas[key]
+					if !ok {
+						additionalRas[key] = mapset.NewSet[PolicyRoleAssignment]()
+					}
+					additionalRas[key].Add(PolicyRoleAssignment{
 						Scope:            alzmg.GetResourceId(),
-						Source:           *pa.Name,
-						SourceType:       AssignmentScope,
+						RoleDefinitionId: normalizeRoleDefinitionId(rid),
 						AssignmentName:   paName,
 					})
 				}
@@ -262,23 +271,22 @@ func (alzmg *AlzManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignmen
 						continue
 					}
 					for _, rid := range rids {
-						additionalRas.Add(PolicyRoleAssignment{
-							RoleDefinitionId: normalizeRoleDefinitionId(rid),
+						key := fmt.Sprintf("%s-%s-%s", *pa.Name, strings.ToLower(paParamVal), lastSegment(rid))
+						_, ok := additionalRas[key]
+						if !ok {
+							additionalRas[key] = mapset.NewSet[PolicyRoleAssignment]()
+						}
+						additionalRas[key].Add(PolicyRoleAssignment{
 							Scope:            paParamVal,
-							Source:           fmt.Sprintf("%s(%s)/%s", *psd.Name, *pd.Name, paramName),
-							SourceType:       SetDefinitionParameterMetadata,
+							RoleDefinitionId: normalizeRoleDefinitionId(rid),
 							AssignmentName:   paName,
 						})
 					}
 				}
 			}
 		}
-		// If we haven't found any role definition ids, skip this policy assignment.
-		if additionalRas.Cardinality() == 0 {
-			continue
-		}
 	}
-	alzmg.policyRoleAssignments = additionalRas.ToSlice()
+	alzmg.policyRoleAssignments = additionalRas
 	return nil
 }
 
@@ -538,7 +546,7 @@ func modifyRoleDefinitions(alzmg *AlzManagementGroup) {
 
 func newAlzManagementGroup() *AlzManagementGroup {
 	return &AlzManagementGroup{
-		policyRoleAssignments: make([]PolicyRoleAssignment, 0),
+		policyRoleAssignments: make(map[string]mapset.Set[PolicyRoleAssignment], 0),
 		policyDefinitions:     make(map[string]*armpolicy.Definition),
 		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
 		policyAssignments:     make(map[string]*armpolicy.Assignment),
