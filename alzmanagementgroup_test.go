@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -154,7 +155,7 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 
 	// create a new AlzManagementGroup instance.
 	alzmg := &AlzManagementGroup{
-		policyRoleAssignments: make([]PolicyRoleAssignment, 0),
+		policyRoleAssignments: make(map[string]mapset.Set[PolicyRoleAssignment], 0),
 		policyDefinitions:     make(map[string]*armpolicy.Definition),
 		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
 		policyAssignments:     make(map[string]*armpolicy.Assignment),
