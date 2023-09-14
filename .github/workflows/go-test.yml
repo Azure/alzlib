@@ -75,7 +75,7 @@ jobs:
       name: make testcover
       if: matrix.os == 'ubuntu-latest'
 
-    - uses: codecov/codecov-action@v3
+    - uses: codecov/codecov-action@v4
       if: matrix.os == 'ubuntu-latest' && github.event_name != 'merge_group'
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
