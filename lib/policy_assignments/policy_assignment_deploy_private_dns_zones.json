@@ -48,6 +48,9 @@
       "azureDataFactoryPortalPrivateDnsZoneId": {
         "value": "placeholder/providers/Microsoft.Network/privateDnsZones/privatelink.adf.azure.com"
       },
+      "azureDatabricksPrivateDnsZoneId": {
+        "value": "placeholder/providers/Microsoft.Network/privateDnsZones/privatelink.azuredatabricks.net"
+      },
       "azureHDInsightPrivateDnsZoneId": {
         "value": "placeholder/providers/Microsoft.Network/privateDnsZones/privatelink.azurehdinsight.net"
       },
