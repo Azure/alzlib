@@ -131,6 +131,14 @@ func (az *AlzLib) CopyArchetype(name string, wkpv *WellKnownPolicyValues) (*Arch
 	return nil, fmt.Errorf("archetype %s not found", name)
 }
 
+// GetPolicyDefinitionMode returns the mode of the policy definition.
+func (az *AlzLib) GetPolicyDefinitionMode(name string) (string, error) {
+	if definition, exists := az.policyDefinitions[name]; exists {
+		return *definition.Properties.Mode, nil
+	}
+	return "", fmt.Errorf("policy definition %s not found", name)
+}
+
 // PolicyDefinitionExists returns true if the policy definition exists in the AlzLib struct.
 func (az *AlzLib) PolicyDefinitionExists(name string) bool {
 	_, exists := az.policyDefinitions[name]
