@@ -163,3 +163,17 @@ func TestGetBuiltInPolicySet(t *testing.T) {
 	assert.Equal(t, "Evaluate Private Link Usage Across All Supported Azure Resources", *az.policySetDefinitions["7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"].Properties.DisplayName)
 	assert.Equal(t, 30, len(az.policyDefinitions))
 }
+
+func TestGetPolicyMode(t *testing.T) {
+	az := NewAlzLib()
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	assert.NoError(t, err)
+	cf, _ := armpolicy.NewClientFactory("", cred, nil)
+	az.AddPolicyClient(cf)
+	err = az.getBuiltInPolicies(context.Background(), []string{"8154e3b3-cc52-40be-9407-7756581d71f6"})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(az.policyDefinitions))
+	assert.Equal(t, "Microsoft Managed Control 1614 - Developer Security Architecture And Design", *az.policyDefinitions["8154e3b3-cc52-40be-9407-7756581d71f6"].Properties.DisplayName)
+	mode, _ := az.GetPolicyDefinitionMode("8154e3b3-cc52-40be-9407-7756581d71f6")
+	assert.Equal(t, "Indexed", mode)
+}
