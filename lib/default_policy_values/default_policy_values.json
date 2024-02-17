@@ -1,0 +1,22 @@
+{
+  "defaults": [
+    {
+      "name": "primaryLocation",
+      "policyAssignments": [
+        {
+          "name": "Deploy-Log-Analytics",
+          "parameterNames": [
+            "automationRegion",
+            "workspaceRegion"
+          ]
+        },
+        {
+          "name": "Deploy-MDFC-Config",
+          "parameterNames": [
+            "ascExportResourceGroupLocation"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -4,8 +4,9 @@ run:
   modules-download-mode: readonly
 
 issues:
-  max-per-linter: 0
+  # Remove the max-per-linter property
   max-same-issues: 0
+  max-issues-per-linter: 0
 
 linters:
   disable-all: true
