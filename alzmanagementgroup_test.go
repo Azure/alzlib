@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGoGetter
+// TestGoGetter.
 func getRemoteLib(ctx context.Context) (fs.FS, error) {
 	u := url.URL{
 		Scheme: "https",
