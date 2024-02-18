@@ -3,6 +3,10 @@ package alzlib
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Azure/alzlib/to"
@@ -10,8 +14,28 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/hashicorp/go-getter"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// TestGoGetter.
+func getRemoteLib(ctx context.Context) (fs.FS, error) {
+	u := url.URL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "/Azure/alzlib//lib",
+	}
+	q := u.Query()
+	q.Add("depth", "1")
+	q.Add("ref", "main")
+	u.RawQuery = q.Encode()
+	dst := filepath.Join(".alzlib", "lib")
+	if err := getter.Get(dst, u.String(), getter.WithContext(ctx)); err != nil {
+		return nil, err
+	}
+	return os.DirFS(dst), nil
+}
 
 // TestFullAlz tests the ALZ reference architecture creation in full.
 func TestFullAlz(t *testing.T) {
@@ -23,7 +47,9 @@ func TestFullAlz(t *testing.T) {
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
 	assert.NoError(t, err)
 	az.AddPolicyClient(cf)
-	assert.NoError(t, az.Init(ctx, Lib))
+	dirfs, err := getRemoteLib(ctx)
+	require.NoError(t, err)
+	assert.NoError(t, az.Init(ctx, dirfs))
 	vals := &WellKnownPolicyValues{
 		DefaultLocation:                to.Ptr("eastus"),
 		DefaultLogAnalyticsWorkspaceId: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.OperationalInsights/workspaces/testlaworkspaceid"),

@@ -26,3 +26,6 @@ go.work
 # Test coverage file
 coverage.out
 coverage.html
+
+# alzlib go-getter directory
+.alzlib
