@@ -25,7 +25,6 @@ func TestNewAlzLibWithNoDir(t *testing.T) {
 	path := filepath.Join("testdata", "doesnotexist")
 	dir := os.DirFS(path)
 	err := az.Init(context.Background(), dir)
-
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
