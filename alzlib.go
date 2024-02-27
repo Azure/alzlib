@@ -5,7 +5,6 @@ package alzlib
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -23,11 +22,6 @@ import (
 const (
 	defaultParallelism = 10 // default number of parallel requests to make to Azure APIs
 )
-
-// Embed the Lib dir into the binary.
-//
-//go:embed lib
-var Lib embed.FS
 
 // AlzLib is the structure that gets built from the the library files
 // do not create this directly, use NewAlzLib instead.
