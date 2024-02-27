@@ -21,17 +21,12 @@ import (
 
 // TestGoGetter.
 func getRemoteLib(ctx context.Context) (fs.FS, error) {
-	u := url.URL{
-		Scheme: "https",
-		Host:   "github.com",
-		Path:   "/Azure/alzlib//lib",
-	}
-	q := u.Query()
+	q := url.Values{}
 	q.Add("depth", "1")
 	q.Add("ref", "main")
-	u.RawQuery = q.Encode()
+	u := "git::https://github.com/Azure/Azure-Landing-Zones-Library//platform/alz?" + q.Encode()
 	dst := filepath.Join(".alzlib", "lib")
-	if err := getter.Get(dst, u.String(), getter.WithContext(ctx)); err != nil {
+	if err := getter.Get(dst, u, getter.WithContext(ctx)); err != nil {
 		return nil, err
 	}
 	return os.DirFS(dst), nil

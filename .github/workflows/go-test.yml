@@ -6,7 +6,6 @@ on:
     paths-ignore:
       - ".github/**"
       - ".vscode/**"
-      - "lib/**"
     branches:
       - main
   pull_request_target:
@@ -48,6 +47,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       name: checkout
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        persist-credentials: false
 
     - uses: actions/setup-go@v5
       name: setup go
