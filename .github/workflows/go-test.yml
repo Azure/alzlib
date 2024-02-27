@@ -6,7 +6,6 @@ on:
     paths-ignore:
       - ".github/**"
       - ".vscode/**"
-      - "lib/**"
     branches:
       - main
   pull_request_target:
