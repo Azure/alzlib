@@ -17,6 +17,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestInitMultiLib tests that we can initialize the library with multiple urlss.
+func TestInitMultiLib(t *testing.T) {
+	az := NewAlzLib()
+	az.Options.AllowOverwrite = true
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	remoteLib, err := getRemoteLib(ctx)
+	assert.NoError(t, err)
+	dirfs := os.DirFS("./testdata/simple")
+	err = az.Init(ctx, remoteLib, dirfs)
+	assert.NoError(t, err)
+	assert.Equal(t, 11, len(az.archetypes))
+	// Test root archetype has been overridden
+	assert.Equal(t, 1, az.archetypes["root"].PolicyDefinitions.Cardinality())
+}
+
 // Test_NewAlzLib_noDir tests the creation of a new AlzLib when supplied with a path
 // that does not exist.
 // The error details are checked for the expected error message.
