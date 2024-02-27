@@ -164,7 +164,7 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	}
 
 	// Process the libraries
-	for i, lib := range libs {
+	for _, lib := range libs {
 		res := new(processor.Result)
 		pc := processor.NewProcessorClient(lib)
 		if err := pc.Process(res); err != nil {
@@ -177,10 +177,8 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		}
 
 		// Generate archetypes from the first library.
-		if i == 0 {
-			if err := az.generateArchetypes(res); err != nil {
-				return err
-			}
+		if err := az.generateArchetypes(res); err != nil {
+			return err
 		}
 	}
 
@@ -456,7 +454,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 
 	// generate alzlib archetypes.
 	for k, v := range res.LibArchetypes {
-		if _, exists := az.archetypes[k]; exists {
+		if _, exists := az.archetypes[k]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("archetype %s already exists in the library", v.Name)
 		}
 		arch := &Archetype{
