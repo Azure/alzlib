@@ -8,7 +8,7 @@ builds:
       # usage by users in CI/CD systems like Terraform Cloud where
       # they are unable to install libraries.
       - CGO_ENABLED=0
-  - no_main_check: true
+    no_main_check: true
     skip: true
 checksum:
   name_template: "checksums.txt"
