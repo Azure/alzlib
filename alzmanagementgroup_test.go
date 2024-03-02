@@ -493,7 +493,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	psd2mg = map[string]string{}
 	err = modifyPolicyAssignments(alzmg, pd2mg, psd2mg, papv)
 	assert.Error(t, err)
-	expected = "has invalid resource type in id"
+	expected = "has invalid referenced definition/set resource type with id"
 	assert.ErrorContains(t, err, expected)
 }
 
