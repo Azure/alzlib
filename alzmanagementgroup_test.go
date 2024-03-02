@@ -23,7 +23,7 @@ import (
 func getRemoteLib(ctx context.Context) (fs.FS, error) {
 	q := url.Values{}
 	q.Add("depth", "1")
-	q.Add("ref", "main")
+	q.Add("ref", "platform/alz/2024.03.00")
 	u := "git::https://github.com/Azure/Azure-Landing-Zones-Library//platform/alz?" + q.Encode()
 	dst := filepath.Join(".alzlib", "lib")
 	if err := getter.Get(dst, u, getter.WithContext(ctx)); err != nil {
