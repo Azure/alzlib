@@ -492,17 +492,17 @@ func modifyPolicyAssignments(alzmg *AlzManagementGroup, pd2mg, psd2mg map[string
 		// rewrite the referenced policy definition id
 		// if the policy definition is in the list.
 		pd := assignment.Properties.PolicyDefinitionID
-		switch lastButOneSegment(*pd) {
-		case "policyDefinitions":
+		switch strings.ToLower(lastButOneSegment(*pd)) {
+		case "policydefinitions":
 			if mgname, ok := pd2mg[lastSegment(*pd)]; ok {
 				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, mgname, lastSegment(*pd)))
 			}
-		case "policySetDefinitions":
+		case "policysetdefinitions":
 			if mgname, ok := psd2mg[lastSegment(*pd)]; ok {
 				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(policySetDefinitionIdFmt, mgname, lastSegment(*pd)))
 			}
 		default:
-			return fmt.Errorf("policy assignment %s has invalid resource type in id %s", assignmentName, *pd)
+			return fmt.Errorf("policy assignment %s has invalid referenced definition/set resource type with id: %s", assignmentName, *pd)
 		}
 	}
 	return nil
