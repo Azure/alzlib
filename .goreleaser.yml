@@ -1,9 +1,7 @@
 ---
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    - go mod vendor
 archives:
   - format: tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
@@ -19,6 +17,11 @@ archives:
       - goos: windows
         format: zip
 builds:
+  - env:
+      # goreleaser does not work with CGO, it could also complicate
+      # usage by users in CI/CD systems like Terraform Cloud where
+      # they are unable to install libraries.
+      - CGO_ENABLED=0
   - no_main_check: true
     skip: true
 checksum:
@@ -26,18 +29,26 @@ checksum:
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:
+  disable: false
   sort: asc
+  use: github
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Doc updates"
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 999
   filters:
-    exclude:
+    include:
+      - "^feat:"
+      - "^fix:"
       - "^docs:"
-      - "^test:"
-      - "^ci:"
 release:
-  github:
-    name: alzlib
-    owner: matt-FFFFFF
-  header: |
-    # {{ .Tag }}
+  disable: false
 milestones:
   - close: true
 # The lines beneath this are called `modelines`. See `:help modeline`
