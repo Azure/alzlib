@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,10 +19,10 @@ func TestFullLibrary(t *testing.T) {
 	pc := NewProcessorClient(fs)
 	res := new(Result)
 	assert.NoError(t, pc.Process(res))
-	assert.Equal(t, len(res.LibArchetypes["root"].PolicyAssignments), 13)
-	assert.Equal(t, len(res.LibArchetypes["root"].PolicyDefinitions), 114)
-	assert.Equal(t, len(res.LibArchetypes["root"].PolicySetDefinitions), 12)
-	assert.Equal(t, len(res.LibArchetypes["root"].RoleDefinitions), 5)
+	assert.Equal(t, res.LibArchetypes["root"].PolicyAssignments.Cardinality(), 13)
+	assert.Equal(t, res.LibArchetypes["root"].PolicyDefinitions.Cardinality(), 114)
+	assert.Equal(t, res.LibArchetypes["root"].PolicySetDefinitions.Cardinality(), 12)
+	assert.Equal(t, res.LibArchetypes["root"].RoleDefinitions.Cardinality(), 5)
 	assert.Equal(t, len(res.LibArchetypeOverrides), 1)
 }
 
@@ -35,10 +36,10 @@ func TestProcessArchetypeOverrideValid(t *testing.T) {
 
 	assert.NoError(t, processArchetypeOverride(res, sampleData))
 	assert.Equal(t, len(res.LibArchetypeOverrides), 1)
-	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyAssignmentsToAdd), 1)
-	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyAssignmentsToRemove), 1)
-	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyDefinitionsToAdd), 1)
-	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyDefinitionsToRemove), 1)
+	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyAssignmentsToAdd.Cardinality(), 1)
+	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyAssignmentsToRemove.Cardinality(), 1)
+	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyDefinitionsToAdd.Cardinality(), 1)
+	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyDefinitionsToRemove.Cardinality(), 1)
 }
 
 // TestProcessArchetypeOverrideInvalid tests the processing of a valid archetype override.
@@ -63,10 +64,10 @@ func TestProcessArchetypeDefinitionValid(t *testing.T) {
 
 	assert.NoError(t, processArchetype(res, sampleData))
 	assert.Equal(t, len(res.LibArchetypes), 1)
-	assert.Equal(t, len(res.LibArchetypes["test"].PolicyAssignments), 1)
-	assert.Equal(t, len(res.LibArchetypes["test"].PolicyDefinitions), 1)
-	assert.Equal(t, len(res.LibArchetypes["test"].PolicySetDefinitions), 1)
-	assert.Equal(t, len(res.LibArchetypes["test"].RoleDefinitions), 1)
+	assert.Equal(t, res.LibArchetypes["test"].PolicyAssignments.Cardinality(), 1)
+	assert.Equal(t, res.LibArchetypes["test"].PolicyDefinitions.Cardinality(), 1)
+	assert.Equal(t, res.LibArchetypes["test"].PolicySetDefinitions.Cardinality(), 1)
+	assert.Equal(t, res.LibArchetypes["test"].RoleDefinitions.Cardinality(), 1)
 }
 
 // TestProcessArchetypeDefinition_multipleTopLevelObjects tests that the correct error
@@ -175,6 +176,55 @@ func TestProcessPolicySetDefinitionNoData(t *testing.T) {
 	t.Parallel()
 	res := &Result{}
 	assert.ErrorContains(t, processPolicySetDefinition(res, make([]byte, 0)), "error unmarshalling policy set definition")
+}
+
+// TestOverride2Archetype tests the Override2Archetype function.
+func TestOverride2Archetype(t *testing.T) {
+	t.Parallel()
+
+	// Create a sample Result object with existing archetypes and overrides
+	res := &Result{
+		LibArchetypes: map[string]*LibArchetype{
+			"baseArchetype": {
+				Name: "baseArchetype",
+				// Add some sample data to the base archetype
+				PolicyAssignments:    mapset.NewThreadUnsafeSet[string]("policyAssignment1"),
+				PolicyDefinitions:    mapset.NewThreadUnsafeSet[string]("policyDefinition1"),
+				PolicySetDefinitions: mapset.NewThreadUnsafeSet[string]("policySetDefinition1"),
+				RoleDefinitions:      mapset.NewThreadUnsafeSet[string]("roleDefinition1"),
+			},
+		},
+		LibArchetypeOverrides: map[string]*LibArchetypeOverride{
+			"override1": {
+				Name:          "override1",
+				BaseArchetype: "baseArchetype",
+				// Add some sample data to the override
+				PolicyAssignmentsToAdd:       mapset.NewThreadUnsafeSet[string]("policyAssignment2"),
+				PolicyAssignmentsToRemove:    mapset.NewThreadUnsafeSet[string]("policyAssignment1"),
+				PolicyDefinitionsToAdd:       mapset.NewThreadUnsafeSet[string]("policyDefinition2"),
+				PolicyDefinitionsToRemove:    mapset.NewThreadUnsafeSet[string]("policyDefinition1"),
+				PolicySetDefinitionsToAdd:    mapset.NewThreadUnsafeSet[string]("policySetDefinition2"),
+				PolicySetDefinitionsToRemove: mapset.NewThreadUnsafeSet[string]("policySetDefinition1"),
+				RoleDefinitionsToAdd:         mapset.NewThreadUnsafeSet[string]("roleDefinition2"),
+				RoleDefinitionsToRemove:      mapset.NewThreadUnsafeSet[string]("roleDefinition1"),
+			},
+		},
+	}
+
+	// Call the function being tested
+	err := res.Override2Archetype()
+
+	// Check if the function returned an error
+	assert.NoError(t, err)
+
+	// Check if the new archetype was created correctly
+	newArchetype, exists := res.LibArchetypes["override1"]
+	assert.True(t, exists)
+	assert.Equal(t, "override1", newArchetype.Name)
+	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("policyAssignment2"), newArchetype.PolicyAssignments)
+	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("policyDefinition2"), newArchetype.PolicyDefinitions)
+	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("policySetDefinition2"), newArchetype.PolicySetDefinitions)
+	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("roleDefinition2"), newArchetype.RoleDefinitions)
 }
 
 // getSampleArchetypeDefinition_valid returns a valid archetype definition.

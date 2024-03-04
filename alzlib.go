@@ -176,7 +176,9 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 			return err
 		}
 
-		// Generate archetypes from the first library.
+		// convert override archetypes to alzlib archetypes.
+
+		// Generate archetypes
 		if err := az.generateArchetypes(res); err != nil {
 			return err
 		}
@@ -445,10 +447,10 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 	if _, exists := res.LibArchetypes["empty"]; !exists {
 		res.LibArchetypes["empty"] = &processor.LibArchetype{
 			Name:                 "empty",
-			PolicyAssignments:    make([]string, 0),
-			PolicyDefinitions:    make([]string, 0),
-			PolicySetDefinitions: make([]string, 0),
-			RoleDefinitions:      make([]string, 0),
+			PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
+			PolicyDefinitions:    mapset.NewThreadUnsafeSet[string](),
+			PolicySetDefinitions: mapset.NewThreadUnsafeSet[string](),
+			RoleDefinitions:      mapset.NewThreadUnsafeSet[string](),
 		}
 	}
 
@@ -464,25 +466,25 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 			RoleDefinitions:      mapset.NewSet[string](),
 			name:                 v.Name,
 		}
-		for _, pd := range v.PolicyDefinitions {
+		for pd := range v.PolicyDefinitions.Iter() {
 			if _, ok := az.policyDefinitions[pd]; !ok {
 				return fmt.Errorf("error processing archetype %s, policy definition %s does not exist in the library", k, pd)
 			}
 			arch.PolicyDefinitions.Add(pd)
 		}
-		for _, psd := range v.PolicySetDefinitions {
+		for psd := range v.PolicySetDefinitions.Iter() {
 			if _, ok := az.policySetDefinitions[psd]; !ok {
 				return fmt.Errorf("error processing archetype %s, policy set definition %s does not exist in the library", k, psd)
 			}
 			arch.PolicySetDefinitions.Add(psd)
 		}
-		for _, pa := range v.PolicyAssignments {
+		for pa := range v.PolicyAssignments.Iter() {
 			if _, ok := az.policyAssignments[pa]; !ok {
 				return fmt.Errorf("error processing archetype %s, policy assignment %s does not exist in the library", k, pa)
 			}
 			arch.PolicyAssignments.Add(pa)
 		}
-		for _, rd := range v.RoleDefinitions {
+		for rd := range v.RoleDefinitions.Iter() {
 			if _, ok := az.roleDefinitions[rd]; !ok {
 				return fmt.Errorf("error processing archetype %s, role definition %s does not exist in the library", k, rd)
 			}
