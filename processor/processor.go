@@ -17,6 +17,7 @@ import (
 // These are the file prefixes for the resource types.
 const (
 	archetypeDefinitionPrefix = "archetype_definition_"
+	archetypeOverridePrefix   = "archetype_override_"
 	policyAssignmentPrefix    = "policy_assignment_"
 	policyDefinitionPrefix    = "policy_definition_"
 	policySetDefinitionPrefix = "policy_set_definition_"
@@ -40,6 +41,22 @@ type LibArchetype struct {
 	PolicyDefinitions    []string `json:"policy_definitions"`
 	PolicySetDefinitions []string `json:"policy_set_definitions"`
 	RoleDefinitions      []string `json:"role_definitions"`
+}
+
+// LibArchetypeOverride represents an archetype override definition file,
+// it used to construct generate a new Archetype struct from an existing
+// full archetype and is then added to the AlzLib struct.
+type LibArchetypeOverride struct {
+	Name                         string   `json:"name"`
+	BaseArchetype                string   `json:"base_archetype"`
+	PolicyAssignmentsToAdd       []string `json:"policy_assignments_to_add"`
+	PolicyAssignmentsToRemove    []string `json:"policy_assignments_to_remove"`
+	PolicyDefinitionsToAdd       []string `json:"policy_definitions_to_add"`
+	PolicyDefinitionsToRemove    []string `json:"policy_definitions_to_remove"`
+	PolicySetDefinitionsToAdd    []string `json:"policy_set_definitions_to_add"`
+	PolicySetDefinitionsToRemove []string `json:"policy_set_definitions_to_remove"`
+	RoleDefinitionsToAdd         []string `json:"role_definitions_to_add"`
+	RoleDefinitionsToRemove      []string `json:"role_definitions_to_remove"`
 }
 
 // processFunc is the function signature that is used to process different types of lib file.
@@ -127,6 +144,20 @@ func processArchetype(res *Result, data []byte) error {
 		return fmt.Errorf("archetype with name %s already exists", la.Name)
 	}
 	res.LibArchetypes[la.Name] = la
+	return nil
+}
+
+// processArchetypeOverride is a processFunc that reads the archetype_override
+// bytes, processes, then adds the created LibArchetypeDefinition to the AlzLib.
+func processArchetypeOverride(res *Result, data []byte) error {
+	lao := new(LibArchetypeOverride)
+	if err := json.Unmarshal(data, lao); err != nil {
+		return fmt.Errorf("error processing archetype definition: %w", err)
+	}
+	if _, exists := res.LibArchetypes[lao.Name]; exists {
+		return fmt.Errorf("archetype with name %s already exists", lao.Name)
+	}
+	res.LibArchetypes[lao.Name] = lao
 	return nil
 }
 
