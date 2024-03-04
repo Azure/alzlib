@@ -22,6 +22,35 @@ func TestFullLibrary(t *testing.T) {
 	assert.Equal(t, len(res.LibArchetypes["root"].PolicyDefinitions), 114)
 	assert.Equal(t, len(res.LibArchetypes["root"].PolicySetDefinitions), 12)
 	assert.Equal(t, len(res.LibArchetypes["root"].RoleDefinitions), 5)
+	assert.Equal(t, len(res.LibArchetypeOverrides), 1)
+}
+
+// TestProcessArchetypeOverrideValid tests the processing of a valid archetype override.
+func TestProcessArchetypeOverrideValid(t *testing.T) {
+	t.Parallel()
+	sampleData := getSampleArchetypeOverride_valid()
+	res := &Result{
+		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
+	}
+
+	assert.NoError(t, processArchetypeOverride(res, sampleData))
+	assert.Equal(t, len(res.LibArchetypeOverrides), 1)
+	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyAssignmentsToAdd), 1)
+	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyAssignmentsToRemove), 1)
+	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyDefinitionsToAdd), 1)
+	assert.Equal(t, len(res.LibArchetypeOverrides["test"].PolicyDefinitionsToRemove), 1)
+}
+
+// TestProcessArchetypeOverrideInvalid tests the processing of a valid archetype override.
+func TestProcessArchetypeOverrideInvalid(t *testing.T) {
+	t.Parallel()
+	sampleData := getSampleArchetypeOverride_invalid()
+	res := &Result{
+		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
+	}
+
+	err := processArchetypeOverride(res, sampleData)
+	assert.ErrorContains(t, err, "error processing archetype definition: invalid character ']' after object key:value pair")
 }
 
 // TestProcessArchetypeDefinitionValid test the processing of a valid archetype definition.
@@ -839,4 +868,66 @@ func getSamplePolicySetDefinition_noName() []byte {
 			"policyDefinitionGroups": null
 		}
 	}`)
+}
+
+func getSampleArchetypeOverride_valid() []byte {
+	return []byte(`{
+	"base_archetype": "base",
+	"name": "test",
+	"policy_assignments_to_add": [
+		"test"
+	],
+	"policy_assignments_to_remove": [
+		"test"
+	],
+	"policy_definitions_to_add": [
+		"test"
+	],
+	"policy_definitions_to_remove": [
+		"test"
+	],
+	"policy_set_definitions_to_add": [
+		"test"
+	],
+	"policy_set_definitions_to_remove": [
+		"test"
+	],
+	"role_assignments_to_add": [
+		"test"
+	],
+	"role_assignments_to_remove": [
+		"test"
+	]
+}`)
+}
+
+func getSampleArchetypeOverride_invalid() []byte {
+	return []byte(`{
+	"base_archetype": "base",
+	"name": "test",
+	"policy_assignments_to_add":
+		"test"
+	],
+	"policy_assignments_to_remove": [
+		"test"
+	],
+	"policy_definitions_to_add": [
+		"test"
+	],
+	"policy_definitions_to_remove": [
+		"test"
+	],
+	"policy_set_definitions_to_add": [
+		"test"
+	],
+	"policy_set_definitions_to_remove": [
+		"test"
+	],
+	"role_assignments_to_add": [
+		"test"
+	],
+	"role_assignments_to_remove": [
+		"test"
+	]
+}`)
 }

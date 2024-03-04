@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
@@ -26,11 +27,12 @@ const (
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
-	PolicyDefinitions    map[string]*armpolicy.Definition
-	PolicySetDefinitions map[string]*armpolicy.SetDefinition
-	PolicyAssignments    map[string]*armpolicy.Assignment
-	RoleDefinitions      map[string]*armauthorization.RoleDefinition
-	LibArchetypes        map[string]*LibArchetype
+	PolicyDefinitions     map[string]*armpolicy.Definition
+	PolicySetDefinitions  map[string]*armpolicy.SetDefinition
+	PolicyAssignments     map[string]*armpolicy.Assignment
+	RoleDefinitions       map[string]*armauthorization.RoleDefinition
+	LibArchetypes         map[string]*LibArchetype
+	LibArchetypeOverrides map[string]*LibArchetypeOverride
 }
 
 // LibArchetype represents an archetype definition file,
@@ -79,6 +81,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 	res.PolicyDefinitions = make(map[string]*armpolicy.Definition)
 	res.PolicySetDefinitions = make(map[string]*armpolicy.SetDefinition)
 	res.RoleDefinitions = make(map[string]*armauthorization.RoleDefinition)
+	res.LibArchetypeOverrides = make(map[string]*LibArchetypeOverride)
 
 	// Walk the embedded lib FS and process files
 	if err := fs.WalkDir(client.fs, ".", func(path string, d fs.DirEntry, err error) error {
@@ -87,6 +90,9 @@ func (client *ProcessorClient) Process(res *Result) error {
 		}
 		// Skip directories
 		if d.IsDir() {
+			return nil
+		}
+		if strings.ToLower(filepath.Ext(path)) != ".json" {
 			return nil
 		}
 		file, err := client.fs.Open(path)
@@ -103,9 +109,9 @@ func (client *ProcessorClient) Process(res *Result) error {
 // classifyLibFile identifies the supplied file and adds calls the appropriate processFunc.
 func classifyLibFile(res *Result, file fs.File, name string) error {
 	err := error(nil)
+
 	// process by file type
 	switch n := strings.ToLower(name); {
-
 	// if the file is a policy definition
 	case strings.HasPrefix(n, policyDefinitionPrefix):
 		err = readAndProcessFile(res, file, processPolicyDefinition)
@@ -118,18 +124,23 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 	case strings.HasPrefix(n, policyAssignmentPrefix):
 		err = readAndProcessFile(res, file, processPolicyAssignment)
 
+	// if the file is a role definition
+	case strings.HasPrefix(n, roleDefinitionPrefix):
+		err = readAndProcessFile(res, file, processRoleDefinition)
+
 	// if the file is an archetype definition
 	case strings.HasPrefix(n, archetypeDefinitionPrefix):
 		err = readAndProcessFile(res, file, processArchetype)
 
-	case strings.HasPrefix(n, roleDefinitionPrefix):
-		err = readAndProcessFile(res, file, processRoleDefinition)
+	// if the file is an archetype override
+	case strings.HasPrefix(n, archetypeOverridePrefix):
+		err = readAndProcessFile(res, file, processArchetypeOverride)
 	}
 
-	// If there's an error, wrap it with the file path
 	if err != nil {
 		err = fmt.Errorf("error processing file: %w", err)
 	}
+
 	return err
 }
 
@@ -154,10 +165,10 @@ func processArchetypeOverride(res *Result, data []byte) error {
 	if err := json.Unmarshal(data, lao); err != nil {
 		return fmt.Errorf("error processing archetype definition: %w", err)
 	}
-	if _, exists := res.LibArchetypes[lao.Name]; exists {
-		return fmt.Errorf("archetype with name %s already exists", lao.Name)
+	if _, exists := res.LibArchetypeOverrides[lao.Name]; exists {
+		return fmt.Errorf("archetype override with name %s already exists", lao.Name)
 	}
-	res.LibArchetypes[lao.Name] = lao
+	res.LibArchetypeOverrides[lao.Name] = lao
 	return nil
 }
 
