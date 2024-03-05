@@ -4,7 +4,6 @@
 package alzlib
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -299,84 +298,42 @@ func (alzmg *AlzManagementGroup) update(az *AlzLib, papv PolicyAssignmentsParame
 	return nil
 }
 
-// UpsertPolicyAssignments adds policy assignments to the management group.
-// These can be net-new assignments, or amendments to existing assignments.
+// ModifyPolicyAssignment modifies an existing policy assignment in the management group.
 // It will deep merge the supplied assignments with the existing assignments.
-// If the assignment already exists, its attributes will be updated, but not entirely replaced.
-func (alzmg *AlzManagementGroup) UpsertPolicyAssignments(ctx context.Context, pas map[string]*armpolicy.Assignment, az *AlzLib) error {
-	papv := make(PolicyAssignmentsParameterValues)
-	defsToGet := mapset.NewSet[string]()
-
-	for name, pa := range pas {
-		if _, ok := alzmg.policyAssignments[name]; !ok {
-			alzmg.policyAssignments[name] = pa
-			continue
-		}
-		if pa.Properties == nil {
-			continue
-		}
-		if alzmg.policyAssignments[name].Properties == nil {
-			alzmg.policyAssignments[name].Properties = new(armpolicy.AssignmentProperties)
-		}
-
-		if pa.Properties.DisplayName != nil {
-			alzmg.policyAssignments[name].Properties.DisplayName = pa.Properties.DisplayName
-		}
-
-		if pa.Properties.Description != nil {
-			alzmg.policyAssignments[name].Properties.Description = pa.Properties.Description
-		}
-
-		if pa.Properties.Metadata != nil {
-			alzmg.policyAssignments[name].Properties.Metadata = pa.Properties.Metadata
-		}
-
-		// Update policy assignment parameter values map.
-		if pa.Properties.Parameters != nil && len(pa.Properties.Parameters) > 0 {
-			papv[name] = pa.Properties.Parameters
-		}
-
-		if pa.Properties.EnforcementMode != nil {
-			alzmg.policyAssignments[name].Properties.EnforcementMode = pa.Properties.EnforcementMode
-		}
-
-		if pa.Properties.NonComplianceMessages != nil {
-			if alzmg.policyAssignments[name].Properties.NonComplianceMessages == nil {
-				alzmg.policyAssignments[name].Properties.NonComplianceMessages = make([]*armpolicy.NonComplianceMessage, len(pa.Properties.NonComplianceMessages))
-			}
-			alzmg.policyAssignments[name].Properties.NonComplianceMessages = pa.Properties.NonComplianceMessages
-		}
-
-		if pa.Properties.PolicyDefinitionID != nil {
-			alzmg.policyAssignments[name].Properties.PolicyDefinitionID = pa.Properties.PolicyDefinitionID
-			switch lastButOneSegment(*pa.Properties.PolicyDefinitionID) {
-			case "policyDefinitions":
-				if !az.PolicyDefinitionExists(lastSegment(*pa.Properties.PolicyDefinitionID)) {
-					defsToGet.Add(*pa.Properties.PolicyDefinitionID)
-				}
-			case "policySetDefinitions":
-				if !az.PolicySetDefinitionExists(lastSegment(*pa.Properties.PolicyDefinitionID)) {
-					defsToGet.Add(*pa.Properties.PolicyDefinitionID)
-				}
-			}
-		}
+func (alzmg *AlzManagementGroup) ModifyPolicyAssignment(
+	name string,
+	parameters map[string]*armpolicy.ParameterValuesValue,
+	enforcementMode *armpolicy.EnforcementMode,
+	nonComplianceMessages []*armpolicy.NonComplianceMessage,
+	identity *armpolicy.Identity,
+) error {
+	if _, ok := alzmg.policyAssignments[name]; !ok {
+		return fmt.Errorf("policy assignment %s not found in management group %s", name, alzmg.name)
 	}
 
-	// fetch defs that don't exist
-	if defsToGet.Cardinality() > 0 {
-		if err := az.GetDefinitionsFromAzure(ctx, defsToGet.ToSlice()); err != nil {
-			return err
-		}
+	if alzmg.policyAssignments[name].Properties == nil {
+		return fmt.Errorf("properties for policy assignment %s in management group %s is nil", name, alzmg.name)
 	}
 
-	// update the policy assignments
-	pd2mg := az.Deployment.policyDefinitionToMg()
-	psd2mg := az.Deployment.policySetDefinitionToMg()
-
-	if err := modifyPolicyAssignments(alzmg, pd2mg, psd2mg, papv); err != nil {
-		return err
+	if alzmg.policyAssignments[name].Properties.Parameters == nil && len(parameters) > 0 {
+		alzmg.policyAssignments[name].Properties.Parameters = make(map[string]*armpolicy.ParameterValuesValue, len(parameters))
 	}
 
+	for k, v := range parameters {
+		alzmg.policyAssignments[name].Properties.Parameters[k] = v
+	}
+
+	if enforcementMode != nil {
+		alzmg.policyAssignments[name].Properties.EnforcementMode = enforcementMode
+	}
+
+	if nonComplianceMessages != nil {
+		alzmg.policyAssignments[name].Properties.NonComplianceMessages = nonComplianceMessages
+	}
+
+	if identity != nil {
+		alzmg.policyAssignments[name].Identity = identity
+	}
 	return nil
 }
 
