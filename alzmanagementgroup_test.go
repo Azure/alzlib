@@ -673,78 +673,6 @@ func TestModifyRoleDefinitions(t *testing.T) {
 	assert.Empty(t, alzmg.roleDefinitions)
 }
 
-func TestUpsertPolicyAssignments(t *testing.T) {
-	// Create a new AlzLib instance.
-	az := NewAlzLib()
-	az.policyDefinitions = map[string]*armpolicy.Definition{
-		"test-policy-definition": {},
-	}
-
-	// Create a new AlzManagementGroup instance.
-	alzmg := &AlzManagementGroup{
-		policyAssignments: make(map[string]*armpolicy.Assignment),
-	}
-
-	// Create a new policy assignment to upsert.
-	pa := &armpolicy.Assignment{
-		Name: to.Ptr("test-policy-assignment"),
-		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
-
-		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-		Properties: &armpolicy.AssignmentProperties{
-			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition"),
-			Parameters: map[string]*armpolicy.ParameterValuesValue{
-				"parameter1": {Value: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg"},
-				"parameter2": {Value: "value2"},
-			},
-		},
-	}
-
-	// Upsert the policy assignment.
-	err := alzmg.UpsertPolicyAssignments(context.Background(), map[string]*armpolicy.Assignment{"test-policy-assignment": pa}, az)
-	assert.NoError(t, err)
-
-	// Verify that the policy assignment was added to the management group.
-	assert.Equal(t, 1, len(alzmg.policyAssignments))
-	assert.Equal(t, pa, alzmg.policyAssignments["test-policy-assignment"])
-
-	// Update the policy assignment.
-	pa.Properties.Parameters["parameter1"].Value = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg"
-	pa.Properties.Parameters["parameter2"].Value = "value3"
-
-	// Upsert the updated policy assignment.
-	err = alzmg.UpsertPolicyAssignments(context.Background(), map[string]*armpolicy.Assignment{"test-policy-assignment": pa}, az)
-	assert.NoError(t, err)
-
-	// Verify that the policy assignment was updated in the management group.
-	assert.Equal(t, 1, len(alzmg.policyAssignments))
-	assert.Equal(t, pa, alzmg.policyAssignments["test-policy-assignment"])
-
-	// Add a new policy assignment.
-	pa2 := &armpolicy.Assignment{
-		Name: to.Ptr("test-policy-assignment-2"),
-		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
-
-		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-		Properties: &armpolicy.AssignmentProperties{
-			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition-2"),
-			Parameters: map[string]*armpolicy.ParameterValuesValue{
-				"parameter1": {Value: "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/my-rg"},
-				"parameter2": {Value: "value4"},
-			},
-		},
-	}
-
-	// Upsert the new policy assignment.
-	err = alzmg.UpsertPolicyAssignments(context.Background(), map[string]*armpolicy.Assignment{"test-policy-assignment-2": pa2}, az)
-	assert.NoError(t, err)
-
-	// Verify that the new policy assignment was added to the management group.
-	assert.Equal(t, 2, len(alzmg.policyAssignments))
-	assert.Equal(t, pa, alzmg.policyAssignments["test-policy-assignment"])
-	assert.Equal(t, pa2, alzmg.policyAssignments["test-policy-assignment-2"])
-}
-
 func TestCopyMap(t *testing.T) {
 	// Create a new map.
 	m := map[string]*int{
@@ -767,4 +695,55 @@ func TestCopyMap(t *testing.T) {
 
 	// Verify that the original map and the copied map are no longer equal.
 	assert.NotEqual(t, m, m2)
+}
+
+func TestModifyPolicyAssignment(t *testing.T) {
+	// Create a new AlzManagementGroup instance
+	alzmg := &AlzManagementGroup{
+		policyAssignments: make(map[string]*armpolicy.Assignment),
+	}
+
+	// Add a policy assignment to the management group
+	pa := &armpolicy.Assignment{
+		Name: to.Ptr("test-policy-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+		Properties: &armpolicy.AssignmentProperties{
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"parameter1": {Value: "value1"},
+			},
+		},
+	}
+	alzmg.policyAssignments["test-policy-assignment"] = pa
+
+	// Define the expected modified policy assignment
+	expected := &armpolicy.Assignment{
+		Name: to.Ptr("test-policy-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+		Properties: &armpolicy.AssignmentProperties{
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"parameter1": {Value: "value1"},
+				"parameter2": {Value: "value2"},
+			},
+			EnforcementMode:       to.Ptr(armpolicy.EnforcementModeDefault),
+			NonComplianceMessages: []*armpolicy.NonComplianceMessage{},
+		},
+		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+	}
+
+	// Call the ModifyPolicyAssignment function
+	err := alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		map[string]*armpolicy.ParameterValuesValue{
+			"parameter2": {Value: "value2"},
+		},
+		to.Ptr(armpolicy.EnforcementModeDefault),
+		[]*armpolicy.NonComplianceMessage{},
+		&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+	)
+
+	// Check for errors
+	assert.NoError(t, err)
+
+	// Check if the policy assignment was modified correctly
+	assert.Equal(t, expected, alzmg.policyAssignments["test-policy-assignment"])
 }
