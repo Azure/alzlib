@@ -155,34 +155,6 @@ func (lao *LibArchetypeOverride) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (res *Result) Override2Archetype() error {
-	for _, v := range res.LibArchetypeOverrides {
-		// Check if archetype already exists
-		if _, exists := res.LibArchetypes[v.Name]; exists {
-			return fmt.Errorf("cannot create archetype from override as %s already exists", v.Name)
-		}
-
-		// Check if the base archetype exists
-		baseArchetype, exists := res.LibArchetypes[v.BaseArchetype]
-		if !exists {
-			return fmt.Errorf("base archetype %s does not exist", v.BaseArchetype)
-		}
-
-		// Create a new archetype from the base archetype
-		la := &LibArchetype{
-			Name:                 v.Name,
-			PolicyAssignments:    baseArchetype.PolicyAssignments.Clone().Union(v.PolicyAssignmentsToAdd).Difference(v.PolicyAssignmentsToRemove),
-			PolicyDefinitions:    baseArchetype.PolicyDefinitions.Clone().Union(v.PolicyDefinitionsToAdd).Difference(v.PolicyDefinitionsToRemove),
-			PolicySetDefinitions: baseArchetype.PolicySetDefinitions.Clone().Union(v.PolicySetDefinitionsToAdd).Difference(v.PolicySetDefinitionsToRemove),
-			RoleDefinitions:      baseArchetype.RoleDefinitions.Clone().Union(v.RoleDefinitionsToAdd).Difference(v.RoleDefinitionsToRemove),
-		}
-
-		// Add the new archetype to the AlzLib
-		res.LibArchetypes[la.Name] = la
-	}
-	return nil
-}
-
 // classifyLibFile identifies the supplied file and adds calls the appropriate processFunc.
 func classifyLibFile(res *Result, file fs.File, name string) error {
 	err := error(nil)

@@ -181,10 +181,13 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 			return err
 		}
 
-		// convert override archetypes to alzlib archetypes.
-
 		// Generate archetypes
 		if err := az.generateArchetypes(res); err != nil {
+			return err
+		}
+
+		// Generate override archetypes
+		if err := az.generateOverrideArchetypes(res); err != nil {
 			return err
 		}
 	}
