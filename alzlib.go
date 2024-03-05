@@ -511,6 +511,27 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 	return nil
 }
 
+func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
+	for name, ovr := range res.LibArchetypeOverrides {
+		if _, exists := az.archetypes[name]; exists {
+			return fmt.Errorf("error processing override archetype %s - it already exists in the library", name)
+		}
+		base, exists := az.archetypes[ovr.BaseArchetype]
+		if !exists {
+			return fmt.Errorf("error processing override archetype %s - base archetype %s does not exist in the library", name, ovr.BaseArchetype)
+		}
+		new := &Archetype{
+			PolicyDefinitions:    base.PolicyDefinitions.Clone().Union(ovr.PolicyDefinitionsToAdd).Difference(ovr.PolicyDefinitionsToRemove),
+			PolicySetDefinitions: base.PolicySetDefinitions.Clone().Union(ovr.PolicySetDefinitionsToAdd).Difference(ovr.PolicySetDefinitionsToRemove),
+			PolicyAssignments:    base.PolicyAssignments.Clone().Union(ovr.PolicyAssignmentsToAdd).Difference(ovr.PolicyAssignmentsToRemove),
+			RoleDefinitions:      base.RoleDefinitions.Clone().Union(ovr.RoleDefinitionsToAdd).Difference(ovr.RoleDefinitionsToRemove),
+			name:                 name,
+		}
+		az.archetypes[name] = new
+	}
+	return nil
+}
+
 // lastSegment returns the last segment of a string separated by "/".
 func lastSegment(s string) string {
 	parts := strings.Split(s, "/")
