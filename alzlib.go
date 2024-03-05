@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -119,6 +120,10 @@ func (az *AlzLib) CopyArchetype(name string, wkpv *WellKnownPolicyValues) (*Arch
 	if arch, ok := az.archetypes[name]; ok {
 		rtn := new(Archetype)
 		*rtn = *arch
+		rtn.PolicyAssignments = arch.PolicyAssignments.Clone()
+		rtn.PolicyDefinitions = arch.PolicyDefinitions.Clone()
+		rtn.PolicySetDefinitions = arch.PolicySetDefinitions.Clone()
+		rtn.RoleDefinitions = arch.RoleDefinitions.Clone()
 		rtn.wellKnownPolicyValues = wkpv
 		return rtn, nil
 	}
@@ -242,23 +247,31 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 
 	// make copies of the archetype resources for modification in the Deployment management group.
 	for name := range req.Archetype.PolicyDefinitions.Iter() {
-		newdef := new(armpolicy.Definition)
-		*newdef = *az.policyDefinitions[name]
-		alzmg.policyDefinitions[name] = newdef
+		newDef, err := deep.Copy(az.policyDefinitions[name])
+		if err != nil {
+			return err
+		}
+		alzmg.policyDefinitions[name] = newDef
 	}
 	for name := range req.Archetype.PolicySetDefinitions.Iter() {
-		newdef := new(armpolicy.SetDefinition)
-		*newdef = *az.policySetDefinitions[name]
-		alzmg.policySetDefinitions[name] = newdef
+		newSetDef, err := deep.Copy(az.policySetDefinitions[name])
+		if err != nil {
+			return err
+		}
+		alzmg.policySetDefinitions[name] = newSetDef
 	}
 	for name := range req.Archetype.PolicyAssignments.Iter() {
-		newpolassign := new(armpolicy.Assignment)
-		*newpolassign = *az.policyAssignments[name]
+		newpolassign, err := deep.Copy(az.policyAssignments[name])
+		if err != nil {
+			return err
+		}
 		alzmg.policyAssignments[name] = newpolassign
 	}
 	for name := range req.Archetype.RoleDefinitions.Iter() {
-		newroledef := new(armauthorization.RoleDefinition)
-		*newroledef = *az.roleDefinitions[name]
+		newroledef, err := deep.Copy(az.roleDefinitions[name])
+		if err != nil {
+			return err
+		}
 		alzmg.roleDefinitions[name] = newroledef
 	}
 	alzmg.wkpv = req.Archetype.wellKnownPolicyValues
