@@ -144,8 +144,9 @@ func (lao *LibArchetypeOverride) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	lao.Name = tmp.Name
+	lao.BaseArchetype = tmp.BaseArchetype
 	lao.PolicyAssignmentsToAdd = mapset.NewSet[string](tmp.PolicyAssignmentsToAdd...)
-	lao.PolicyAssignmentsToRemove = mapset.NewSet[string](tmp.PolicyDefinitionsToRemove...)
+	lao.PolicyAssignmentsToRemove = mapset.NewSet[string](tmp.PolicyAssignmentsToRemove...)
 	lao.PolicyDefinitionsToAdd = mapset.NewSet[string](tmp.PolicyDefinitionsToAdd...)
 	lao.PolicyDefinitionsToRemove = mapset.NewSet[string](tmp.PolicyDefinitionsToRemove...)
 	lao.PolicySetDefinitionsToAdd = mapset.NewSet[string](tmp.PolicySetDefinitionsToAdd...)

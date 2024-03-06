@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Azure/alzlib/processor"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -28,9 +29,11 @@ func TestInitMultiLib(t *testing.T) {
 	dirfs := os.DirFS("./testdata/simple")
 	err = az.Init(ctx, remoteLib, dirfs)
 	assert.NoError(t, err)
-	assert.Equal(t, 11, len(az.archetypes))
+	assert.Equal(t, 12, len(az.archetypes))
 	// Test root archetype has been overridden
 	assert.Equal(t, 1, az.archetypes["root"].PolicyDefinitions.Cardinality())
+	assert.Equal(t, 1, az.archetypes["simpleo"].PolicyDefinitions.Cardinality())
+	assert.Equal(t, 1, az.archetypes["simpleo"].PolicyAssignments.Cardinality())
 }
 
 // Test_NewAlzLib_noDir tests the creation of a new AlzLib when supplied with a path
@@ -177,4 +180,47 @@ func TestGetBuiltInPolicySet(t *testing.T) {
 	assert.Equal(t, 1, len(az.policySetDefinitions))
 	assert.Equal(t, "Evaluate Private Link Usage Across All Supported Azure Resources", *az.policySetDefinitions["7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"].Properties.DisplayName)
 	assert.Equal(t, 30, len(az.policyDefinitions))
+}
+
+func TestGenerateOverrideArchetypes(t *testing.T) {
+	az := NewAlzLib()
+
+	// Create a base archetype
+	baseArchetype := &Archetype{
+		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1", "policy2"),
+		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1", "policySet2"),
+		PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1", "assignment2"),
+		RoleDefinitions:      mapset.NewThreadUnsafeSet("role1", "role2"),
+		name:                 "baseArchetype",
+	}
+	az.archetypes["baseArchetype"] = baseArchetype
+
+	// Create a result with archetype overrides
+	result := &processor.Result{
+		LibArchetypeOverrides: map[string]*processor.LibArchetypeOverride{
+			"overrideArchetype": {
+				BaseArchetype:                "baseArchetype",
+				PolicyDefinitionsToAdd:       mapset.NewThreadUnsafeSet("policy3"),
+				PolicyDefinitionsToRemove:    mapset.NewThreadUnsafeSet("policy1"),
+				PolicyAssignmentsToAdd:       mapset.NewThreadUnsafeSet("assignment3"),
+				PolicyAssignmentsToRemove:    mapset.NewThreadUnsafeSet("assignment1"),
+				PolicySetDefinitionsToAdd:    mapset.NewThreadUnsafeSet("policySet3"),
+				PolicySetDefinitionsToRemove: mapset.NewThreadUnsafeSet("policySet1"),
+				RoleDefinitionsToAdd:         mapset.NewThreadUnsafeSet("role3"),
+				RoleDefinitionsToRemove:      mapset.NewThreadUnsafeSet("role1"),
+			},
+		},
+	}
+
+	err := az.generateOverrideArchetypes(result)
+	assert.NoError(t, err)
+
+	// Check if the override archetype is created correctly
+	overrideArchetype, exists := az.archetypes["overrideArchetype"]
+	assert.True(t, exists)
+	assert.True(t, mapset.NewThreadUnsafeSet("policy2", "policy3").Equal(overrideArchetype.PolicyDefinitions))
+	assert.True(t, mapset.NewThreadUnsafeSet("policySet2", "policySet3").Equal(overrideArchetype.PolicySetDefinitions))
+	assert.True(t, mapset.NewThreadUnsafeSet("assignment2", "assignment3").Equal(overrideArchetype.PolicyAssignments))
+	assert.True(t, mapset.NewThreadUnsafeSet("role2", "role3").Equal(overrideArchetype.RoleDefinitions))
+	assert.Equal(t, "overrideArchetype", overrideArchetype.name)
 }
