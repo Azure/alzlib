@@ -181,10 +181,13 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 			return err
 		}
 
-		// convert override archetypes to alzlib archetypes.
-
 		// Generate archetypes
 		if err := az.generateArchetypes(res); err != nil {
+			return err
+		}
+
+		// Generate override archetypes
+		if err := az.generateOverrideArchetypes(res); err != nil {
 			return err
 		}
 	}
@@ -504,6 +507,27 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 			arch.RoleDefinitions.Add(rd)
 		}
 		az.archetypes[v.Name] = arch
+	}
+	return nil
+}
+
+func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
+	for name, ovr := range res.LibArchetypeOverrides {
+		if _, exists := az.archetypes[name]; exists {
+			return fmt.Errorf("error processing override archetype %s - it already exists in the library", name)
+		}
+		base, exists := az.archetypes[ovr.BaseArchetype]
+		if !exists {
+			return fmt.Errorf("error processing override archetype %s - base archetype %s does not exist in the library", name, ovr.BaseArchetype)
+		}
+		newArch := &Archetype{
+			PolicyDefinitions:    base.PolicyDefinitions.Clone().Union(ovr.PolicyDefinitionsToAdd).Difference(ovr.PolicyDefinitionsToRemove),
+			PolicySetDefinitions: base.PolicySetDefinitions.Clone().Union(ovr.PolicySetDefinitionsToAdd).Difference(ovr.PolicySetDefinitionsToRemove),
+			PolicyAssignments:    base.PolicyAssignments.Clone().Union(ovr.PolicyAssignmentsToAdd).Difference(ovr.PolicyAssignmentsToRemove),
+			RoleDefinitions:      base.RoleDefinitions.Clone().Union(ovr.RoleDefinitionsToAdd).Difference(ovr.RoleDefinitionsToRemove),
+			name:                 name,
+		}
+		az.archetypes[name] = newArch
 	}
 	return nil
 }

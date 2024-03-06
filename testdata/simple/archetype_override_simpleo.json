@@ -1,5 +1,5 @@
 {
-  "base_archetype": "simple",
+  "base_archetype": "root",
   "name": "simpleo",
   "policy_assignments_to_add": [
     "override-policy-assignment"

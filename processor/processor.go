@@ -144,42 +144,15 @@ func (lao *LibArchetypeOverride) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	lao.Name = tmp.Name
+	lao.BaseArchetype = tmp.BaseArchetype
 	lao.PolicyAssignmentsToAdd = mapset.NewSet[string](tmp.PolicyAssignmentsToAdd...)
-	lao.PolicyAssignmentsToRemove = mapset.NewSet[string](tmp.PolicyDefinitionsToRemove...)
+	lao.PolicyAssignmentsToRemove = mapset.NewSet[string](tmp.PolicyAssignmentsToRemove...)
 	lao.PolicyDefinitionsToAdd = mapset.NewSet[string](tmp.PolicyDefinitionsToAdd...)
 	lao.PolicyDefinitionsToRemove = mapset.NewSet[string](tmp.PolicyDefinitionsToRemove...)
 	lao.PolicySetDefinitionsToAdd = mapset.NewSet[string](tmp.PolicySetDefinitionsToAdd...)
 	lao.PolicySetDefinitionsToRemove = mapset.NewSet[string](tmp.PolicySetDefinitionsToRemove...)
 	lao.RoleDefinitionsToAdd = mapset.NewSet[string](tmp.RoleDefinitionsToAdd...)
 	lao.RoleDefinitionsToRemove = mapset.NewSet[string](tmp.RoleDefinitionsToRemove...)
-	return nil
-}
-
-func (res *Result) Override2Archetype() error {
-	for _, v := range res.LibArchetypeOverrides {
-		// Check if archetype already exists
-		if _, exists := res.LibArchetypes[v.Name]; exists {
-			return fmt.Errorf("cannot create archetype from override as %s already exists", v.Name)
-		}
-
-		// Check if the base archetype exists
-		baseArchetype, exists := res.LibArchetypes[v.BaseArchetype]
-		if !exists {
-			return fmt.Errorf("base archetype %s does not exist", v.BaseArchetype)
-		}
-
-		// Create a new archetype from the base archetype
-		la := &LibArchetype{
-			Name:                 v.Name,
-			PolicyAssignments:    baseArchetype.PolicyAssignments.Clone().Union(v.PolicyAssignmentsToAdd).Difference(v.PolicyAssignmentsToRemove),
-			PolicyDefinitions:    baseArchetype.PolicyDefinitions.Clone().Union(v.PolicyDefinitionsToAdd).Difference(v.PolicyDefinitionsToRemove),
-			PolicySetDefinitions: baseArchetype.PolicySetDefinitions.Clone().Union(v.PolicySetDefinitionsToAdd).Difference(v.PolicySetDefinitionsToRemove),
-			RoleDefinitions:      baseArchetype.RoleDefinitions.Clone().Union(v.RoleDefinitionsToAdd).Difference(v.RoleDefinitionsToRemove),
-		}
-
-		// Add the new archetype to the AlzLib
-		res.LibArchetypes[la.Name] = la
-	}
 	return nil
 }
 

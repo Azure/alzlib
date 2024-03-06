@@ -726,6 +726,18 @@ func TestModifyPolicyAssignment(t *testing.T) {
 			},
 			EnforcementMode:       to.Ptr(armpolicy.EnforcementModeDefault),
 			NonComplianceMessages: []*armpolicy.NonComplianceMessage{},
+			ResourceSelectors: []*armpolicy.ResourceSelector{
+				{
+					Name: to.Ptr("resourceSelector1"),
+					Selectors: []*armpolicy.Selector{
+						{
+							Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
+							In:   to.SliceOfPtrs([]string{"eastus"}...),
+						},
+					},
+				},
+			},
+			Overrides: []*armpolicy.Override{},
 		},
 		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
 	}
@@ -739,6 +751,18 @@ func TestModifyPolicyAssignment(t *testing.T) {
 		to.Ptr(armpolicy.EnforcementModeDefault),
 		[]*armpolicy.NonComplianceMessage{},
 		&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+		[]*armpolicy.ResourceSelector{
+			{
+				Name: to.Ptr("resourceSelector1"),
+				Selectors: []*armpolicy.Selector{
+					{
+						Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
+						In:   to.SliceOfPtrs([]string{"eastus"}...),
+					},
+				},
+			},
+		},
+		[]*armpolicy.Override{},
 	)
 
 	// Check for errors

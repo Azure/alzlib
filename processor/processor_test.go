@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -176,55 +175,6 @@ func TestProcessPolicySetDefinitionNoData(t *testing.T) {
 	t.Parallel()
 	res := &Result{}
 	assert.ErrorContains(t, processPolicySetDefinition(res, make([]byte, 0)), "error unmarshalling policy set definition")
-}
-
-// TestOverride2Archetype tests the Override2Archetype function.
-func TestOverride2Archetype(t *testing.T) {
-	t.Parallel()
-
-	// Create a sample Result object with existing archetypes and overrides
-	res := &Result{
-		LibArchetypes: map[string]*LibArchetype{
-			"baseArchetype": {
-				Name: "baseArchetype",
-				// Add some sample data to the base archetype
-				PolicyAssignments:    mapset.NewThreadUnsafeSet[string]("policyAssignment1"),
-				PolicyDefinitions:    mapset.NewThreadUnsafeSet[string]("policyDefinition1"),
-				PolicySetDefinitions: mapset.NewThreadUnsafeSet[string]("policySetDefinition1"),
-				RoleDefinitions:      mapset.NewThreadUnsafeSet[string]("roleDefinition1"),
-			},
-		},
-		LibArchetypeOverrides: map[string]*LibArchetypeOverride{
-			"override1": {
-				Name:          "override1",
-				BaseArchetype: "baseArchetype",
-				// Add some sample data to the override
-				PolicyAssignmentsToAdd:       mapset.NewThreadUnsafeSet[string]("policyAssignment2"),
-				PolicyAssignmentsToRemove:    mapset.NewThreadUnsafeSet[string]("policyAssignment1"),
-				PolicyDefinitionsToAdd:       mapset.NewThreadUnsafeSet[string]("policyDefinition2"),
-				PolicyDefinitionsToRemove:    mapset.NewThreadUnsafeSet[string]("policyDefinition1"),
-				PolicySetDefinitionsToAdd:    mapset.NewThreadUnsafeSet[string]("policySetDefinition2"),
-				PolicySetDefinitionsToRemove: mapset.NewThreadUnsafeSet[string]("policySetDefinition1"),
-				RoleDefinitionsToAdd:         mapset.NewThreadUnsafeSet[string]("roleDefinition2"),
-				RoleDefinitionsToRemove:      mapset.NewThreadUnsafeSet[string]("roleDefinition1"),
-			},
-		},
-	}
-
-	// Call the function being tested
-	err := res.Override2Archetype()
-
-	// Check if the function returned an error
-	assert.NoError(t, err)
-
-	// Check if the new archetype was created correctly
-	newArchetype, exists := res.LibArchetypes["override1"]
-	assert.True(t, exists)
-	assert.Equal(t, "override1", newArchetype.Name)
-	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("policyAssignment2"), newArchetype.PolicyAssignments)
-	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("policyDefinition2"), newArchetype.PolicyDefinitions)
-	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("policySetDefinition2"), newArchetype.PolicySetDefinitions)
-	assert.Equal(t, mapset.NewThreadUnsafeSet[string]("roleDefinition2"), newArchetype.RoleDefinitions)
 }
 
 // getSampleArchetypeDefinition_valid returns a valid archetype definition.
