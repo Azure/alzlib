@@ -520,14 +520,14 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 		if !exists {
 			return fmt.Errorf("error processing override archetype %s - base archetype %s does not exist in the library", name, ovr.BaseArchetype)
 		}
-		new := &Archetype{
+		newArch := &Archetype{
 			PolicyDefinitions:    base.PolicyDefinitions.Clone().Union(ovr.PolicyDefinitionsToAdd).Difference(ovr.PolicyDefinitionsToRemove),
 			PolicySetDefinitions: base.PolicySetDefinitions.Clone().Union(ovr.PolicySetDefinitionsToAdd).Difference(ovr.PolicySetDefinitionsToRemove),
 			PolicyAssignments:    base.PolicyAssignments.Clone().Union(ovr.PolicyAssignmentsToAdd).Difference(ovr.PolicyAssignmentsToRemove),
 			RoleDefinitions:      base.RoleDefinitions.Clone().Union(ovr.RoleDefinitionsToAdd).Difference(ovr.RoleDefinitionsToRemove),
 			name:                 name,
 		}
-		az.archetypes[name] = new
+		az.archetypes[name] = newArch
 	}
 	return nil
 }
