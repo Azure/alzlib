@@ -306,6 +306,8 @@ func (alzmg *AlzManagementGroup) ModifyPolicyAssignment(
 	enforcementMode *armpolicy.EnforcementMode,
 	nonComplianceMessages []*armpolicy.NonComplianceMessage,
 	identity *armpolicy.Identity,
+	resourceSelectors []*armpolicy.ResourceSelector,
+	overrides []*armpolicy.Override,
 ) error {
 	if _, ok := alzmg.policyAssignments[name]; !ok {
 		return fmt.Errorf("policy assignment %s not found in management group %s", name, alzmg.name)
@@ -329,6 +331,14 @@ func (alzmg *AlzManagementGroup) ModifyPolicyAssignment(
 
 	if nonComplianceMessages != nil {
 		alzmg.policyAssignments[name].Properties.NonComplianceMessages = nonComplianceMessages
+	}
+
+	if resourceSelectors != nil {
+		alzmg.policyAssignments[name].Properties.ResourceSelectors = resourceSelectors
+	}
+
+	if overrides != nil {
+		alzmg.policyAssignments[name].Properties.Overrides = overrides
 	}
 
 	if identity != nil {
