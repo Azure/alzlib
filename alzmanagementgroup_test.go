@@ -39,7 +39,8 @@ func TestDeepCopy(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	lib := os.DirFS("testdata/simple")
-	az.Init(ctx, lib)
+	err := az.Init(ctx, lib)
+	assert.NoError(t, err)
 	for _, v := range az.policyDefinitions {
 		cpy, _ := copystructure.Copy(v)
 		assert.True(t, reflect.DeepEqual(v, cpy))
