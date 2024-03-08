@@ -15,8 +15,8 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/mitchellh/copystructure"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -252,30 +252,50 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 
 	// make copies of the archetype resources for modification in the Deployment management group.
 	for name := range req.Archetype.PolicyDefinitions.Iter() {
-		newDef, err := deep.Copy(az.policyDefinitions[name])
+		src := az.policyDefinitions[name]
+		cpy, err := copystructure.Copy(src)
 		if err != nil {
 			return err
+		}
+		newDef, ok := cpy.(*armpolicy.Definition)
+		if !ok {
+			return fmt.Errorf("error copying policy definition %s", name)
 		}
 		alzmg.policyDefinitions[name] = newDef
 	}
 	for name := range req.Archetype.PolicySetDefinitions.Iter() {
-		newSetDef, err := deep.Copy(az.policySetDefinitions[name])
+		src := az.policySetDefinitions[name]
+		cpy, err := copystructure.Copy(src)
 		if err != nil {
 			return err
+		}
+		newSetDef, ok := cpy.(*armpolicy.SetDefinition)
+		if !ok {
+			return fmt.Errorf("error copying policy set definition %s", name)
 		}
 		alzmg.policySetDefinitions[name] = newSetDef
 	}
 	for name := range req.Archetype.PolicyAssignments.Iter() {
-		newpolassign, err := deep.Copy(az.policyAssignments[name])
+		src := az.policyAssignments[name]
+		cpy, err := copystructure.Copy(src)
 		if err != nil {
 			return err
+		}
+		newpolassign, ok := cpy.(*armpolicy.Assignment)
+		if !ok {
+			return fmt.Errorf("error copying policy assignment %s", name)
 		}
 		alzmg.policyAssignments[name] = newpolassign
 	}
 	for name := range req.Archetype.RoleDefinitions.Iter() {
-		newroledef, err := deep.Copy(az.roleDefinitions[name])
+		src := az.roleDefinitions[name]
+		cpy, err := copystructure.Copy(src)
 		if err != nil {
 			return err
+		}
+		newroledef, ok := cpy.(*armauthorization.RoleDefinition)
+		if !ok {
+			return fmt.Errorf("error copying role definition %s", name)
 		}
 		alzmg.roleDefinitions[name] = newroledef
 	}
@@ -288,7 +308,6 @@ func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzMan
 	if err := az.Deployment.mgs[req.Id].update(az, nil); err != nil {
 		return err
 	}
-
 	return nil
 }
 

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/Azure/alzlib/to"
@@ -15,6 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/go-getter"
+	"github.com/mitchellh/copystructure"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +32,31 @@ func getRemoteLib(ctx context.Context) (fs.FS, error) {
 		return nil, err
 	}
 	return os.DirFS(dst), nil
+}
+
+func TestDeepCopy(t *testing.T) {
+	az := NewAlzLib()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	lib := os.DirFS("testdata/simple")
+	err := az.Init(ctx, lib)
+	assert.NoError(t, err)
+	for _, v := range az.policyDefinitions {
+		cpy, _ := copystructure.Copy(v)
+		assert.True(t, reflect.DeepEqual(v, cpy))
+	}
+	for _, v := range az.policySetDefinitions {
+		cpy, _ := copystructure.Copy(v)
+		assert.True(t, reflect.DeepEqual(v, cpy))
+	}
+	for _, v := range az.policyAssignments {
+		cpy, _ := copystructure.Copy(v)
+		assert.True(t, reflect.DeepEqual(v, cpy))
+	}
+	for _, v := range az.roleDefinitions {
+		cpy, _ := copystructure.Copy(v)
+		assert.True(t, reflect.DeepEqual(v, cpy))
+	}
 }
 
 // TestFullAlz tests the ALZ reference architecture creation in full.

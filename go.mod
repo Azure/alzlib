@@ -7,10 +7,10 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization v1.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy v0.9.0
-	github.com/brunoga/deep v0.0.0-20240304172926-e77dd1f80d07
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-getter v1.7.3
+	github.com/mitchellh/copystructure v1.2.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.22.0
 	golang.org/x/sync v0.6.0
@@ -44,6 +44,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
