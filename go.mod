@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/go-getter v1.7.3
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.23.0
 	golang.org/x/sync v0.6.0
 )
 
