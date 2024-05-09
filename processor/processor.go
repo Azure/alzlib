@@ -13,7 +13,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	mapset "github.com/deckarep/golang-set/v2"
 )
 
 // These are the file prefixes for the resource types.
@@ -24,42 +23,18 @@ const (
 	policyDefinitionPrefix    = "policy_definition_"
 	policySetDefinitionPrefix = "policy_set_definition_"
 	roleDefinitionPrefix      = "role_definition_"
+	policyDefaultValuesPrefix = "policy_default_values_"
 )
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
-	PolicyDefinitions     map[string]*armpolicy.Definition
-	PolicySetDefinitions  map[string]*armpolicy.SetDefinition
-	PolicyAssignments     map[string]*armpolicy.Assignment
-	RoleDefinitions       map[string]*armauthorization.RoleDefinition
-	LibArchetypes         map[string]*LibArchetype
-	LibArchetypeOverrides map[string]*LibArchetypeOverride
-}
-
-// LibArchetype represents an archetype definition file,
-// it used to construct the Archetype struct and is then added to the AlzLib struct.
-type LibArchetype struct {
-	Name                 string             `json:"name"`
-	PolicyAssignments    mapset.Set[string] `json:"policy_assignments"`
-	PolicyDefinitions    mapset.Set[string] `json:"policy_definitions"`
-	PolicySetDefinitions mapset.Set[string] `json:"policy_set_definitions"`
-	RoleDefinitions      mapset.Set[string] `json:"role_definitions"`
-}
-
-// LibArchetypeOverride represents an archetype override definition file,
-// it used to construct generate a new Archetype struct from an existing
-// full archetype and is then added to the AlzLib struct.
-type LibArchetypeOverride struct {
-	Name                         string             `json:"name"`
-	BaseArchetype                string             `json:"base_archetype"`
-	PolicyAssignmentsToAdd       mapset.Set[string] `json:"policy_assignments_to_add"`
-	PolicyAssignmentsToRemove    mapset.Set[string] `json:"policy_assignments_to_remove"`
-	PolicyDefinitionsToAdd       mapset.Set[string] `json:"policy_definitions_to_add"`
-	PolicyDefinitionsToRemove    mapset.Set[string] `json:"policy_definitions_to_remove"`
-	PolicySetDefinitionsToAdd    mapset.Set[string] `json:"policy_set_definitions_to_add"`
-	PolicySetDefinitionsToRemove mapset.Set[string] `json:"policy_set_definitions_to_remove"`
-	RoleDefinitionsToAdd         mapset.Set[string] `json:"role_definitions_to_add"`
-	RoleDefinitionsToRemove      mapset.Set[string] `json:"role_definitions_to_remove"`
+	PolicyDefinitions      map[string]*armpolicy.Definition
+	PolicySetDefinitions   map[string]*armpolicy.SetDefinition
+	PolicyAssignments      map[string]*armpolicy.Assignment
+	RoleDefinitions        map[string]*armauthorization.RoleDefinition
+	LibArchetypes          map[string]*LibArchetype
+	LibArchetypeOverrides  map[string]*LibArchetypeOverride
+	LibDefaultPolicyValues map[string]*LibDefaultPolicyValues
 }
 
 // processFunc is the function signature that is used to process different types of lib file.
@@ -83,6 +58,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 	res.PolicySetDefinitions = make(map[string]*armpolicy.SetDefinition)
 	res.RoleDefinitions = make(map[string]*armauthorization.RoleDefinition)
 	res.LibArchetypeOverrides = make(map[string]*LibArchetypeOverride)
+	res.LibDefaultPolicyValues = make(map[string]*LibDefaultPolicyValues)
 
 	// Walk the embedded lib FS and process files
 	if err := fs.WalkDir(client.fs, ".", func(path string, d fs.DirEntry, err error) error {
@@ -104,55 +80,6 @@ func (client *ProcessorClient) Process(res *Result) error {
 	}); err != nil {
 		return err
 	}
-	return nil
-}
-
-// UnmarshalJSON creates a LibArchetype from the supplied JSON bytes.
-func (la *LibArchetype) UnmarshalJSON(data []byte) error {
-	tmp := struct {
-		Name                 string   `json:"name"`
-		PolicyAssignments    []string `json:"policy_assignments"`
-		PolicyDefinitions    []string `json:"policy_definitions"`
-		PolicySetDefinitions []string `json:"policy_set_definitions"`
-		RoleDefinitions      []string `json:"role_definitions"`
-	}{}
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-	la.Name = tmp.Name
-	la.PolicyAssignments = mapset.NewSet[string](tmp.PolicyAssignments...)
-	la.PolicyDefinitions = mapset.NewSet[string](tmp.PolicyDefinitions...)
-	la.PolicySetDefinitions = mapset.NewSet[string](tmp.PolicySetDefinitions...)
-	la.RoleDefinitions = mapset.NewSet[string](tmp.RoleDefinitions...)
-	return nil
-}
-
-func (lao *LibArchetypeOverride) UnmarshalJSON(data []byte) error {
-	tmp := struct {
-		Name                         string   `json:"name"`
-		BaseArchetype                string   `json:"base_archetype"`
-		PolicyAssignmentsToAdd       []string `json:"policy_assignments_to_add"`
-		PolicyAssignmentsToRemove    []string `json:"policy_assignments_to_remove"`
-		PolicyDefinitionsToAdd       []string `json:"policy_definitions_to_add"`
-		PolicyDefinitionsToRemove    []string `json:"policy_definitions_to_remove"`
-		PolicySetDefinitionsToAdd    []string `json:"policy_set_definitions_to_add"`
-		PolicySetDefinitionsToRemove []string `json:"policy_set_definitions_to_remove"`
-		RoleDefinitionsToAdd         []string `json:"role_definitions_to_add"`
-		RoleDefinitionsToRemove      []string `json:"role_definitions_to_remove"`
-	}{}
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-	lao.Name = tmp.Name
-	lao.BaseArchetype = tmp.BaseArchetype
-	lao.PolicyAssignmentsToAdd = mapset.NewSet[string](tmp.PolicyAssignmentsToAdd...)
-	lao.PolicyAssignmentsToRemove = mapset.NewSet[string](tmp.PolicyAssignmentsToRemove...)
-	lao.PolicyDefinitionsToAdd = mapset.NewSet[string](tmp.PolicyDefinitionsToAdd...)
-	lao.PolicyDefinitionsToRemove = mapset.NewSet[string](tmp.PolicyDefinitionsToRemove...)
-	lao.PolicySetDefinitionsToAdd = mapset.NewSet[string](tmp.PolicySetDefinitionsToAdd...)
-	lao.PolicySetDefinitionsToRemove = mapset.NewSet[string](tmp.PolicySetDefinitionsToRemove...)
-	lao.RoleDefinitionsToAdd = mapset.NewSet[string](tmp.RoleDefinitionsToAdd...)
-	lao.RoleDefinitionsToRemove = mapset.NewSet[string](tmp.RoleDefinitionsToRemove...)
 	return nil
 }
 
@@ -185,6 +112,10 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 	// if the file is an archetype override
 	case strings.HasPrefix(n, archetypeOverridePrefix):
 		err = readAndProcessFile(res, file, processArchetypeOverride)
+
+		// if the file is an policy default values file
+	case strings.HasPrefix(n, policyDefaultValuesPrefix):
+		err = readAndProcessFile(res, file, processDefaultPolicyValues)
 	}
 
 	if err != nil {
@@ -194,8 +125,24 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 	return err
 }
 
+// processDefaultPolicyValues is a processFunc that reads the default_policy_values
+// bytes, processes, then adds the created LibArchetypeDefinition to the result.
+func processDefaultPolicyValues(res *Result, data []byte) error {
+	lpv := new(LibDefaultPolicyValues)
+	if err := json.Unmarshal(data, lpv); err != nil {
+		return fmt.Errorf("error processing default policy values: %w", err)
+	}
+	for _, d := range lpv.Defaults {
+		if _, exists := res.LibDefaultPolicyValues[d.DefaultName]; exists {
+			return fmt.Errorf("default policy values with name %s already exists", d.DefaultName)
+		}
+		res.LibDefaultPolicyValues[d.DefaultName] = lpv
+	}
+	return nil
+}
+
 // processArchetype is a processFunc that reads the archetype_definition
-// bytes, processes, then adds the created LibArchetypeDefinition to the AlzLib.
+// bytes, processes, then adds the created LibArchetypeDefinition to the result.
 func processArchetype(res *Result, data []byte) error {
 	la := new(LibArchetype)
 
@@ -210,7 +157,7 @@ func processArchetype(res *Result, data []byte) error {
 }
 
 // processArchetypeOverride is a processFunc that reads the archetype_override
-// bytes, processes, then adds the created LibArchetypeDefinition to the AlzLib.
+// bytes, processes, then adds the created LibArchetypeDefinition to the result.
 func processArchetypeOverride(res *Result, data []byte) error {
 	lao := new(LibArchetypeOverride)
 	if err := json.Unmarshal(data, lao); err != nil {
@@ -224,7 +171,7 @@ func processArchetypeOverride(res *Result, data []byte) error {
 }
 
 // processPolicyAssignment is a processFunc that reads the policy_assignment
-// bytes, processes, then adds the created armpolicy.Assignment to the AlzLib.
+// bytes, processes, then adds the created armpolicy.Assignment to the result.
 func processPolicyAssignment(res *Result, data []byte) error {
 	pa := new(armpolicy.Assignment)
 	if err := json.Unmarshal(data, pa); err != nil {
@@ -241,7 +188,7 @@ func processPolicyAssignment(res *Result, data []byte) error {
 }
 
 // processPolicyAssignment is a processFunc that reads the policy_definition
-// bytes, processes, then adds the created armpolicy.Definition to the AlzLib.
+// bytes, processes, then adds the created armpolicy.Definition to the result.
 func processPolicyDefinition(res *Result, data []byte) error {
 	pd := new(armpolicy.Definition)
 	if err := json.Unmarshal(data, pd); err != nil {
@@ -258,7 +205,7 @@ func processPolicyDefinition(res *Result, data []byte) error {
 }
 
 // processPolicyAssignment is a processFunc that reads the policy_set_definition
-// bytes, processes, then adds the created armpolicy.SetDefinition to the AlzLib.
+// bytes, processes, then adds the created armpolicy.SetDefinition to the result.
 func processPolicySetDefinition(res *Result, data []byte) error {
 	psd := new(armpolicy.SetDefinition)
 	if err := json.Unmarshal(data, psd); err != nil {
@@ -274,6 +221,8 @@ func processPolicySetDefinition(res *Result, data []byte) error {
 	return nil
 }
 
+// processRoleDefinition is a processFunc that reads the role_definition
+// bytes, processes, then adds the created armpolicy.SetDefinition to the result.
 func processRoleDefinition(res *Result, data []byte) error {
 	rd := new(armauthorization.RoleDefinition)
 	if err := json.Unmarshal(data, rd); err != nil {
