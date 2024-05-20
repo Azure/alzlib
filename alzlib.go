@@ -11,12 +11,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/processor"
-	"github.com/Azure/alzlib/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
+
 	"golang.org/x/sync/errgroup"
 )
 
@@ -28,14 +28,13 @@ const (
 // do not create this directly, use NewAlzLib instead.
 // Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type AlzLib struct {
-	Options    *AlzLibOptions
-	Deployment *DeploymentType // Deployment is the deployment object that stores the management group hierarchy
+	Options *AlzLibOptions
 
 	archetypes           map[string]*Archetype
-	policyAssignments    map[string]*armpolicy.Assignment
-	policyDefinitions    map[string]*armpolicy.Definition
-	policySetDefinitions map[string]*armpolicy.SetDefinition
-	roleDefinitions      map[string]*armauthorization.RoleDefinition
+	policyAssignments    map[string]*assets.PolicyAssignment
+	policyDefinitions    map[string]*assets.PolicyDefinition
+	policySetDefinitions map[string]*assets.PolicySetDefinition
+	roleDefinitions      map[string]*assets.RoleDefinition
 	clients              *azureClients
 	mu                   sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps (not the Deployment maps, which are protected by the Deployment mutex)
 }
@@ -54,44 +53,23 @@ type AlzLibOptions struct {
 // Archetype represents an archetype definition that hasn't been assigned to a management group
 // The contents of the sets represent the map keys of the corresponding AlzLib maps.
 type Archetype struct {
-	PolicyDefinitions     mapset.Set[string]
-	PolicyAssignments     mapset.Set[string]
-	PolicySetDefinitions  mapset.Set[string]
-	RoleDefinitions       mapset.Set[string]
-	wellKnownPolicyValues *WellKnownPolicyValues // options are used to populate the Archetype with well known parameter values
-	name                  string
-}
-
-// WellKnownPolicyValues represents options for a deployment
-// These are values that are typically replaced in the deployed resources
-// E.g. location, log analytics workspace ID, etc.
-type WellKnownPolicyValues struct {
-	DefaultLocation                *string
-	DefaultLogAnalyticsWorkspaceId *string
-	PrivateDnsZoneResourceGroupId  *string // PrivateDnsZoneResourceGroupId is used in the Deploy-Private-Dns-Zones policy assignment
-}
-
-type AlzManagementGroupAddRequest struct {
-	Id               string
-	DisplayName      string
-	ParentId         string
-	ParentIsExternal bool
-	Archetype        *Archetype
+	PolicyDefinitions    mapset.Set[string]
+	PolicyAssignments    mapset.Set[string]
+	PolicySetDefinitions mapset.Set[string]
+	RoleDefinitions      mapset.Set[string]
+	name                 string
 }
 
 // NewAlzLib returns a new instance of the alzlib library, optionally using the supplied directory
 // for additional policy (set) definitions.
 func NewAlzLib() *AlzLib {
 	az := &AlzLib{
-		Options:    getDefaultAlzLibOptions(),
-		archetypes: make(map[string]*Archetype),
-		Deployment: &DeploymentType{
-			mgs: make(map[string]*AlzManagementGroup),
-		},
-		policyAssignments:    make(map[string]*armpolicy.Assignment),
-		policyDefinitions:    make(map[string]*armpolicy.Definition),
-		policySetDefinitions: make(map[string]*armpolicy.SetDefinition),
-		roleDefinitions:      make(map[string]*armauthorization.RoleDefinition),
+		Options:              getDefaultAlzLibOptions(),
+		archetypes:           make(map[string]*Archetype),
+		policyAssignments:    make(map[string]*assets.PolicyAssignment),
+		policyDefinitions:    make(map[string]*assets.PolicyDefinition),
+		policySetDefinitions: make(map[string]*assets.PolicySetDefinition),
+		roleDefinitions:      make(map[string]*assets.RoleDefinition),
 		clients:              new(azureClients),
 		mu:                   sync.RWMutex{},
 	}
@@ -116,7 +94,7 @@ func (az *AlzLib) ListArchetypes() []string {
 
 // CopyArchetype returns a copy of the requested archetype by name.
 // The returned struct can be used as a parameter to the Deployment.AddManagementGroup method.
-func (az *AlzLib) CopyArchetype(name string, wkpv *WellKnownPolicyValues) (*Archetype, error) {
+func (az *AlzLib) CopyArchetype(name string) (*Archetype, error) {
 	if arch, ok := az.archetypes[name]; ok {
 		rtn := new(Archetype)
 		*rtn = *arch
@@ -124,7 +102,6 @@ func (az *AlzLib) CopyArchetype(name string, wkpv *WellKnownPolicyValues) (*Arch
 		rtn.PolicyDefinitions = arch.PolicyDefinitions.Clone()
 		rtn.PolicySetDefinitions = arch.PolicySetDefinitions.Clone()
 		rtn.RoleDefinitions = arch.RoleDefinitions.Clone()
-		rtn.wellKnownPolicyValues = wkpv
 		return rtn, nil
 	}
 	return nil, fmt.Errorf("archetype %s not found", name)
@@ -152,6 +129,34 @@ func (az *AlzLib) PolicyAssignmentExists(name string) bool {
 func (az *AlzLib) RoleDefinitionExists(name string) bool {
 	_, exists := az.roleDefinitions[name]
 	return exists
+}
+
+func (az *AlzLib) GetPolicyDefinition(name string) (*assets.PolicyDefinition, error) {
+	if pd, exists := az.policyDefinitions[name]; exists {
+		return deep.Copy(pd)
+	}
+	return nil, fmt.Errorf("policy definition %s not found", name)
+}
+
+func (az *AlzLib) GetPolicyAssignment(name string) (*assets.PolicyAssignment, error) {
+	if pa, exists := az.policyAssignments[name]; exists {
+		return deep.Copy(pa)
+	}
+	return nil, fmt.Errorf("policy assignment %s not found", name)
+}
+
+func (az *AlzLib) GetPolicySetDefinition(name string) (*assets.PolicySetDefinition, error) {
+	if psd, exists := az.policySetDefinitions[name]; exists {
+		return deep.Copy(psd)
+	}
+	return nil, fmt.Errorf("policy set definition %s not found", name)
+}
+
+func (az *AlzLib) GetRoleDefinition(name string) (*assets.RoleDefinition, error) {
+	if rd, exists := az.roleDefinitions[name]; exists {
+		return deep.Copy(rd)
+	}
+	return nil, fmt.Errorf("role definition %s not found", name)
 }
 
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.
@@ -190,103 +195,6 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		if err := az.generateOverrideArchetypes(res); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-// AddManagementGroupToDeployment adds a management group to the deployment, with a parent if specified.
-// If the parent is not specified, the management group is considered the root of the hierarchy.
-// The archetype should have been obtained using the `AlzLib.CopyArchetype` method, together with the `WellKnownPolicyValues`.
-// This allows for customization and ensures the correct policy assignment values have been set.
-func (az *AlzLib) AddManagementGroupToDeployment(ctx context.Context, req AlzManagementGroupAddRequest) error {
-	if req.Archetype.wellKnownPolicyValues == nil {
-		return errors.New("archetype well known values not set, use Alzlib.CopyArchetype() to get a copy and update")
-	}
-
-	if _, exists := az.Deployment.mgs[req.Id]; exists {
-		return fmt.Errorf("management group %s already exists", req.Id)
-	}
-	alzmg := newAlzManagementGroup()
-
-	alzmg.name = req.Id
-	alzmg.displayName = req.DisplayName
-	alzmg.children = mapset.NewSet[*AlzManagementGroup]()
-	if req.ParentIsExternal {
-		if _, ok := az.Deployment.mgs[req.ParentId]; ok {
-
-			return fmt.Errorf("external parent management group set, but already exists %s", req.ParentId)
-		}
-		alzmg.parentExternal = to.Ptr[string](req.ParentId)
-	}
-	if !req.ParentIsExternal && req.ParentId != "" {
-		mg, ok := az.Deployment.mgs[req.ParentId]
-		if !ok {
-			return fmt.Errorf("parent management group not found %s", req.ParentId)
-		}
-		alzmg.parent = mg
-		az.Deployment.mgs[req.ParentId].children.Add(alzmg)
-	}
-
-	// We only allow one intermediate root management group, so check if this is the first one.
-	if req.ParentIsExternal {
-		for mgname, mg := range az.Deployment.mgs {
-			if mg.parentExternal != nil {
-				return fmt.Errorf("multiple root management groups: %s and %s", mgname, req.Id)
-			}
-		}
-	}
-
-	// Get the policy definitions and policy set definitions referenced by the policy assignments.
-	assignedPolicyDefinitionIds := mapset.NewThreadUnsafeSet[string]()
-	for pa := range req.Archetype.PolicyAssignments.Iter() {
-		if !az.PolicyAssignmentExists(pa) {
-			return fmt.Errorf("policy assignment %s referenced in archetype %s does not exist in the library", pa, req.Archetype.name)
-		}
-		assignedPolicyDefinitionIds.Add(*az.policyAssignments[pa].Properties.PolicyDefinitionID)
-	}
-
-	if err := az.GetDefinitionsFromAzure(ctx, assignedPolicyDefinitionIds.ToSlice()); err != nil {
-		return err
-	}
-
-	// make copies of the archetype resources for modification in the Deployment management group.
-	for name := range req.Archetype.PolicyDefinitions.Iter() {
-		newDef, err := deep.Copy(az.policyDefinitions[name])
-		if err != nil {
-			return err
-		}
-		alzmg.policyDefinitions[name] = newDef
-	}
-	for name := range req.Archetype.PolicySetDefinitions.Iter() {
-		newSetDef, err := deep.Copy(az.policySetDefinitions[name])
-		if err != nil {
-			return err
-		}
-		alzmg.policySetDefinitions[name] = newSetDef
-	}
-	for name := range req.Archetype.PolicyAssignments.Iter() {
-		newpolassign, err := deep.Copy(az.policyAssignments[name])
-		if err != nil {
-			return err
-		}
-		alzmg.policyAssignments[name] = newpolassign
-	}
-	for name := range req.Archetype.RoleDefinitions.Iter() {
-		newroledef, err := deep.Copy(az.roleDefinitions[name])
-		if err != nil {
-			return err
-		}
-		alzmg.roleDefinitions[name] = newroledef
-	}
-	alzmg.wkpv = req.Archetype.wellKnownPolicyValues
-
-	// add the management group to the deployment.
-	az.Deployment.mgs[req.Id] = alzmg
-
-	// run Update to change all refs, etc.
-	if err := az.Deployment.mgs[req.Id].update(az, nil); err != nil {
-		return err
 	}
 
 	return nil
@@ -532,20 +440,20 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 	return nil
 }
 
-// lastSegment returns the last segment of a string separated by "/".
-func lastSegment(s string) string {
-	parts := strings.Split(s, "/")
-	if len(parts) <= 1 {
-		return "s"
-	}
-	return parts[len(parts)-1]
-}
+// // lastSegment returns the last segment of a string separated by "/".
+// func lastSegment(s string) string {
+// 	parts := strings.Split(s, "/")
+// 	if len(parts) <= 1 {
+// 		return "s"
+// 	}
+// 	return parts[len(parts)-1]
+// }
 
-// lastButOneSegment returns the last but one segment of a string separated by "/".
-func lastButOneSegment(s string) string {
-	parts := strings.Split(s, "/")
-	if len(parts) <= 2 {
-		return "s"
-	}
-	return parts[len(parts)-2]
-}
+// // lastButOneSegment returns the last but one segment of a string separated by "/".
+// func lastButOneSegment(s string) string {
+// 	parts := strings.Split(s, "/")
+// 	if len(parts) <= 2 {
+// 		return "s"
+// 	}
+// 	return parts[len(parts)-2]
+// }

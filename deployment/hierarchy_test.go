@@ -1,4 +1,4 @@
-package alzlib
+package deployment
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func TestWellKnownParameterReplacement(t *testing.T) {
 func TestPolicySetDefinitionToMg(t *testing.T) {
 	t.Parallel()
 	// Test with a single management group and policy set definition.
-	d := DeploymentType{
+	d := Hierarchy{
 		mgs: map[string]*AlzManagementGroup{
 			"mg1": {
 				policySetDefinitions: map[string]*armpolicy.SetDefinition{
@@ -60,7 +60,7 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 	assert.Equal(t, expected, d.policySetDefinitionToMg())
 
 	// Test with multiple management groups and policy set definitions.
-	d = DeploymentType{
+	d = Hierarchy{
 		mgs: map[string]*AlzManagementGroup{
 			"mg1": {
 				policySetDefinitions: map[string]*armpolicy.SetDefinition{
@@ -83,7 +83,7 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 	assert.Equal(t, expected, d.policySetDefinitionToMg())
 
 	// Test with no management groups or policy set definitions.
-	d = DeploymentType{}
+	d = Hierarchy{}
 	expected = map[string]string{}
 	assert.Equal(t, expected, d.policySetDefinitionToMg())
 }
@@ -91,7 +91,7 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 func TestPolicyDefinitionToMg(t *testing.T) {
 	t.Parallel()
 	// Test with a single management group and policy definition.
-	d := DeploymentType{
+	d := Hierarchy{
 		mgs: map[string]*AlzManagementGroup{
 			"mg1": {
 				policyDefinitions: map[string]*armpolicy.Definition{
@@ -106,7 +106,7 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 	assert.Equal(t, expected, d.policyDefinitionToMg())
 
 	// Test with multiple management groups and policy definitions.
-	d = DeploymentType{
+	d = Hierarchy{
 		mgs: map[string]*AlzManagementGroup{
 			"mg1": {
 				policyDefinitions: map[string]*armpolicy.Definition{
@@ -129,7 +129,7 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 	assert.Equal(t, expected, d.policyDefinitionToMg())
 
 	// Test with no management groups or policy definitions.
-	d = DeploymentType{}
+	d = Hierarchy{}
 	expected = map[string]string{}
 	assert.Equal(t, expected, d.policyDefinitionToMg())
 }

@@ -1,12 +1,8 @@
-package alzlib
+package deployment
 
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"net/url"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/Azure/alzlib/to"
@@ -14,23 +10,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/hashicorp/go-getter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestGoGetter.
-func getRemoteLib(ctx context.Context) (fs.FS, error) {
-	q := url.Values{}
-	q.Add("depth", "1")
-	q.Add("ref", "platform/alz/2024.03.00")
-	u := "git::https://github.com/Azure/Azure-Landing-Zones-Library//platform/alz?" + q.Encode()
-	dst := filepath.Join(".alzlib", "lib")
-	if err := getter.Get(dst, u, getter.WithContext(ctx)); err != nil {
-		return nil, err
-	}
-	return os.DirFS(dst), nil
-}
 
 // TestFullAlz tests the ALZ reference architecture creation in full.
 func TestFullAlz(t *testing.T) {
