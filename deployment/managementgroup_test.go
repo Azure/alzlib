@@ -14,141 +14,108 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFullAlz tests the ALZ reference architecture creation in full.
-func TestFullAlz(t *testing.T) {
-	az := NewAlzLib()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	assert.NoError(t, err)
-	cf, err := armpolicy.NewClientFactory("", cred, nil)
-	assert.NoError(t, err)
-	az.AddPolicyClient(cf)
-	dirfs, err := getRemoteLib(ctx)
-	require.NoError(t, err)
-	assert.NoError(t, az.Init(ctx, dirfs))
-	vals := &WellKnownPolicyValues{
-		DefaultLocation:                to.Ptr("eastus"),
-		DefaultLogAnalyticsWorkspaceId: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.OperationalInsights/workspaces/testlaworkspaceid"),
+func TestAddManagementGroup(t *testing.T) {
+	t.Parallel()
+	// create a new deployment type.
+	wkvs := &WellKnownPolicyValues{
+		DefaultLocation: to.Ptr("eastus"),
 	}
+	az := NewAlzLib()
 
-	t.Log("Creating root management group")
-	arch, err := az.CopyArchetype("root", vals)
-	assert.NoError(t, err)
+	// create a new archetype
+	arch := &Archetype{
+		PolicyDefinitions:    mapset.NewSet[string](),
+		PolicySetDefinitions: mapset.NewSet[string](),
+		PolicyAssignments:    mapset.NewSet[string](),
+		RoleDefinitions:      mapset.NewSet[string](),
+	}
+	arch.wellKnownPolicyValues = wkvs
+
+	// test adding a new management group with no parent.
 	req := AlzManagementGroupAddRequest{
-		Id:               "root",
-		DisplayName:      "root",
+		Id:               "mg1",
+		DisplayName:      "mg1",
 		ParentId:         "external",
 		ParentIsExternal: true,
 		Archetype:        arch,
 	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["root"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
-
-	t.Log("Creating landing_zones management group")
-	arch, err = az.CopyArchetype("landing_zones", vals)
+	err := az.AddManagementGroupToDeployment(context.Background(), req)
 	assert.NoError(t, err)
+	assert.Len(t, az.Deployment.mgs, 1)
+	assert.Contains(t, az.Deployment.mgs, "mg1")
+	assert.Equal(t, "mg1", az.Deployment.mgs["mg1"].name)
+	assert.Equal(t, "mg1", az.Deployment.mgs["mg1"].displayName)
+	assert.Nil(t, az.Deployment.mgs["mg1"].parent)
+	assert.Equal(t, az.Deployment.mgs["mg1"].children.Cardinality(), 0)
+	assert.True(t, az.Deployment.mgs["mg1"].ParentIsExternal())
+	assert.Equal(t, fmt.Sprintf(managementGroupIdFmt, "mg1"), az.Deployment.mgs["mg1"].GetResourceId())
+
 	req = AlzManagementGroupAddRequest{
-		Id:               "landing_zones",
-		DisplayName:      "landing_zones",
-		ParentId:         "root",
+		Id:               "mg2",
+		DisplayName:      "mg2",
+		ParentId:         "mg1",
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["landing_zones"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
-
-	t.Log("Creating platform management group")
-	arch, err = az.CopyArchetype("platform", vals)
+	// test adding a new management group with a parent.
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
 	assert.NoError(t, err)
+	assert.Len(t, az.Deployment.mgs, 2)
+	assert.Contains(t, az.Deployment.mgs, "mg2")
+	assert.Equal(t, "mg2", az.Deployment.mgs["mg2"].name)
+	assert.Equal(t, "mg2", az.Deployment.mgs["mg2"].displayName)
+	assert.NotNil(t, az.Deployment.mgs["mg2"].parent)
+	assert.Equal(t, "mg1", az.Deployment.mgs["mg2"].parent.name)
+	assert.Equal(t, az.Deployment.mgs["mg1"].children.Cardinality(), 1)
+	assert.Equal(t, "mg2", az.Deployment.mgs["mg1"].children.ToSlice()[0].name)
+	assert.False(t, az.Deployment.mgs["mg2"].ParentIsExternal())
+	assert.Equal(t, az.Deployment.mgs["mg1"], az.Deployment.mgs["mg2"].GetParentMg())
+
 	req = AlzManagementGroupAddRequest{
-		Id:               "platform",
-		DisplayName:      "platform",
-		ParentId:         "root",
+		Id:               "mg3",
+		DisplayName:      "mg3",
+		ParentId:         "mg4",
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["platform"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+	// test adding a new management group with a non-existent parent.
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
+	assert.Error(t, err)
+	assert.Len(t, az.Deployment.mgs, 2)
+	assert.Contains(t, az.Deployment.mgs, "mg1")
+	assert.Contains(t, az.Deployment.mgs, "mg2")
+	assert.NotContains(t, az.Deployment.mgs, "mg3")
 
-	t.Log("Creating sandboxes management group")
-	arch, err = az.CopyArchetype("sandboxes", vals)
-	assert.NoError(t, err)
 	req = AlzManagementGroupAddRequest{
-		Id:               "sandboxes",
-		DisplayName:      "sandboxes",
-		ParentId:         "root",
-		ParentIsExternal: false,
+		Id:               "mg4",
+		DisplayName:      "mg4",
+		ParentId:         "external",
+		ParentIsExternal: true,
 		Archetype:        arch,
 	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["sandboxes"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+	// test adding a new management group with multiple root management groups.
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
+	assert.Error(t, err)
+	assert.Len(t, az.Deployment.mgs, 2)
+	assert.Contains(t, az.Deployment.mgs, "mg1")
+	assert.Contains(t, az.Deployment.mgs, "mg2")
+	assert.NotContains(t, az.Deployment.mgs, "mg4")
 
-	t.Log("Creating management management group")
-	arch, err = az.CopyArchetype("management", vals)
-	assert.NoError(t, err)
 	req = AlzManagementGroupAddRequest{
-		Id:               "management",
-		DisplayName:      "management",
-		ParentId:         "platform",
-		ParentIsExternal: false,
+		Id:               "mg1",
+		DisplayName:      "mg1",
+		ParentId:         "external",
+		ParentIsExternal: true,
 		Archetype:        arch,
 	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["management"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
-
-	t.Log("Creating identity management group")
-	arch, err = az.CopyArchetype("identity", vals)
-	assert.NoError(t, err)
-	req = AlzManagementGroupAddRequest{
-		Id:               "identity",
-		DisplayName:      "identity",
-		ParentId:         "platform",
-		ParentIsExternal: false,
-		Archetype:        arch,
-	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["identity"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
-
-	t.Log("Creating connectivity management group")
-	arch, err = az.CopyArchetype("connectivity", vals)
-	assert.NoError(t, err)
-	req = AlzManagementGroupAddRequest{
-		Id:               "connectivity",
-		DisplayName:      "connectivity",
-		ParentId:         "platform",
-		ParentIsExternal: false,
-		Archetype:        arch,
-	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["connectivity"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
-
-	t.Log("Creating corp management group")
-	arch, err = az.CopyArchetype("corp", vals)
-	assert.NoError(t, err)
-	req = AlzManagementGroupAddRequest{
-		Id:               "corp",
-		DisplayName:      "corp",
-		ParentId:         "landing_zones",
-		ParentIsExternal: false,
-		Archetype:        arch,
-	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["corp"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
-
-	t.Log("Creating online management group")
-	arch, err = az.CopyArchetype("online", vals)
-	assert.NoError(t, err)
-	req = AlzManagementGroupAddRequest{
-		Id:               "online",
-		DisplayName:      "online",
-		ParentId:         "landing_zones",
-		ParentIsExternal: false,
-		Archetype:        arch,
-	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
-	assert.NoError(t, az.Deployment.mgs["online"].GeneratePolicyAssignmentAdditionalRoleAssignments(az))
+	// test adding a new management group with an existing name.
+	err = az.AddManagementGroupToDeployment(context.Background(), req)
+	assert.Error(t, err)
+	assert.Len(t, az.Deployment.mgs, 2)
+	assert.Contains(t, az.Deployment.mgs, "mg1")
+	assert.Contains(t, az.Deployment.mgs, "mg2")
 }
+
 
 func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	t.Parallel()
@@ -394,7 +361,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		DefaultLocation: to.Ptr("eastus"),
 	}
 	papv := getWellKnownPolicyAssignmentParameterValues(wkpv)
-	err := modifyPolicyAssignments(alzmg, pd2mg, psd2mg, papv)
+	err := updatePolicyAsignments(alzmg, pd2mg, psd2mg, papv)
 	assert.NoError(t, err)
 	expected := fmt.Sprintf(policyAssignmentIdFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].ID)
@@ -436,7 +403,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	psd2mg = map[string]string{
 		"psd1": "mg1",
 	}
-	err = modifyPolicyAssignments(alzmg, pd2mg, psd2mg, papv)
+	err = updatePolicyAsignments(alzmg, pd2mg, psd2mg, papv)
 	assert.NoError(t, err)
 	expected = fmt.Sprintf(policyAssignmentIdFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].ID)
@@ -473,7 +440,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	}
 	pd2mg = map[string]string{}
 	psd2mg = map[string]string{}
-	err = modifyPolicyAssignments(alzmg, pd2mg, psd2mg, papv)
+	err = updatePolicyAsignments(alzmg, pd2mg, psd2mg, papv)
 	assert.Error(t, err)
 	expected = "has invalid referenced definition/set resource type with id"
 	assert.ErrorContains(t, err, expected)
@@ -488,7 +455,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 			"pd1": {},
 		},
 	}
-	modifyPolicyDefinitions(alzmg)
+	updatePolicyDefinitions(alzmg)
 	expected := fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
 
@@ -500,7 +467,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 			"pd2": {},
 		},
 	}
-	modifyPolicyDefinitions(alzmg)
+	updatePolicyDefinitions(alzmg)
 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd2")
@@ -511,7 +478,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 		name:              "mg1",
 		policyDefinitions: map[string]*armpolicy.Definition{},
 	}
-	modifyPolicyDefinitions(alzmg)
+	updatePolicyDefinitions(alzmg)
 	assert.Empty(t, alzmg.policyDefinitions)
 }
 
@@ -535,7 +502,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	pd2mg := map[string]string{
 		"pd1": "mg1",
 	}
-	modifyPolicySetDefinitions(alzmg, pd2mg)
+	updatePolicySetDefinitions(alzmg, pd2mg)
 	expected := fmt.Sprintf(policySetDefinitionIdFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
@@ -573,7 +540,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 		"pd2": "mg1",
 		"pd3": "mg1",
 	}
-	modifyPolicySetDefinitions(alzmg, pd2mg)
+	updatePolicySetDefinitions(alzmg, pd2mg)
 	expected = fmt.Sprintf(policySetDefinitionIdFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
@@ -591,7 +558,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 		policySetDefinitions: map[string]*armpolicy.SetDefinition{},
 	}
 	pd2mg = map[string]string{}
-	modifyPolicySetDefinitions(alzmg, pd2mg)
+	updatePolicySetDefinitions(alzmg, pd2mg)
 	assert.Empty(t, alzmg.policySetDefinitions)
 }
 
@@ -609,7 +576,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 			},
 		},
 	}
-	modifyRoleDefinitions(alzmg)
+	updateRoleDefinitions(alzmg)
 	expected := fmt.Sprintf(roleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
@@ -634,7 +601,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 			},
 		},
 	}
-	modifyRoleDefinitions(alzmg)
+	updateRoleDefinitions(alzmg)
 	expected = fmt.Sprintf(roleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
@@ -651,7 +618,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 		name:            "mg1",
 		roleDefinitions: map[string]*armauthorization.RoleDefinition{},
 	}
-	modifyRoleDefinitions(alzmg)
+	updateRoleDefinitions(alzmg)
 	assert.Empty(t, alzmg.roleDefinitions)
 }
 

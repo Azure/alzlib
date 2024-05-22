@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
@@ -93,23 +94,23 @@ func (mg *ManagementGroup) ResourceId() string {
 }
 
 // GetPolicyAssignmentMap returns a copy of the policy assignments map.
-func (mg *ManagementGroup) GetPolicyAssignmentMap() map[string]assets.PolicyAssignment {
-	return copyMap[string, assets.PolicyAssignment](mg.policyAssignments)
+func (mg *ManagementGroup) GetPolicyAssignmentMap() map[string]*assets.PolicyAssignment {
+	return copyMap[string, *assets.PolicyAssignment](mg.policyAssignments)
 }
 
 // GetPolicyDefinitionsMap returns a copy of the policy definitions map.
-func (mg *ManagementGroup) GetPolicyDefinitionsMap() map[string]assets.PolicyDefinition {
-	return copyMap[string, assets.PolicyDefinition](mg.policyDefinitions)
+func (mg *ManagementGroup) GetPolicyDefinitionsMap() map[string]*assets.PolicyDefinition {
+	return copyMap[string, *assets.PolicyDefinition](mg.policyDefinitions)
 }
 
 // GetPolicySetDefinitionsMap returns a copy of the policy definitions map.
-func (mg *ManagementGroup) GetPolicySetDefinitionsMap() map[string]assets.PolicySetDefinition {
-	return copyMap[string, assets.PolicySetDefinition](mg.policySetDefinitions)
+func (mg *ManagementGroup) GetPolicySetDefinitionsMap() map[string]*assets.PolicySetDefinition {
+	return copyMap[string, *assets.PolicySetDefinition](mg.policySetDefinitions)
 }
 
 // GetRoleDefinitionsMap returns a copy of the role definitions map.
-func (alzmg *ManagementGroup) GetRoleDefinitionsMap() map[string]assets.RoleDefinition {
-	return copyMap[string, assets.RoleDefinition](alzmg.roleDefinitions)
+func (alzmg *ManagementGroup) GetRoleDefinitionsMap() map[string]*assets.RoleDefinition {
+	return copyMap[string, *assets.RoleDefinition](alzmg.roleDefinitions)
 }
 
 // GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
@@ -131,7 +132,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 		// get the policy definition name using the resource id
 		policyDefinitionRef, err := pa.ReferencedPolicyDefinitionResourceId()
 		if err != nil {
-			return fmt.Errorf("error getting referenced policy definition type for policy assignment %s: %w", paName, err)
+			return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting referenced policy definition type for policy assignment %s: %w", paName, err)
 		}
 
 		switch policyDefinitionRef.ResourceType.Type {
@@ -145,10 +146,10 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 			// get the role definition ids from the policy definition and add to the additional role assignment data
 			rdids, err := pd.GetNormalizedRoleDefinitionResourceIds()
 			if err != nil {
-				return fmt.Errorf("error getting role definition ids for policy definition %s: %w", *pd.Name, err)
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting role definition ids for policy definition %s: %w", *pd.Name, err)
 			}
 			if len(rdids) == 0 {
-				return fmt.Errorf("policy definition %s has no role definition ids", *pd.Name)
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition %s has no role definition ids", *pd.Name)
 			}
 			for _, rdid := range rdids {
 				mg.policyRoleAssignments.Add(PolicyRoleAssignment{
@@ -162,13 +163,13 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 			// add the additional role assignment data unless the parameter value is empty
 			assignPermissionParams, err := pd.GetAssignPermissionsParameterNames()
 			if err != nil {
-				return fmt.Errorf("error getting assign permissions parameter names for policy definition %s: %w", *pd.Name, err)
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting assign permissions parameter names for policy definition %s: %w", *pd.Name, err)
 			}
 			for _, paramName := range assignPermissionParams {
 
 				paParamVal, err := pa.GetParameterValueAsString(paramName)
 				if err != nil {
-					return fmt.Errorf("error getting parameter value for parameter %s in policy assignment %s: %w", paramName, paName, err)
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting parameter value for parameter %s in policy assignment %s: %w", paramName, paName, err)
 				}
 				if paParamVal == "" {
 					continue
@@ -193,23 +194,23 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 			}
 			pdRefs, err := psd.GetPolicyDefinitionReferences()
 			if err != nil {
-				return fmt.Errorf("error getting referenced policy definition names for policy set definition %s: %w", *psd.Name, err)
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting referenced policy definition names for policy set definition %s: %w", *psd.Name, err)
 			}
 			// for each policy definition in the policy set definition
 			for _, pdRef := range pdRefs {
-				pdName, err := assets.GetNameFromResourceId(*pdRef.PolicyDefinitionID)
+				pdName, err := assets.NameFromResourceId(*pdRef.PolicyDefinitionID)
 				if err != nil {
-					return fmt.Errorf("error getting policy definition name from id %s: %w", *pdRef.PolicyDefinitionID, err)
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting policy definition name from id %s: %w", *pdRef.PolicyDefinitionID, err)
 				}
 				pd, err := mg.hierarchy.alzlib.GetPolicyDefinition(pdName)
 				if err != nil {
-					return fmt.Errorf("policy definition %s, referenced by %s not found in AlzLib", pdName, *psd.Name)
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition %s, referenced by %s not found in AlzLib", pdName, *psd.Name)
 				}
 
 				// get the role definition ids from the policy definition and add to the additional role assignment data
 				rdids, err := pd.GetNormalizedRoleDefinitionResourceIds()
 				if err != nil {
-					return fmt.Errorf("error getting role definition ids for policy definition %s: %w", pdName, err)
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting role definition ids for policy definition %s: %w", pdName, err)
 				}
 				for _, rdid := range rdids {
 					mg.policyRoleAssignments.Add(PolicyRoleAssignment{
@@ -228,17 +229,17 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 					}
 					// get the parameter value from the policy reference within the set definition
 					if _, ok := pd.Properties.Parameters[paramName]; !ok {
-						return fmt.Errorf("parameter %s not found in policy definition %s", paramName, *pd.Name)
+						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: parameter %s not found in policy definition %s", paramName, *pd.Name)
 					}
 					pdrefParamVal := pdRef.Parameters[paramName].Value
 					pdrefParamValStr, ok := pdrefParamVal.(string)
 					if !ok {
-						return fmt.Errorf("parameter %s value in policy definition %s is not a string", paramName, *pd.Name)
+						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: parameter %s value in policy definition %s is not a string", paramName, *pd.Name)
 					}
 					// extract the assignment exposed policy set parameter name from the ARM function used in the policy definition reference
 					paParamName, err := extractParameterNameFromArmFunction(pdrefParamValStr)
 					if err != nil {
-						return err
+						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error extracting parameter name from ARM function %s: %w", pdrefParamValStr, err)
 					}
 
 					// if the parameter in the assignment doesn't exist, skip it
@@ -267,31 +268,20 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 // update will update the AlzManagementGroup resources with the correct resource ids, references, etc.
 // Make sure to pass in any updates to the policy assignment parameter values.
 func (mg *ManagementGroup) update(papv PolicyAssignmentsParameterValues) error {
-	if mg.wkpv == nil {
-		return fmt.Errorf("well known policy assignment parameter values not set for ALZManagementGroup %s", mg.name)
-	}
-
 	pd2mg := mg.hierarchy.policyDefinitionToMg()
 	psd2mg := mg.hierarchy.policySetDefinitionToMg()
 
 	// re-write the policy definition ID property to be the current MG name.
-	modifyPolicyDefinitions(mg)
+	updatePolicyDefinitions(mg)
 
 	// re-write the policy set definition ID property and go through the referenced definitions
 	// and write the definition id if it's custom.
-	modifyPolicySetDefinitions(mg, pd2mg)
+	updatePolicySetDefinitions(mg, pd2mg)
 
 	// re-write the assignableScopes for the role definitions.
-	modifyRoleDefinitions(mg)
+	updateRoleDefinitions(mg)
 
-	// re-write the policy assignment ID property to be the current MG name
-	// and go through the referenced definitions and write the definition id if it's custom
-	// and set the well known parameters.
-	// Update well known policy assignment parameters.
-	wk := getWellKnownPolicyAssignmentParameterValues(mg.wkpv)
-	papv = wk.Merge(papv)
-
-	if err := modifyPolicyAssignments(mg, pd2mg, psd2mg, papv); err != nil {
+	if err := updatePolicyAsignments(mg, pd2mg, psd2mg, papv); err != nil {
 		return err
 	}
 
@@ -361,8 +351,8 @@ func extractParameterNameFromArmFunction(value string) (string, error) {
 	return value[13 : len(value)-3], nil
 }
 
-// modifyPolicyDefinitions re-writes the policy definition resource IDs for the correct management group.
-func modifyPolicyDefinitions(mg *ManagementGroup) {
+// updatePolicyDefinitions re-writes the policy definition resource IDs for the correct management group.
+func updatePolicyDefinitions(mg *ManagementGroup) {
 	for k, v := range mg.policyDefinitions {
 		v.ID = to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, mg.name, k))
 	}
@@ -373,7 +363,7 @@ func modifyPolicyDefinitions(mg *ManagementGroup) {
 // It looks up the policy definition names that are in all archetypes in the Deployment.
 // If it is found, the definition reference id is re-written with the correct management group name.
 // If it is not found, we assume that it's built-in.
-func modifyPolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) error {
+func updatePolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) error {
 	for k, psd := range mg.policySetDefinitions {
 		psd.ID = to.Ptr(fmt.Sprintf(policySetDefinitionIdFmt, mg.name, k))
 		refs, err := psd.GetPolicyDefinitionReferences()
@@ -381,7 +371,7 @@ func modifyPolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) er
 			return err
 		}
 		for _, pd := range refs {
-			pdname, err := assets.GetNameFromResourceId(*pd.PolicyDefinitionID)
+			pdname, err := assets.NameFromResourceId(*pd.PolicyDefinitionID)
 			if err != nil {
 				return err
 			}
@@ -390,9 +380,10 @@ func modifyPolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) er
 			}
 		}
 	}
+	return nil
 }
 
-func modifyPolicyAssignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string, papv PolicyAssignmentsParameterValues) error {
+func updatePolicyAsignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string, papv PolicyAssignmentsParameterValues) error {
 	for assignmentName, params := range papv {
 		pa, ok := mg.policyAssignments[assignmentName]
 		if !ok {
@@ -416,12 +407,9 @@ func modifyPolicyAssignments(mg *ManagementGroup, pd2mg, psd2mg map[string]strin
 
 		// rewrite the referenced policy definition id
 		// if the policy definition is in the list.
-		if assignment.Properties.PolicyDefinitionID == nil {
-			return fmt.Errorf("policy assignment %s has nil policy definition id", assignmentName)
-		}
-		pdRes, err := arm.ParseResourceID(*assignment.Properties.PolicyDefinitionID)
+		pdRes, err := assignment.ReferencedPolicyDefinitionResourceId()
 		if err != nil {
-			return fmt.Errorf("error parsing policy definition id for policy assignment %s: %w", assignmentName, err)
+			return fmt.Errorf("updatePolicyAssignments: error parsing policy definition id for policy assignment %s: %w", assignmentName, err)
 		}
 
 		switch strings.ToLower(pdRes.ResourceType.Type) {
@@ -434,13 +422,13 @@ func modifyPolicyAssignments(mg *ManagementGroup, pd2mg, psd2mg map[string]strin
 				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(policySetDefinitionIdFmt, mgname, pdRes.Name))
 			}
 		default:
-			return fmt.Errorf("policy assignment %s has invalid referenced definition/set resource type with id: %s", assignmentName, *pd)
+			return fmt.Errorf("updatePolicyAssignments: policy assignment %s has invalid referenced definition/set resource type with id: %s", assignmentName, pdRes.Name)
 		}
 	}
 	return nil
 }
 
-func modifyRoleDefinitions(alzmg *ManagementGroup) {
+func updateRoleDefinitions(alzmg *ManagementGroup) {
 	for _, roledef := range alzmg.roleDefinitions {
 		u := uuidV5(alzmg.name, *roledef.Name)
 		roledef.ID = to.Ptr(fmt.Sprintf(roleDefinitionIdFmt, alzmg.name, u))
@@ -462,10 +450,10 @@ func newManagementGroup() *ManagementGroup {
 }
 
 // copyMap takes a map of pointers and returns a map of values.
-func copyMap[E comparable, T any](m map[E]*T) map[E]T {
+func copyMap[E comparable, T any](m map[E]T) map[E]T {
 	m2 := make(map[E]T, len(m))
 	for k, v := range m {
-		m2[k] = *v
+		m2[k] = deep.MustCopy(v)
 	}
 	return m2
 }

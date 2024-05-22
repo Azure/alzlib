@@ -1,20 +1,15 @@
-package alzlib_test
+package integrationtest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/to"
+	"github.com/Azure/alzlib/deployment"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 )
-
-func TestNewAlzLibOptions(t *testing.T) {
-	az := alzlib.NewAlzLib()
-	assert.Equal(t, 10, az.Options.Parallelism)
-}
 
 func TestNewAlzLibOptionsError(t *testing.T) {
 	az := new(alzlib.AlzLib)
@@ -36,28 +31,25 @@ func ExampleAlzLib_Init() {
 		return
 	}
 
-	wkpv := &alzlib.WellKnownPolicyValues{
-		DefaultLocation:                to.Ptr("eastus"),
-		DefaultLogAnalyticsWorkspaceId: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test/providers/Microsoft.OperationalInsights/workspaces/test"),
-		PrivateDnsZoneResourceGroupId:  to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test"),
-	}
-	arch, err := az.CopyArchetype("root", wkpv)
+	arch, err := az.CopyArchetype("root")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	req := alzlib.AlzManagementGroupAddRequest{
+
+	depl := deployment.NewHierarchy(az)
+	req := deployment.ManagementGroupAddRequest{
 		Id:               "test",
 		DisplayName:      "test",
 		ParentId:         "00000000-0000-0000-0000-000000000000",
 		ParentIsExternal: true,
 		Archetype:        arch,
 	}
-	if err := az.AddManagementGroupToDeployment(ctx, req); err != nil {
+	if err := depl.AddManagementGroup(ctx, req); err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("Management groups: %v", az.Deployment.ListManagementGroups())
+	fmt.Printf("Management groups: %v", depl)
 
 	// Output:
 	// Management groups: [test]

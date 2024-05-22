@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Azure/alzlib/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/Azure/alzlib"
+	"github.com/Azure/alzlib/assets"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,30 +15,31 @@ import (
 // TestWellKnownParameterReplacement demonstrates the replacement of well-known parameters.
 func TestWellKnownParameterReplacement(t *testing.T) {
 	t.Parallel()
-	az := NewAlzLib()
+	az := alzlib.NewAlzLib()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dirfs := os.DirFS("./testdata/wellknownparameters")
 	err := az.Init(ctx, dirfs)
 	require.NoError(t, err)
 
-	vals := &WellKnownPolicyValues{
-		DefaultLocation:                to.Ptr("eastus"),
-		DefaultLogAnalyticsWorkspaceId: to.Ptr("testlaworkspaceid"),
-	}
+	// vals := &WellKnownPolicyValues{
+	// 	DefaultLocation:                to.Ptr("eastus"),
+	// 	DefaultLogAnalyticsWorkspaceId: to.Ptr("testlaworkspaceid"),
+	// }
 
-	arch, err := az.CopyArchetype("test", vals)
+	arch, err := az.CopyArchetype("test")
 	assert.NoError(t, err)
-	req := AlzManagementGroupAddRequest{
+	req := ManagementGroupAddRequest{
 		Id:               "test",
 		DisplayName:      "test",
 		ParentId:         "external",
 		ParentIsExternal: true,
 		Archetype:        arch,
 	}
-	assert.NoError(t, az.AddManagementGroupToDeployment(context.Background(), req))
+	depl := NewHierarchy(az)
+	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
 
-	paramValue := az.Deployment.mgs["test"].policyAssignments["Deploy-AzActivity-Log"].Properties.Parameters["logAnalytics"].Value
+	paramValue := depl.mgs["test"].policyAssignments["Deploy-AzActivity-Log"].Properties.Parameters["logAnalytics"].Value
 	assert.Equal(t, "testlaworkspaceid", paramValue)
 }
 
@@ -46,9 +47,9 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 	t.Parallel()
 	// Test with a single management group and policy set definition.
 	d := Hierarchy{
-		mgs: map[string]*AlzManagementGroup{
+		mgs: map[string]*ManagementGroup{
 			"mg1": {
-				policySetDefinitions: map[string]*armpolicy.SetDefinition{
+				policySetDefinitions: map[string]*assets.PolicySetDefinition{
 					"psd1": {},
 				},
 			},
@@ -61,14 +62,14 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 
 	// Test with multiple management groups and policy set definitions.
 	d = Hierarchy{
-		mgs: map[string]*AlzManagementGroup{
+		mgs: map[string]*ManagementGroup{
 			"mg1": {
-				policySetDefinitions: map[string]*armpolicy.SetDefinition{
+				policySetDefinitions: map[string]*assets.PolicySetDefinition{
 					"psd1": {},
 				},
 			},
 			"mg2": {
-				policySetDefinitions: map[string]*armpolicy.SetDefinition{
+				policySetDefinitions: map[string]*assets.PolicySetDefinition{
 					"psd2": {},
 					"psd3": {},
 				},
@@ -92,9 +93,9 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 	t.Parallel()
 	// Test with a single management group and policy definition.
 	d := Hierarchy{
-		mgs: map[string]*AlzManagementGroup{
+		mgs: map[string]*ManagementGroup{
 			"mg1": {
-				policyDefinitions: map[string]*armpolicy.Definition{
+				policyDefinitions: map[string]*assets.PolicyDefinition{
 					"pd1": {},
 				},
 			},
@@ -107,14 +108,14 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 
 	// Test with multiple management groups and policy definitions.
 	d = Hierarchy{
-		mgs: map[string]*AlzManagementGroup{
+		mgs: map[string]*ManagementGroup{
 			"mg1": {
-				policyDefinitions: map[string]*armpolicy.Definition{
+				policyDefinitions: map[string]*assets.PolicyDefinition{
 					"pd1": {},
 				},
 			},
 			"mg2": {
-				policyDefinitions: map[string]*armpolicy.Definition{
+				policyDefinitions: map[string]*assets.PolicyDefinition{
 					"pd2": {},
 					"pd3": {},
 				},
