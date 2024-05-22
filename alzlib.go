@@ -13,6 +13,7 @@ import (
 
 	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/processor"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
@@ -104,7 +105,7 @@ func (az *AlzLib) CopyArchetype(name string) (*Archetype, error) {
 		rtn.RoleDefinitions = arch.RoleDefinitions.Clone()
 		return rtn, nil
 	}
-	return nil, fmt.Errorf("archetype %s not found", name)
+	return nil, fmt.Errorf("Alzlib.CopyArchetype: archetype %s not found", name)
 }
 
 // PolicyDefinitionExists returns true if the policy definition exists in the AlzLib struct.
@@ -131,32 +132,40 @@ func (az *AlzLib) RoleDefinitionExists(name string) bool {
 	return exists
 }
 
+// GetPolicyDefinition returns a deep copy of the requested policy definition.
+// This is safe to modify without affecting the original.
 func (az *AlzLib) GetPolicyDefinition(name string) (*assets.PolicyDefinition, error) {
 	if pd, exists := az.policyDefinitions[name]; exists {
 		return deep.Copy(pd)
 	}
-	return nil, fmt.Errorf("policy definition %s not found", name)
+	return nil, fmt.Errorf("Alzlib.GetPolicyDefinition: policy definition %s not found", name)
 }
 
+// GetPolicySetDefinition returns a deep copy of the requested policy set definition.
+// This is safe to modify without affecting the original.
 func (az *AlzLib) GetPolicyAssignment(name string) (*assets.PolicyAssignment, error) {
 	if pa, exists := az.policyAssignments[name]; exists {
 		return deep.Copy(pa)
 	}
-	return nil, fmt.Errorf("policy assignment %s not found", name)
+	return nil, fmt.Errorf("Alzlib.GetPolicyAssignment: policy assignment %s not found", name)
 }
 
+// GetPolicySetDefinition returns a deep copy of the requested policy set definition.
+// This is safe to modify without affecting the original.
 func (az *AlzLib) GetPolicySetDefinition(name string) (*assets.PolicySetDefinition, error) {
 	if psd, exists := az.policySetDefinitions[name]; exists {
 		return deep.Copy(psd)
 	}
-	return nil, fmt.Errorf("policy set definition %s not found", name)
+	return nil, fmt.Errorf("Alzlib.GetPolicySetDefinition: policy set definition %s not found", name)
 }
 
+// GetRoleDefinition returns a deep copy of the requested role definition.
+// This is safe to modify without affecting the original.
 func (az *AlzLib) GetRoleDefinition(name string) (*assets.RoleDefinition, error) {
 	if rd, exists := az.roleDefinitions[name]; exists {
 		return deep.Copy(rd)
 	}
-	return nil, fmt.Errorf("role definition %s not found", name)
+	return nil, fmt.Errorf("Alzlib.GetRoleDefinition: role definition %s not found", name)
 }
 
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.
@@ -207,30 +216,39 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	policySetDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	for _, pd := range pds {
-		switch strings.ToLower(lastButOneSegment(pd)) {
+		resId, err := arm.ParseResourceID(pd)
+		if err != nil {
+			return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error parsing resource ID %s: %w", pd, err)
+		}
+		switch strings.ToLower(resId.ResourceType.Type) {
 		case "policydefinitions":
-			if !az.PolicyDefinitionExists(lastSegment(pd)) {
-				policyDefsToGet.Add(lastSegment(pd))
+			if !az.PolicyDefinitionExists(resId.Name) {
+				policyDefsToGet.Add(resId.Name)
 			}
 		case "policysetdefinitions":
 			// If the set is not present, OR if the set contains referenced definitions that are not present
 			// add it to the list of set defs to get.
-			psd, exists := az.policySetDefinitions[lastSegment(pd)]
+			psd, exists := az.policySetDefinitions[resId.Name]
 			if exists {
-				for _, ref := range psd.Properties.PolicyDefinitions {
-					if ref.PolicyDefinitionID == nil {
+				pdrefs, err := psd.GetPolicyDefinitionReferences()
+				if err != nil {
+					return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting policy definition references for policy set definition %s: %w", pd, err)
+				}
+				for _, ref := range pdrefs {
+					subResId, err := arm.ParseResourceID(*ref.PolicyDefinitionID)
+					if err != nil {
 						return fmt.Errorf("policy set definition %s has a nil policy definition ID", *psd.Name)
 					}
-					if _, exists := az.policyDefinitions[lastSegment(*ref.PolicyDefinitionID)]; !exists {
-						policyDefsToGet.Add(lastSegment(*ref.PolicyDefinitionID))
+					if _, exists := az.policyDefinitions[subResId.Name]; !exists {
+						policyDefsToGet.Add(subResId.Name)
 					}
 				}
 			} else {
-				policySetDefsToGet.Add(lastSegment(pd))
+				policySetDefsToGet.Add(resId.Name)
 			}
 
 		default:
-			return fmt.Errorf("unexpected policy definition type when processing assignments: %s", pd)
+			return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: unexpected policy definition type when processing assignments: %s", pd)
 		}
 	}
 
@@ -238,12 +256,12 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 	// so that we can use the data to determine the correct role assignments at scope.
 	if policyDefsToGet.Cardinality() != 0 {
 		if err := az.getBuiltInPolicies(ctx, policyDefsToGet.ToSlice()); err != nil {
-			return err
+			return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting built-in policy definitions: %w", err)
 		}
 	}
 	if policySetDefsToGet.Cardinality() != 0 {
 		if err := az.getBuiltInPolicySets(ctx, policySetDefsToGet.ToSlice()); err != nil {
-			return err
+			return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting built-in policy set definitions: %w", err)
 		}
 	}
 	return nil
@@ -253,7 +271,7 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 // and adds them to the AlzLib struct.
 func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error {
 	if az.clients.policyClient == nil {
-		return errors.New("policy client not set")
+		return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
 	}
 	grp, ctx := errgroup.WithContext(ctx)
 	grp.SetLimit(az.Options.Parallelism)
@@ -268,9 +286,9 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error 
 			}
 			resp, err := pdclient.GetBuiltIn(ctx, name, nil)
 			if err != nil {
-				return err
+				return fmt.Errorf("Alzlib.getBuiltInPolicies: error getting built-in policy definition %s: %w", name, err)
 			}
-			az.policyDefinitions[name] = &resp.Definition
+			az.policyDefinitions[name] = assets.NewPolicyDefinition(resp.Definition)
 			return nil
 		})
 	}
@@ -284,7 +302,7 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error 
 // and adds them to the AlzLib struct.
 func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) error {
 	if az.clients.policyClient == nil {
-		return errors.New("policy client not set")
+		return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
 	}
 	grp, ctxErrGroup := errgroup.WithContext(ctx)
 	grp.SetLimit(az.Options.Parallelism)
@@ -305,10 +323,10 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 			}
 			resp, err := psclient.GetBuiltIn(ctxErrGroup, name, nil)
 			if err != nil {
-				return err
+				return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting built-in policy set definition %s: %w", name, err)
 			}
 			// Add set definition to the AlzLib.
-			az.policySetDefinitions[name] = &resp.SetDefinition
+			az.policySetDefinitions[name] = assets.NewPolicySetDefinition(resp.SetDefinition)
 			// Add name to processedNames.
 			mu.Lock()
 			defer mu.Unlock()
@@ -324,8 +342,19 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	defnames := make([]string, 0)
 	for _, name := range names {
 		name := name
-		for _, ref := range az.policySetDefinitions[name].Properties.PolicyDefinitions {
-			defnames = append(defnames, lastSegment(*ref.PolicyDefinitionID))
+		refs, err := az.policySetDefinitions[name].GetPolicyDefinitionReferences()
+		if err != nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition %s: %w", name, err)
+		}
+		for _, ref := range refs {
+			resId, err := arm.ParseResourceID(*ref.PolicyDefinitionID)
+			if err != nil {
+				if ref.PolicyDefinitionID == nil {
+					return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition %s: policy definition ID is nil", name)
+				}
+				return fmt.Errorf("Alzlib.getBuiltInPolicySets: error parsing resource id %s referenced in policy set %s", *ref.PolicyDefinitionID, name)
+			}
+			defnames = append(defnames, resId.Name)
 		}
 	}
 	if err := az.getBuiltInPolicies(ctx, defnames); err != nil {
@@ -339,27 +368,27 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 func (az *AlzLib) addProcessedResult(res *processor.Result) error {
 	for k, v := range res.PolicyDefinitions {
 		if _, exists := az.policyDefinitions[k]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("policy definition %s already exists in the library", k)
+			return fmt.Errorf("Alzlib.addProcessedResult: policy definition %s already exists in the library", k)
 		}
-		az.policyDefinitions[k] = v
+		az.policyDefinitions[k] = assets.NewPolicyDefinition(*v)
 	}
 	for k, v := range res.PolicySetDefinitions {
 		if _, exists := az.policySetDefinitions[k]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("policy definition %s already exists in the library", k)
+			return fmt.Errorf("Alzlib.addProcessedResult: policy definition %s already exists in the library", k)
 		}
-		az.policySetDefinitions[k] = v
+		az.policySetDefinitions[k] = assets.NewPolicySetDefinition(*v)
 	}
 	for k, v := range res.PolicyAssignments {
 		if _, exists := az.policyAssignments[k]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("policy assignment %s already exists in the library", k)
+			return fmt.Errorf("Alzlib.addProcessedResult: policy assignment %s already exists in the library", k)
 		}
-		az.policyAssignments[k] = v
+		az.policyAssignments[k] = assets.NewPolicyAssignment(*v)
 	}
 	for k, v := range res.RoleDefinitions {
 		if _, exists := az.roleDefinitions[k]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("role definition %s already exists in the library", k)
+			return fmt.Errorf("Alzlib.addProcessedResult: role definition %s already exists in the library", k)
 		}
-		az.roleDefinitions[k] = v
+		az.roleDefinitions[k] = assets.NewRoleDefinition(*v)
 	}
 	return nil
 }
@@ -381,7 +410,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 	// generate alzlib archetypes.
 	for k, v := range res.LibArchetypes {
 		if _, exists := az.archetypes[k]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("archetype %s already exists in the library", v.Name)
+			return fmt.Errorf("Alzlib.generateArchetypes: archetype %s already exists in the library", v.Name)
 		}
 		arch := &Archetype{
 			PolicyDefinitions:    mapset.NewSet[string](),
@@ -392,25 +421,25 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 		}
 		for pd := range v.PolicyDefinitions.Iter() {
 			if _, ok := az.policyDefinitions[pd]; !ok {
-				return fmt.Errorf("error processing archetype %s, policy definition %s does not exist in the library", k, pd)
+				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy definition %s does not exist in the library", k, pd)
 			}
 			arch.PolicyDefinitions.Add(pd)
 		}
 		for psd := range v.PolicySetDefinitions.Iter() {
 			if _, ok := az.policySetDefinitions[psd]; !ok {
-				return fmt.Errorf("error processing archetype %s, policy set definition %s does not exist in the library", k, psd)
+				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy set definition %s does not exist in the library", k, psd)
 			}
 			arch.PolicySetDefinitions.Add(psd)
 		}
 		for pa := range v.PolicyAssignments.Iter() {
 			if _, ok := az.policyAssignments[pa]; !ok {
-				return fmt.Errorf("error processing archetype %s, policy assignment %s does not exist in the library", k, pa)
+				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy assignment %s does not exist in the library", k, pa)
 			}
 			arch.PolicyAssignments.Add(pa)
 		}
 		for rd := range v.RoleDefinitions.Iter() {
 			if _, ok := az.roleDefinitions[rd]; !ok {
-				return fmt.Errorf("error processing archetype %s, role definition %s does not exist in the library", k, rd)
+				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, role definition %s does not exist in the library", k, rd)
 			}
 			arch.RoleDefinitions.Add(rd)
 		}
@@ -422,11 +451,11 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 	for name, ovr := range res.LibArchetypeOverrides {
 		if _, exists := az.archetypes[name]; exists {
-			return fmt.Errorf("error processing override archetype %s - it already exists in the library", name)
+			return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s - it already exists in the library", name)
 		}
 		base, exists := az.archetypes[ovr.BaseArchetype]
 		if !exists {
-			return fmt.Errorf("error processing override archetype %s - base archetype %s does not exist in the library", name, ovr.BaseArchetype)
+			return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s - base archetype %s does not exist in the library", name, ovr.BaseArchetype)
 		}
 		newArch := &Archetype{
 			PolicyDefinitions:    base.PolicyDefinitions.Clone().Union(ovr.PolicyDefinitionsToAdd).Difference(ovr.PolicyDefinitionsToRemove),
@@ -439,21 +468,3 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 	}
 	return nil
 }
-
-// // lastSegment returns the last segment of a string separated by "/".
-// func lastSegment(s string) string {
-// 	parts := strings.Split(s, "/")
-// 	if len(parts) <= 1 {
-// 		return "s"
-// 	}
-// 	return parts[len(parts)-1]
-// }
-
-// // lastButOneSegment returns the last but one segment of a string separated by "/".
-// func lastButOneSegment(s string) string {
-// 	parts := strings.Split(s, "/")
-// 	if len(parts) <= 2 {
-// 		return "s"
-// 	}
-// 	return parts[len(parts)-2]
-// }
