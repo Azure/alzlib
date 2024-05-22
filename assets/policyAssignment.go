@@ -12,6 +12,10 @@ type PolicyAssignment struct {
 	armpolicy.Assignment
 }
 
+func NewPolicyAssignment(pa armpolicy.Assignment) *PolicyAssignment {
+	return &PolicyAssignment{pa}
+}
+
 func (pa *PolicyAssignment) IdentityType() armpolicy.ResourceIdentityType {
 	if pa.Identity == nil || pa.Identity.Type == nil || *pa.Identity.Type == "None" {
 		return armpolicy.ResourceIdentityTypeNone

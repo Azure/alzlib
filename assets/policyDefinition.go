@@ -13,6 +13,10 @@ type PolicyDefinition struct {
 	armpolicy.Definition
 }
 
+func NewPolicyDefinition(pd armpolicy.Definition) *PolicyDefinition {
+	return &PolicyDefinition{pd}
+}
+
 // policyDefinitionRule represents the opinionated rule section of a policy definition.
 // This is used to determine the role assignments that need to be created,
 // therefore we only care about the `then.details.roleDefinitionIds` field.

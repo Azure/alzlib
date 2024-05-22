@@ -1,19 +1,25 @@
 package assets
 
-import "github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+import (
+	"fmt"
 
-func GetNameFromResourceId(resId string) (string, error) {
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+)
+
+// NameFromResourceId returns the name of the resource from a resource ID.
+func NameFromResourceId(resId string) (string, error) {
 	r, err := arm.ParseResourceID(resId)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("assets.NameFromResourceId: could not parse %s: %w", resId, err)
 	}
 	return r.Name, nil
 }
 
-func GetResourceTypeFromResourceId(resId string) (string, error) {
+// ResourceTypeFromResourceId returns the resource type of the resource from a resource ID.
+func ResourceTypeFromResourceId(resId string) (string, error) {
 	r, err := arm.ParseResourceID(resId)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("assets.ResourceTypeFromResourceId: could not parse %s: %w", resId, err)
 	}
 	return r.ResourceType.Type, nil
 }

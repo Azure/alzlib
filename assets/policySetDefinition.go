@@ -12,6 +12,10 @@ type PolicySetDefinition struct {
 	armpolicy.SetDefinition
 }
 
+func NewPolicySetDefinition(psd armpolicy.SetDefinition) *PolicySetDefinition {
+	return &PolicySetDefinition{psd}
+}
+
 func (psd *PolicySetDefinition) GetReferencedPolicyDefinitionNames() ([]string, error) {
 	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
 		return nil, errors.New("policy set definition is nil, missing properties or policy definitions")
