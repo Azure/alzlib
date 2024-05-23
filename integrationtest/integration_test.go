@@ -178,7 +178,7 @@ func getRemoteLib(ctx context.Context) (fs.FS, error) {
 	q := url.Values{}
 	q.Add("depth", "1")
 	q.Add("ref", "platform/alz/2024.03.00")
-	u := "git::https://github.com/Azure/Azure-Landing-Zones-Library//platform/alz?" + q.Encode()
+	u := "https://github.com/Azure/Azure-Landing-Zones-Library//platform/alz?" + q.Encode()
 	dst := filepath.Join(".alzlib", "lib")
 	client := getter.Client{}
 	wd, _ := os.Getwd()
@@ -187,8 +187,10 @@ func getRemoteLib(ctx context.Context) (fs.FS, error) {
 		Dst: dst,
 		Pwd: wd,
 	}
-	if _, err := client.Get(ctx, req); err != nil {
+	res, err := client.Get(ctx, req)
+	if err != nil {
 		return nil, err
 	}
+	_ = res
 	return os.DirFS(dst), nil
 }

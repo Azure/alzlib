@@ -28,7 +28,7 @@ func ExampleAlzLib_Init() {
 	az := alzlib.NewAlzLib(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	dirfs := os.DirFS("./testdata/simple")
+	dirfs := os.DirFS("../testdata/simple")
 	if err := az.Init(ctx, dirfs); err != nil {
 		fmt.Println(err)
 		return

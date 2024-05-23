@@ -89,12 +89,12 @@ func getDefaultAlzLibOptions() *AlzLibOptions {
 
 // AddPolicyAssignments adds policy assignments to the AlzLib struct.
 func (az *AlzLib) AddPolicyAssignments(pas ...*assets.PolicyAssignment) error {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	for _, pa := range pas {
 		if pa == nil || pa.Name == nil || *pa.Name == "" {
 			continue
 		}
-		az.mu.Lock()
-		defer az.mu.Unlock()
 		if _, exists := az.policyAssignments[*pa.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy assignment with name %s already exists and allow overwrite not set", *pa.Name)
 		}
@@ -109,12 +109,13 @@ func (az *AlzLib) AddPolicyAssignments(pas ...*assets.PolicyAssignment) error {
 
 // AddPolicyDefinitions adds policy definitions to the AlzLib struct.
 func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	for _, pd := range pds {
 		if pd == nil || pd.Name == nil || *pd.Name == "" {
 			continue
 		}
-		az.mu.Lock()
-		defer az.mu.Unlock()
+
 		if _, exists := az.policyDefinitions[*pd.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy definition with name %s already exists and allow overwrite not set", *pd.Name)
 		}
@@ -129,12 +130,12 @@ func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
 
 // AddPolicySetDefinitions adds policy set definitions to the AlzLib struct.
 func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) error {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	for _, psd := range psds {
 		if psd == nil || psd.Name == nil || *psd.Name == "" {
 			continue
 		}
-		az.mu.Lock()
-		defer az.mu.Unlock()
 		if _, exists := az.policyDefinitions[*psd.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
 		}
@@ -149,12 +150,12 @@ func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) e
 
 // AddRoleDefinitions adds role definitions to the AlzLib struct.
 func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	for _, rd := range rds {
 		if rd == nil || rd.Name == nil || *rd.Name == "" {
 			continue
 		}
-		az.mu.Lock()
-		defer az.mu.Unlock()
 		if _, exists := az.policyDefinitions[*rd.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: role definition with name %s already exists and allow overwrite not set", *rd.Name)
 		}

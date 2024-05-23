@@ -148,6 +148,9 @@ func (h *Hierarchy) AddManagementGroup(ctx context.Context, req ManagementGroupA
 		mg.roleDefinitions[name] = newroledef
 	}
 
+	// set the hierarchy on the management group.
+	mg.hierarchy = h
+
 	// add the management group to the deployment.
 	h.mgs[req.Id] = mg
 

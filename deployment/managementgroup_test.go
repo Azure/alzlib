@@ -172,6 +172,10 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	az.AddPolicySetDefinitions(ps)
 	az.AddPolicyAssignments(paDef, paSetDef)
 
+	depl := NewHierarchy(az)
+	depl.mgs["mg1"] = mg
+	mg.hierarchy = depl
+
 	// generate the additional role assignments.
 	err := mg.GeneratePolicyAssignmentAdditionalRoleAssignments()
 
@@ -328,7 +332,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	psd2mg = map[string]string{}
 	err = updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
 	assert.Error(t, err)
-	expected = "has invalid referenced definition/set resource type with id"
+	expected = "resource id 'invalid' must start with '/'"
 	assert.ErrorContains(t, err, expected)
 }
 
