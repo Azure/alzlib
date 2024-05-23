@@ -17,7 +17,7 @@ import (
 )
 
 func TestNewAlzLibOptions(t *testing.T) {
-	az := NewAlzLib()
+	az := NewAlzLib(nil)
 	assert.Equal(t, defaultParallelism, az.Options.Parallelism)
 }
 
@@ -25,7 +25,7 @@ func TestNewAlzLibOptions(t *testing.T) {
 // that does not exist.
 // The error details are checked for the expected error message.
 func TestNewAlzLibWithNoDir(t *testing.T) {
-	az := NewAlzLib()
+	az := NewAlzLib(nil)
 	path := filepath.Join("testdata", "doesnotexist")
 	dir := os.DirFS(path)
 	err := az.Init(context.Background(), dir)
@@ -34,14 +34,14 @@ func TestNewAlzLibWithNoDir(t *testing.T) {
 
 // Test_NewAlzLibDuplicateArchetypeDefinition tests the creation of a new AlzLib from a invalid source directory.
 func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
-	az := NewAlzLib()
+	az := NewAlzLib(nil)
 	dir := os.DirFS("./testdata/badlib-duplicatearchetypedef")
 	err := az.Init(context.Background(), dir)
 	assert.ErrorContains(t, err, "archetype with name duplicate already exists")
 }
 
 func TestGetBuiltInPolicy(t *testing.T) {
-	az := NewAlzLib()
+	az := NewAlzLib(nil)
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	assert.NoError(t, err)
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
@@ -53,7 +53,7 @@ func TestGetBuiltInPolicy(t *testing.T) {
 }
 
 func TestGetBuiltInPolicySet(t *testing.T) {
-	az := NewAlzLib()
+	az := NewAlzLib(nil)
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	assert.NoError(t, err)
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
@@ -66,7 +66,7 @@ func TestGetBuiltInPolicySet(t *testing.T) {
 }
 
 func TestGenerateOverrideArchetypes(t *testing.T) {
-	az := NewAlzLib()
+	az := NewAlzLib(nil)
 
 	// Create a base archetype
 	baseArchetype := &Archetype{

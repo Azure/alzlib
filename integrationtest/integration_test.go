@@ -19,7 +19,7 @@ import (
 
 // TestFullAlz tests the ALZ reference architecture creation in full.
 func TestFullAlz(t *testing.T) {
-	az := alzlib.NewAlzLib()
+	az := alzlib.NewAlzLib(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
@@ -152,7 +152,7 @@ func TestFullAlz(t *testing.T) {
 
 // TestInitMultiLib tests that we can initialize the library with multiple urls.
 func TestInitMultiLib(t *testing.T) {
-	az := alzlib.NewAlzLib()
+	az := alzlib.NewAlzLib(nil)
 	az.Options.AllowOverwrite = true
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

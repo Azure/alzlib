@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -28,6 +29,17 @@ type ManagementGroup struct {
 	parent                *ManagementGroup
 	parentExternal        *string
 	hierarchy             *Hierarchy
+	location              string
+}
+
+// ManagementGroupAddRequest represents the request to add a management group to the hierarchy.
+type ManagementGroupAddRequest struct {
+	Id               string            // The name of the management group, forming the last part of the resource id.
+	DisplayName      string            // The display name of the management group.
+	ParentId         string            // The name of the parent management group.
+	ParentIsExternal bool              // If true, the parent management group is external to the hierarchy.
+	Archetype        *alzlib.Archetype // The archetype to use for the management group.
+	Location         string            // The default location to use for artifacts in the management group.
 }
 
 // PolicyRoleAssignment represents the role assignments that need to be created for a management group.
@@ -39,29 +51,20 @@ type PolicyRoleAssignment struct {
 	AssignmentName   string
 }
 
-// type PolicyRoleAssignmentSource uint8
-
-// const (
-// 	// PolicyRoleAssignmentSource.
-// 	AssignmentScope = PolicyRoleAssignmentSource(iota)
-// 	DefinitionParameterMetadata
-// 	SetDefinitionParameterMetadata
-// )
-
-// // String implements Stringer interface for PolicyRoleAssignmentSource.
-// func (p PolicyRoleAssignmentSource) String() string {
-// 	return [...]string{"AssignmentScope", "DefinitionParameterMetadata", "SetDefinitionParameterMetadata"}[p]
-// }
-
-// GetChildren returns the children of the management group.
-func (alzmg *ManagementGroup) GetChildren() []*ManagementGroup {
+// Children returns the children of the management group.
+func (alzmg *ManagementGroup) Children() []*ManagementGroup {
 	return alzmg.children.ToSlice()
 }
 
-// GetParentId returns the ID of the parent management group.
+// GetDisplayName returns the display name of the management group.
+func (mg *ManagementGroup) DisplayName() string {
+	return mg.displayName
+}
+
+// ParentId returns the ID of the parent management group.
 // If the parent is external, this will be preferred.
 // If neither are set an empty string is returned (though this should never happen).
-func (mg *ManagementGroup) GetParentId() string {
+func (mg *ManagementGroup) ParentId() string {
 	if mg.parentExternal != nil {
 		return *mg.parentExternal
 	}
@@ -71,9 +74,9 @@ func (mg *ManagementGroup) GetParentId() string {
 	return ""
 }
 
-// GetParentMg returns parent *AlzManagementGroup.
+// Parent returns parent *AlzManagementGroup.
 // If the parent is external, the result will be nil.
-func (mg *ManagementGroup) GetParentMg() *ManagementGroup {
+func (mg *ManagementGroup) Parent() *ManagementGroup {
 	if mg.parentExternal != nil {
 		return nil
 	}
@@ -93,28 +96,28 @@ func (mg *ManagementGroup) ResourceId() string {
 	return fmt.Sprintf(managementGroupIdFmt, mg.name)
 }
 
-// GetPolicyAssignmentMap returns a copy of the policy assignments map.
-func (mg *ManagementGroup) GetPolicyAssignmentMap() map[string]*assets.PolicyAssignment {
+// PolicyAssignmentMap returns a copy of the policy assignments map.
+func (mg *ManagementGroup) PolicyAssignmentMap() map[string]*assets.PolicyAssignment {
 	return copyMap[string, *assets.PolicyAssignment](mg.policyAssignments)
 }
 
-// GetPolicyDefinitionsMap returns a copy of the policy definitions map.
-func (mg *ManagementGroup) GetPolicyDefinitionsMap() map[string]*assets.PolicyDefinition {
+// PolicyDefinitionsMap returns a copy of the policy definitions map.
+func (mg *ManagementGroup) PolicyDefinitionsMap() map[string]*assets.PolicyDefinition {
 	return copyMap[string, *assets.PolicyDefinition](mg.policyDefinitions)
 }
 
-// GetPolicySetDefinitionsMap returns a copy of the policy definitions map.
-func (mg *ManagementGroup) GetPolicySetDefinitionsMap() map[string]*assets.PolicySetDefinition {
+// PolicySetDefinitionsMap returns a copy of the policy definitions map.
+func (mg *ManagementGroup) PolicySetDefinitionsMap() map[string]*assets.PolicySetDefinition {
 	return copyMap[string, *assets.PolicySetDefinition](mg.policySetDefinitions)
 }
 
-// GetRoleDefinitionsMap returns a copy of the role definitions map.
-func (alzmg *ManagementGroup) GetRoleDefinitionsMap() map[string]*assets.RoleDefinition {
+// RoleDefinitionsMap returns a copy of the role definitions map.
+func (alzmg *ManagementGroup) RoleDefinitionsMap() map[string]*assets.RoleDefinition {
 	return copyMap[string, *assets.RoleDefinition](alzmg.roleDefinitions)
 }
 
 // GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
-func (mg *ManagementGroup) GetPolicyRoleAssignments() []PolicyRoleAssignment {
+func (mg *ManagementGroup) PolicyRoleAssignments() []PolicyRoleAssignment {
 	return mg.policyRoleAssignments.ToSlice()
 }
 
@@ -153,7 +156,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 			}
 			for _, rdid := range rdids {
 				mg.policyRoleAssignments.Add(PolicyRoleAssignment{
-					Scope:            mg.GetResourceId(),
+					Scope:            mg.ResourceId(),
 					RoleDefinitionId: rdid,
 					AssignmentName:   paName,
 				})
@@ -214,7 +217,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 				}
 				for _, rdid := range rdids {
 					mg.policyRoleAssignments.Add(PolicyRoleAssignment{
-						Scope:            mg.GetResourceId(),
+						Scope:            mg.ResourceId(),
 						RoleDefinitionId: rdid,
 						AssignmentName:   paName,
 					})
@@ -337,11 +340,6 @@ func (alzmg *ManagementGroup) ModifyPolicyAssignment(
 	return nil
 }
 
-// GetResourceId returns the resource ID for the management group.
-func (mg *ManagementGroup) GetResourceId() string {
-	return fmt.Sprintf(managementGroupIdFmt, mg.name)
-}
-
 // extractParameterNameFromArmFunction extracts the parameter name from an ARM function.
 func extractParameterNameFromArmFunction(value string) (string, error) {
 	// value is of the form "[parameters('parameterName')]".
@@ -402,7 +400,7 @@ func updatePolicyAsignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string
 		assignment.ID = to.Ptr(fmt.Sprintf(policyAssignmentIdFmt, mg.name, assignmentName))
 		assignment.Properties.Scope = to.Ptr(fmt.Sprintf(managementGroupIdFmt, mg.name))
 		if assignment.Location != nil {
-			assignment.Location = mg.wkpv.DefaultLocation
+			assignment.Location = &mg.location
 		}
 
 		// rewrite the referenced policy definition id
@@ -435,7 +433,7 @@ func updateRoleDefinitions(alzmg *ManagementGroup) {
 		if roledef.Properties.AssignableScopes == nil || len(roledef.Properties.AssignableScopes) == 0 {
 			roledef.Properties.AssignableScopes = make([]*string, 1)
 		}
-		roledef.Properties.AssignableScopes[0] = to.Ptr(alzmg.GetResourceId())
+		roledef.Properties.AssignableScopes[0] = to.Ptr(alzmg.ResourceId())
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 // TestWellKnownParameterReplacement demonstrates the replacement of well-known parameters.
 func TestWellKnownParameterReplacement(t *testing.T) {
 	t.Parallel()
-	az := alzlib.NewAlzLib()
+	az := alzlib.NewAlzLib(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dirfs := os.DirFS("./testdata/wellknownparameters")

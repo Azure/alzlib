@@ -63,9 +63,12 @@ type Archetype struct {
 
 // NewAlzLib returns a new instance of the alzlib library, optionally using the supplied directory
 // for additional policy (set) definitions.
-func NewAlzLib() *AlzLib {
+func NewAlzLib(opts *AlzLibOptions) *AlzLib {
+	if opts == nil {
+		opts = getDefaultAlzLibOptions()
+	}
 	az := &AlzLib{
-		Options:              getDefaultAlzLibOptions(),
+		Options:              opts,
 		archetypes:           make(map[string]*Archetype),
 		policyAssignments:    make(map[string]*assets.PolicyAssignment),
 		policyDefinitions:    make(map[string]*assets.PolicyDefinition),

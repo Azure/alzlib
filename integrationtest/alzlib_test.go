@@ -22,7 +22,7 @@ func TestNewAlzLibOptionsError(t *testing.T) {
 
 // ExampleAlzLib_E2E demonstrates the creation of a new AlzLib based a sample directory.
 func ExampleAlzLib_Init() {
-	az := alzlib.NewAlzLib()
+	az := alzlib.NewAlzLib(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dirfs := os.DirFS("./testdata/simple")
