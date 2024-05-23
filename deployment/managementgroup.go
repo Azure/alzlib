@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+
 package deployment
 
 import (
@@ -56,9 +57,14 @@ func (alzmg *ManagementGroup) Children() []*ManagementGroup {
 	return alzmg.children.ToSlice()
 }
 
-// GetDisplayName returns the display name of the management group.
+// DisplayName returns the display name of the management group.
 func (mg *ManagementGroup) DisplayName() string {
 	return mg.displayName
+}
+
+// Name returns the name/id of the management group.
+func (mg *ManagementGroup) Name() string {
+	return mg.name
 }
 
 // ParentId returns the ID of the parent management group.
@@ -93,7 +99,7 @@ func (mg *ManagementGroup) ParentIsExternal() bool {
 
 // ResourceId returns the resource ID of the management group.
 func (mg *ManagementGroup) ResourceId() string {
-	return fmt.Sprintf(managementGroupIdFmt, mg.name)
+	return fmt.Sprintf(ManagementGroupIdFmt, mg.name)
 }
 
 // PolicyAssignmentMap returns a copy of the policy assignments map.
@@ -352,7 +358,7 @@ func extractParameterNameFromArmFunction(value string) (string, error) {
 // updatePolicyDefinitions re-writes the policy definition resource IDs for the correct management group.
 func updatePolicyDefinitions(mg *ManagementGroup) {
 	for k, v := range mg.policyDefinitions {
-		v.ID = to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, mg.name, k))
+		v.ID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mg.name, k))
 	}
 }
 
@@ -363,7 +369,7 @@ func updatePolicyDefinitions(mg *ManagementGroup) {
 // If it is not found, we assume that it's built-in.
 func updatePolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) error {
 	for k, psd := range mg.policySetDefinitions {
-		psd.ID = to.Ptr(fmt.Sprintf(policySetDefinitionIdFmt, mg.name, k))
+		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.name, k))
 		refs, err := psd.GetPolicyDefinitionReferences()
 		if err != nil {
 			return err
@@ -374,7 +380,7 @@ func updatePolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) er
 				return err
 			}
 			if mgname, ok := pd2mg[pdname]; ok {
-				pd.PolicyDefinitionID = to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, mgname, pdname))
+				pd.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mgname, pdname))
 			}
 		}
 	}
@@ -397,8 +403,8 @@ func updatePolicyAsignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string
 
 	// Update resource ids and refs.
 	for assignmentName, assignment := range mg.policyAssignments {
-		assignment.ID = to.Ptr(fmt.Sprintf(policyAssignmentIdFmt, mg.name, assignmentName))
-		assignment.Properties.Scope = to.Ptr(fmt.Sprintf(managementGroupIdFmt, mg.name))
+		assignment.ID = to.Ptr(fmt.Sprintf(PolicyAssignmentIdFmt, mg.name, assignmentName))
+		assignment.Properties.Scope = to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, mg.name))
 		if assignment.Location != nil {
 			assignment.Location = &mg.location
 		}
@@ -413,11 +419,11 @@ func updatePolicyAsignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string
 		switch strings.ToLower(pdRes.ResourceType.Type) {
 		case "policydefinitions":
 			if mgname, ok := pd2mg[pdRes.Name]; ok {
-				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, mgname, pdRes.Name))
+				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mgname, pdRes.Name))
 			}
 		case "policysetdefinitions":
 			if mgname, ok := psd2mg[pdRes.Name]; ok {
-				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(policySetDefinitionIdFmt, mgname, pdRes.Name))
+				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mgname, pdRes.Name))
 			}
 		default:
 			return fmt.Errorf("updatePolicyAssignments: policy assignment %s has invalid referenced definition/set resource type with id: %s", assignmentName, pdRes.Name)
@@ -429,7 +435,7 @@ func updatePolicyAsignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string
 func updateRoleDefinitions(alzmg *ManagementGroup) {
 	for _, roledef := range alzmg.roleDefinitions {
 		u := uuidV5(alzmg.name, *roledef.Name)
-		roledef.ID = to.Ptr(fmt.Sprintf(roleDefinitionIdFmt, alzmg.name, u))
+		roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.name, u))
 		if roledef.Properties.AssignableScopes == nil || len(roledef.Properties.AssignableScopes) == 0 {
 			roledef.Properties.AssignableScopes = make([]*string, 1)
 		}
@@ -447,7 +453,7 @@ func newManagementGroup() *ManagementGroup {
 	}
 }
 
-// copyMap takes a map of pointers and returns a map of values.
+// copyMap takes a map and returns a map with a deep copy of the values.
 func copyMap[E comparable, T any](m map[E]T) map[E]T {
 	m2 := make(map[E]T, len(m))
 	for k, v := range m {

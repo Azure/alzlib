@@ -1,707 +1,584 @@
-package deployment_test
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
-// func TestAddManagementGroup(t *testing.T) {
-// 	t.Parallel()
-// 	// create a new deployment type.
-// 	az := alzlib.NewAlzLib(nil)
+package deployment
 
-// 	// create a new archetype
-// 	arch := &alzlib.Archetype{
-// 		PolicyDefinitions:    mapset.NewSet[string](),
-// 		PolicySetDefinitions: mapset.NewSet[string](),
-// 		PolicyAssignments:    mapset.NewSet[string](),
-// 		RoleDefinitions:      mapset.NewSet[string](),
-// 	}
+import (
+	"fmt"
+	"testing"
 
-// 	// test adding a new management group with no parent.
-// 	req := deployment.ManagementGroupAddRequest{
-// 		Id:               "mg1",
-// 		DisplayName:      "mg1",
-// 		ParentId:         "external",
-// 		ParentIsExternal: true,
-// 		Archetype:        arch,
-// 		Location:         "uksouth",
-// 	}
-// 	depl := deployment.NewHierarchy(az)
+	"github.com/Azure/alzlib"
+	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/stretchr/testify/assert"
+)
 
-// 	// err := depl.AddManagementGroup(context.Background(), req)
-// 	// assert.NoError(t, err)
-// 	// assert.True(t, slices.Equal(depl.ListManagementGroups(), []string{"mg1"}))
-// 	// mg := depl.GetManagementGroup("mg1")
-// 	// assert.Len(t, mg.GetChildren(), 0)
-// 	// assert.Equal(t, "mg1", mg.())
-// 	// assert.Equal(t, "mg1", az.Deployment.mgs["mg1"].displayName)
-// 	// assert.Nil(t, az.Deployment.mgs["mg1"].parent)
-// 	// assert.True(t, az.Deployment.mgs["mg1"].ParentIsExternal())
-// 	// assert.Equal(t, fmt.Sprintf(managementGroupIdFmt, "mg1"), mg.GetResourceId())
+func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
+	t.Parallel()
+	// create a new AlzLib instance.
+	az := alzlib.NewAlzLib(nil)
 
-// 	req = deployment.ManagementGroupAddRequest{
-// 		Id:               "mg2",
-// 		DisplayName:      "mg2",
-// 		ParentId:         "mg1",
-// 		ParentIsExternal: false,
-// 		Archetype:        arch,
-// 		Location:         "eastus2",
-// 	}
-// 	// test adding a new management group with a parent.
-// 	err = az.AddManagementGroupToDeployment(context.Background(), req)
-// 	assert.NoError(t, err)
-// 	assert.Len(t, az.Deployment.mgs, 2)
-// 	assert.Contains(t, az.Deployment.mgs, "mg2")
-// 	assert.Equal(t, "mg2", az.Deployment.mgs["mg2"].name)
-// 	assert.Equal(t, "mg2", az.Deployment.mgs["mg2"].displayName)
-// 	assert.NotNil(t, az.Deployment.mgs["mg2"].parent)
-// 	assert.Equal(t, "mg1", az.Deployment.mgs["mg2"].parent.name)
-// 	assert.Equal(t, az.Deployment.mgs["mg1"].children.Cardinality(), 1)
-// 	assert.Equal(t, "mg2", az.Deployment.mgs["mg1"].children.ToSlice()[0].name)
-// 	assert.False(t, az.Deployment.mgs["mg2"].ParentIsExternal())
-// 	assert.Equal(t, az.Deployment.mgs["mg1"], az.Deployment.mgs["mg2"].GetParentMg())
+	// create a new AlzManagementGroup instance.
+	mg := &ManagementGroup{
+		policyRoleAssignments: mapset.NewThreadUnsafeSet[PolicyRoleAssignment](),
+		policyDefinitions:     make(map[string]*assets.PolicyDefinition),
+		policySetDefinitions:  make(map[string]*assets.PolicySetDefinition),
+		policyAssignments:     make(map[string]*assets.PolicyAssignment),
+	}
 
-// 	req = AlzManagementGroupAddRequest{
-// 		Id:               "mg3",
-// 		DisplayName:      "mg3",
-// 		ParentId:         "mg4",
-// 		ParentIsExternal: false,
-// 		Archetype:        arch,
-// 	}
-// 	// test adding a new management group with a non-existent parent.
-// 	err = az.AddManagementGroupToDeployment(context.Background(), req)
-// 	assert.Error(t, err)
-// 	assert.Len(t, az.Deployment.mgs, 2)
-// 	assert.Contains(t, az.Deployment.mgs, "mg1")
-// 	assert.Contains(t, az.Deployment.mgs, "mg2")
-// 	assert.NotContains(t, az.Deployment.mgs, "mg3")
+	// create a new policy assignment for the definition.
+	paDef := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("test-policy-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
 
-// 	req = AlzManagementGroupAddRequest{
-// 		Id:               "mg4",
-// 		DisplayName:      "mg4",
-// 		ParentId:         "external",
-// 		ParentIsExternal: true,
-// 		Archetype:        arch,
-// 	}
-// 	// test adding a new management group with multiple root management groups.
-// 	err = az.AddManagementGroupToDeployment(context.Background(), req)
-// 	assert.Error(t, err)
-// 	assert.Len(t, az.Deployment.mgs, 2)
-// 	assert.Contains(t, az.Deployment.mgs, "mg1")
-// 	assert.Contains(t, az.Deployment.mgs, "mg2")
-// 	assert.NotContains(t, az.Deployment.mgs, "mg4")
+		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+		Properties: &armpolicy.AssignmentProperties{
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition"),
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"parameter1": {Value: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg"},
+				"parameter2": {Value: "value2"},
+			},
+		},
+	})
 
-// 	req = AlzManagementGroupAddRequest{
-// 		Id:               "mg1",
-// 		DisplayName:      "mg1",
-// 		ParentId:         "external",
-// 		ParentIsExternal: true,
-// 		Archetype:        arch,
-// 	}
-// 	// test adding a new management group with an existing name.
-// 	err = az.AddManagementGroupToDeployment(context.Background(), req)
-// 	assert.Error(t, err)
-// 	assert.Len(t, az.Deployment.mgs, 2)
-// 	assert.Contains(t, az.Deployment.mgs, "mg1")
-// 	assert.Contains(t, az.Deployment.mgs, "mg2")
-// }
+	// create a new policy assignment for the definition.
+	paSetDef := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("test-policy-set-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
 
-// func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
-// 	t.Parallel()
-// 	// create a new AlzLib instance.
-// 	az := NewAlzLib()
+		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+		Properties: &armpolicy.AssignmentProperties{
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policySetDefinitions/test-policy-set-definition"),
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"setparameter1": {Value: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg"},
+				"setparameter2": {Value: "value2"},
+			},
+		},
+	})
 
-// 	// create a new AlzManagementGroup instance.
-// 	alzmg := &AlzManagementGroup{
-// 		policyRoleAssignments: mapset.NewThreadUnsafeSet[PolicyRoleAssignment](),
-// 		policyDefinitions:     make(map[string]*armpolicy.Definition),
-// 		policySetDefinitions:  make(map[string]*armpolicy.SetDefinition),
-// 		policyAssignments:     make(map[string]*armpolicy.Assignment),
-// 	}
+	ps := assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+		Name: to.Ptr("test-policy-set-definition"),
+		Type: to.Ptr("Microsoft.Authorization/policySetDefinitions"),
+		Properties: &armpolicy.SetDefinitionProperties{
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"setparameter1": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+				"setparameter2": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+			},
+			PolicyDefinitions: []*armpolicy.DefinitionReference{
+				{
+					PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition2"),
+					Parameters: map[string]*armpolicy.ParameterValuesValue{
+						"parameter1": {Value: "[parameters('setparameter1')]"},
+						"parameter2": {Value: "[parameters('setparameter1')]"},
+					},
+				},
+			},
+		},
+	})
+	// create a new policy definition for direct assignment.
+	pd1 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("test-policy-definition"),
+		Properties: &armpolicy.DefinitionProperties{
+			PolicyRule: map[string]any{
+				"If": &map[string]any{
+					"AllOf": []any{
+						map[string]any{
+							"Field": to.Ptr("type"),
+							"Equals": []any{
+								"Microsoft.Compute/virtualMachines",
+							},
+						},
+					},
+				},
+				"then": map[string]any{
+					"details": map[string]any{
+						"roleDefinitionIds": []any{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition"},
+					},
+				},
+			},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"parameter1": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+						AssignPermissions: to.Ptr(true),
+					},
+				},
+				"parameter2": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+						AssignPermissions: to.Ptr(false),
+					},
+				},
+			},
+		},
+	})
 
-// 	// create a new policy assignment for the definition.
-// 	paDef := &armpolicy.Assignment{
-// 		Name: to.Ptr("test-policy-assignment"),
-// 		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+	// create a new policy definition for set assignment.
+	pd2 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("test-policy-definition2"),
+		Properties: &armpolicy.DefinitionProperties{
+			PolicyRule: map[string]any{
+				"If": &map[string]any{
+					"AllOf": []any{
+						map[string]any{
+							"Field": to.Ptr("type"),
+							"Equals": []any{
+								"Microsoft.Compute/virtualMachines",
+							},
+						},
+					},
+				},
+				"then": map[string]any{
+					"details": map[string]any{
+						"roleDefinitionIds": []any{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition2"},
+					},
+				},
+			},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"parameter1": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+						AssignPermissions: to.Ptr(true),
+					},
+				},
+				"parameter2": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+						AssignPermissions: to.Ptr(false),
+					},
+				},
+			},
+		},
+	})
 
-// 		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-// 		Properties: &armpolicy.AssignmentProperties{
-// 			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition"),
-// 			Parameters: map[string]*armpolicy.ParameterValuesValue{
-// 				"parameter1": {Value: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg"},
-// 				"parameter2": {Value: "value2"},
-// 			},
-// 		},
-// 	}
+	// add the policy (set) definitions to the arch.
+	mg.policyDefinitions[*pd1.Name] = pd1
+	mg.policyDefinitions[*pd2.Name] = pd2
+	mg.policySetDefinitions[*ps.Name] = ps
 
-// 	// create a new policy assignment for the definition.
-// 	paSetDef := &armpolicy.Assignment{
-// 		Name: to.Ptr("test-policy-set-assignment"),
-// 		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+	// add the policy assignments to the arch.
+	mg.policyAssignments[*paDef.Name] = paDef
+	mg.policyAssignments[*paSetDef.Name] = paSetDef
 
-// 		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-// 		Properties: &armpolicy.AssignmentProperties{
-// 			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policySetDefinitions/test-policy-set-definition"),
-// 			Parameters: map[string]*armpolicy.ParameterValuesValue{
-// 				"setparameter1": {Value: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg"},
-// 				"setparameter2": {Value: "value2"},
-// 			},
-// 		},
-// 	}
+	// add the policy (set) definitions to the alzlib.
+	az.AddPolicyDefinitions(pd1, pd2)
+	az.AddPolicySetDefinitions(ps)
+	az.AddPolicyAssignments(paDef, paSetDef)
 
-// 	ps := &armpolicy.SetDefinition{
-// 		Name: to.Ptr("test-policy-set-definition"),
-// 		Type: to.Ptr("Microsoft.Authorization/policySetDefinitions"),
-// 		Properties: &armpolicy.SetDefinitionProperties{
-// 			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
-// 				"setparameter1": {
-// 					Type: to.Ptr(armpolicy.ParameterTypeString),
-// 				},
-// 				"setparameter2": {
-// 					Type: to.Ptr(armpolicy.ParameterTypeString),
-// 				},
-// 			},
-// 			PolicyDefinitions: []*armpolicy.DefinitionReference{
-// 				{
-// 					PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition2"),
-// 					Parameters: map[string]*armpolicy.ParameterValuesValue{
-// 						"parameter1": {Value: "[parameters('setparameter1')]"},
-// 						"parameter2": {Value: "[parameters('setparameter1')]"},
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
+	// generate the additional role assignments.
+	err := mg.GeneratePolicyAssignmentAdditionalRoleAssignments()
 
-// 	// create a new policy definition for direct assignment.
-// 	pd1 := &armpolicy.Definition{
-// 		Name: to.Ptr("test-policy-definition"),
-// 		Properties: &armpolicy.DefinitionProperties{
-// 			PolicyRule: map[string]any{
-// 				"If": &map[string]any{
-// 					"AllOf": []any{
-// 						map[string]any{
-// 							"Field": to.Ptr("type"),
-// 							"Equals": []any{
-// 								"Microsoft.Compute/virtualMachines",
-// 							},
-// 						},
-// 					},
-// 				},
-// 				"then": map[string]any{
-// 					"details": map[string]any{
-// 						"roleDefinitionIds": []any{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition"},
-// 					},
-// 				},
-// 			},
-// 			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
-// 				"parameter1": {
-// 					Type: to.Ptr(armpolicy.ParameterTypeString),
-// 					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
-// 						AssignPermissions: to.Ptr(true),
-// 					},
-// 				},
-// 				"parameter2": {
-// 					Type: to.Ptr(armpolicy.ParameterTypeString),
-// 					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
-// 						AssignPermissions: to.Ptr(false),
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
+	// check that there were no errors.
+	assert.NoError(t, err)
 
-// 	// create a new policy definition for set assignment.
-// 	pd2 := &armpolicy.Definition{
-// 		Name: to.Ptr("test-policy-definition2"),
-// 		Properties: &armpolicy.DefinitionProperties{
-// 			PolicyRule: map[string]any{
-// 				"If": &map[string]any{
-// 					"AllOf": []any{
-// 						map[string]any{
-// 							"Field": to.Ptr("type"),
-// 							"Equals": []any{
-// 								"Microsoft.Compute/virtualMachines",
-// 							},
-// 						},
-// 					},
-// 				},
-// 				"then": map[string]any{
-// 					"details": map[string]any{
-// 						"roleDefinitionIds": []any{"/providers/Microsoft.Authorization/roleDefinitions/test-role-definition2"},
-// 					},
-// 				},
-// 			},
-// 			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
-// 				"parameter1": {
-// 					Type: to.Ptr(armpolicy.ParameterTypeString),
-// 					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
-// 						AssignPermissions: to.Ptr(true),
-// 					},
-// 				},
-// 				"parameter2": {
-// 					Type: to.Ptr(armpolicy.ParameterTypeString),
-// 					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
-// 						AssignPermissions: to.Ptr(false),
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
+	// check that the additional role assignments were generated correctly.
+	//additionalRas, ok := alzmg.policyRoleAssignments[*paDef.Name]
+	assert.Equal(t, mg.policyRoleAssignments.Cardinality(), 4)
 
-// 	// add the policy (set) definitions to the arch.
-// 	alzmg.policyDefinitions[*pd1.Name] = pd1
-// 	alzmg.policyDefinitions[*pd2.Name] = pd2
-// 	alzmg.policySetDefinitions[*ps.Name] = ps
+	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
+		AssignmentName:   *paDef.Name,
+		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            mg.ResourceId(),
+	}))
+	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
+		AssignmentName:   *paDef.Name,
+		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            paDef.Properties.Parameters["parameter1"].Value.(string),                                                                                 //nolint:forcetypeassert
+	}))
+	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
+		AssignmentName:   *paSetDef.Name,
+		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            mg.ResourceId(),
+	}))
+	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
+		AssignmentName:   *paSetDef.Name,
+		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            paSetDef.Properties.Parameters["setparameter1"].Value.(string),                                                                           //nolint:forcetypeassert
+	}))
+}
 
-// 	// add the policy assignments to the arch.
-// 	alzmg.policyAssignments[*paDef.Name] = paDef
-// 	alzmg.policyAssignments[*paSetDef.Name] = paSetDef
+func TestExtractParameterNameFromArmFunction(t *testing.T) {
+	t.Parallel()
+	// Test with a valid parameter reference.
+	value := "[parameters('parameterName')]"
+	expected := "parameterName"
+	actual, err := extractParameterNameFromArmFunction(value)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, actual)
 
-// 	// add the policy (set) definitions to the alzlib.
-// 	az.policyDefinitions[*pd2.Name] = pd2
-// 	az.policyDefinitions[*pd1.Name] = pd1
-// 	az.policySetDefinitions[*ps.Name] = ps
-// 	// add the policy assignments to the arch.
-// 	az.policyAssignments[*paDef.Name] = paDef
-// 	az.policyAssignments[*paSetDef.Name] = paSetDef
+	// Test with an invalid prefix.
+	value = "[param('parameterName')]"
+	_, err = extractParameterNameFromArmFunction(value)
+	assert.Error(t, err)
 
-// 	// generate the additional role assignments.
-// 	err := alzmg.GeneratePolicyAssignmentAdditionalRoleAssignments(az)
+	// Test with an invalid suffix.
+	value = "[parameters('parameterName')"
+	_, err = extractParameterNameFromArmFunction(value)
+	assert.Error(t, err)
 
-// 	// check that there were no errors.
-// 	assert.NoError(t, err)
+	// Test with an invalid format.
+	value = "parameters('parameterName')"
+	_, err = extractParameterNameFromArmFunction(value)
+	assert.Error(t, err)
+}
 
-// 	// check that the additional role assignments were generated correctly.
-// 	//additionalRas, ok := alzmg.policyRoleAssignments[*paDef.Name]
-// 	assert.Equal(t, alzmg.policyRoleAssignments.Cardinality(), 4)
+func TestModifyPolicyAssignments(t *testing.T) {
+	t.Parallel()
+	// Test with a single policy assignment and policy definition.
+	mg := &ManagementGroup{
+		name: "mg1",
+		policyAssignments: map[string]*assets.PolicyAssignment{
+			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
+				Name: to.Ptr("pa1"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "changeme")),
+				},
+				Location: to.Ptr("changeme"),
+			}),
+		},
+		location: "eastus",
+	}
+	pd2mg := map[string]string{
+		"pd1": "mg1",
+	}
+	psd2mg := map[string]string{}
 
-// 	assert.True(t, alzmg.policyRoleAssignments.Contains(PolicyRoleAssignment{
-// 		AssignmentName:   *paDef.Name,
-// 		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
-// 		Scope:            alzmg.GetResourceId(),
-// 	}))
-// 	assert.True(t, alzmg.policyRoleAssignments.Contains(PolicyRoleAssignment{
-// 		AssignmentName:   *paDef.Name,
-// 		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
-// 		Scope:            paDef.Properties.Parameters["parameter1"].Value.(string),                                                                                 //nolint:forcetypeassert
-// 	}))
-// 	assert.True(t, alzmg.policyRoleAssignments.Contains(PolicyRoleAssignment{
-// 		AssignmentName:   *paSetDef.Name,
-// 		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
-// 		Scope:            alzmg.GetResourceId(),
-// 	}))
-// 	assert.True(t, alzmg.policyRoleAssignments.Contains(PolicyRoleAssignment{
-// 		AssignmentName:   *paSetDef.Name,
-// 		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
-// 		Scope:            paSetDef.Properties.Parameters["setparameter1"].Value.(string),                                                                           //nolint:forcetypeassert
-// 	}))
-// }
+	err := updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
+	assert.NoError(t, err)
+	expected := fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.PolicyDefinitionID)
+	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.Scope)
+	expected = "eastus"
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Location)
 
-// func TestExtractParameterNameFromArmFunction(t *testing.T) {
-// 	t.Parallel()
-// 	// Test with a valid parameter reference.
-// 	value := "[parameters('parameterName')]"
-// 	expected := "parameterName"
-// 	actual, err := extractParameterNameFromArmFunction(value)
-// 	assert.NoError(t, err)
-// 	assert.Equal(t, expected, actual)
+	// Test with multiple policy assignments and policy definitions.
+	mg = &ManagementGroup{
+		name: "mg1",
+		policyAssignments: map[string]*assets.PolicyAssignment{
+			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
+				Name: to.Ptr("pa1"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "changeme")),
+				},
+				Location: to.Ptr("changeme"),
+			}),
+			"pa2": assets.NewPolicyAssignment(armpolicy.Assignment{
+				Name: to.Ptr("pa2"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, "changeme", "psd1")),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "changeme")),
+				},
+				Location: to.Ptr("changeme"),
+			}),
+		},
+		location: "changeme",
+	}
+	pd2mg = map[string]string{
+		"pd1": "mg1",
+	}
+	psd2mg = map[string]string{
+		"psd1": "mg1",
+	}
+	err = updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
+	assert.NoError(t, err)
+	expected = fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.PolicyDefinitionID)
+	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.Scope)
+	expected = "eastus"
+	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Location)
+	expected = fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa2")
+	assert.Equal(t, expected, *mg.policyAssignments["pa2"].ID)
+	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa2"].Properties.PolicyDefinitionID)
+	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	assert.Equal(t, expected, *mg.policyAssignments["pa2"].Properties.Scope)
+	expected = "eastus"
+	assert.Equal(t, expected, *mg.policyAssignments["pa2"].Location)
 
-// 	// Test with an invalid prefix.
-// 	value = "[param('parameterName')]"
-// 	_, err = extractParameterNameFromArmFunction(value)
-// 	assert.Error(t, err)
+	// Test with invalid policy definition id.
+	mg = &ManagementGroup{
+		name: "mg1",
+		policyAssignments: map[string]*assets.PolicyAssignment{
+			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
+				Name: to.Ptr("policy1"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("invalid"),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "mg1")),
+				},
+			}),
+		},
+		location: "changeme",
+	}
+	pd2mg = map[string]string{}
+	psd2mg = map[string]string{}
+	err = updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
+	assert.Error(t, err)
+	expected = "has invalid referenced definition/set resource type with id"
+	assert.ErrorContains(t, err, expected)
+}
 
-// 	// Test with an invalid suffix.
-// 	value = "[parameters('parameterName')"
-// 	_, err = extractParameterNameFromArmFunction(value)
-// 	assert.Error(t, err)
+func TestModifyPolicyDefinitions(t *testing.T) {
+	t.Parallel()
+	// Test with a single policy definition.
+	alzmg := &ManagementGroup{
+		name: "mg1",
+		policyDefinitions: map[string]*assets.PolicyDefinition{
+			"pd1": {},
+		},
+	}
+	updatePolicyDefinitions(alzmg)
+	expected := fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
 
-// 	// Test with an invalid format.
-// 	value = "parameters('parameterName')"
-// 	_, err = extractParameterNameFromArmFunction(value)
-// 	assert.Error(t, err)
-// }
+	// Test with multiple policy definitions.
+	alzmg = &ManagementGroup{
+		name: "mg1",
+		policyDefinitions: map[string]*assets.PolicyDefinition{
+			"pd1": {},
+			"pd2": {},
+		},
+	}
+	updatePolicyDefinitions(alzmg)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd2")
+	assert.Equal(t, expected, *alzmg.policyDefinitions["pd2"].ID)
 
-// func TestModifyPolicyAssignments(t *testing.T) {
-// 	t.Parallel()
-// 	// Test with a single policy assignment and policy definition.
-// 	alzmg := &AlzManagementGroup{
-// 		name: "mg1",
-// 		policyAssignments: map[string]*armpolicy.Assignment{
-// 			"pa1": {
-// 				Name: to.Ptr("pa1"),
-// 				Properties: &armpolicy.AssignmentProperties{
-// 					PolicyDefinitionID: to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, "changeme", "pd1")),
-// 					Scope:              to.Ptr(fmt.Sprintf(managementGroupIdFmt, "changeme")),
-// 				},
-// 				Location: to.Ptr("changeme"),
-// 			},
-// 		},
-// 		wkpv: &WellKnownPolicyValues{
-// 			DefaultLocation: to.Ptr("eastus"),
-// 		},
-// 	}
-// 	pd2mg := map[string]string{
-// 		"pd1": "mg1",
-// 	}
-// 	psd2mg := map[string]string{}
-// 	wkpv := &WellKnownPolicyValues{
-// 		DefaultLocation: to.Ptr("eastus"),
-// 	}
-// 	papv := getWellKnownPolicyAssignmentParameterValues(wkpv)
-// 	err := updatePolicyAsignments(alzmg, pd2mg, psd2mg, papv)
-// 	assert.NoError(t, err)
-// 	expected := fmt.Sprintf(policyAssignmentIdFmt, "mg1", "pa1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].ID)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].Properties.PolicyDefinitionID)
-// 	expected = fmt.Sprintf(managementGroupIdFmt, "mg1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].Properties.Scope)
-// 	expected = "eastus"
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].Location)
+	// Test with no policy definitions.
+	alzmg = &ManagementGroup{
+		name:              "mg1",
+		policyDefinitions: map[string]*assets.PolicyDefinition{},
+	}
+	updatePolicyDefinitions(alzmg)
+	assert.Empty(t, alzmg.policyDefinitions)
+}
 
-// 	// Test with multiple policy assignments and policy definitions.
-// 	alzmg = &AlzManagementGroup{
-// 		name: "mg1",
-// 		policyAssignments: map[string]*armpolicy.Assignment{
-// 			"pa1": {
-// 				Name: to.Ptr("pa1"),
-// 				Properties: &armpolicy.AssignmentProperties{
-// 					PolicyDefinitionID: to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, "changeme", "pd1")),
-// 					Scope:              to.Ptr(fmt.Sprintf(managementGroupIdFmt, "changeme")),
-// 				},
-// 				Location: to.Ptr("changeme"),
-// 			},
-// 			"pa2": {
-// 				Name: to.Ptr("pa2"),
-// 				Properties: &armpolicy.AssignmentProperties{
-// 					PolicyDefinitionID: to.Ptr(fmt.Sprintf(policySetDefinitionIdFmt, "changeme", "psd1")),
-// 					Scope:              to.Ptr(fmt.Sprintf(managementGroupIdFmt, "changeme")),
-// 				},
-// 				Location: to.Ptr("changeme"),
-// 			},
-// 		},
-// 		wkpv: &WellKnownPolicyValues{
-// 			DefaultLocation: to.Ptr("eastus"),
-// 		},
-// 	}
-// 	pd2mg = map[string]string{
-// 		"pd1": "mg1",
-// 	}
-// 	psd2mg = map[string]string{
-// 		"psd1": "mg1",
-// 	}
-// 	err = updatePolicyAsignments(alzmg, pd2mg, psd2mg, papv)
-// 	assert.NoError(t, err)
-// 	expected = fmt.Sprintf(policyAssignmentIdFmt, "mg1", "pa1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].ID)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].Properties.PolicyDefinitionID)
-// 	expected = fmt.Sprintf(managementGroupIdFmt, "mg1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].Properties.Scope)
-// 	expected = "eastus"
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa1"].Location)
-// 	expected = fmt.Sprintf(policyAssignmentIdFmt, "mg1", "pa2")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa2"].ID)
-// 	expected = fmt.Sprintf(policySetDefinitionIdFmt, "mg1", "psd1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa2"].Properties.PolicyDefinitionID)
-// 	expected = fmt.Sprintf(managementGroupIdFmt, "mg1")
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa2"].Properties.Scope)
-// 	expected = "eastus"
-// 	assert.Equal(t, expected, *alzmg.policyAssignments["pa2"].Location)
+func TestModifyPolicySetDefinitions(t *testing.T) {
+	t.Parallel()
+	// Test with a single policy set definition and a single policy definition.
+	alzmg := &ManagementGroup{
+		name: "mg1",
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{
+			"psd1": assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+				Properties: &armpolicy.SetDefinitionProperties{
+					PolicyDefinitions: []*armpolicy.DefinitionReference{
+						{
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
+						},
+					},
+				},
+			}),
+		},
+	}
+	pd2mg := map[string]string{
+		"pd1": "mg1",
+	}
+	updatePolicySetDefinitions(alzmg, pd2mg)
+	expected := fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
+	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
 
-// 	// Test with invalid policy definition id.
-// 	alzmg = &AlzManagementGroup{
-// 		name: "mg1",
-// 		policyAssignments: map[string]*armpolicy.Assignment{
-// 			"pa1": {
-// 				Name: to.Ptr("policy1"),
-// 				Properties: &armpolicy.AssignmentProperties{
-// 					PolicyDefinitionID: to.Ptr("invalid"),
-// 					Scope:              to.Ptr(fmt.Sprintf(managementGroupIdFmt, "mg1")),
-// 				},
-// 			},
-// 		},
-// 		wkpv: &WellKnownPolicyValues{
-// 			DefaultLocation: to.Ptr("eastus"),
-// 		},
-// 	}
-// 	pd2mg = map[string]string{}
-// 	psd2mg = map[string]string{}
-// 	err = updatePolicyAsignments(alzmg, pd2mg, psd2mg, papv)
-// 	assert.Error(t, err)
-// 	expected = "has invalid referenced definition/set resource type with id"
-// 	assert.ErrorContains(t, err, expected)
-// }
+	// Test with multiple policy set definitions and policy definitions.
+	alzmg = &ManagementGroup{
+		name: "mg1",
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{
+			"psd1": assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+				Properties: &armpolicy.SetDefinitionProperties{
+					PolicyDefinitions: []*armpolicy.DefinitionReference{
+						{
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
+						},
+					},
+				},
+			}),
+			"psd2": assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+				Properties: &armpolicy.SetDefinitionProperties{
+					PolicyDefinitions: []*armpolicy.DefinitionReference{
+						{
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd2")),
+						},
+						{
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd3")),
+						},
+					},
+				},
+			}),
+		},
+	}
+	pd2mg = map[string]string{
+		"pd1": "mg1",
+		"pd2": "mg1",
+		"pd3": "mg1",
+	}
+	updatePolicySetDefinitions(alzmg, pd2mg)
+	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
+	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
+	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd2")
+	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].ID)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd2")
+	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
+	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd3")
+	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].Properties.PolicyDefinitions[1].PolicyDefinitionID)
 
-// func TestModifyPolicyDefinitions(t *testing.T) {
-// 	t.Parallel()
-// 	// Test with a single policy definition.
-// 	alzmg := &AlzManagementGroup{
-// 		name: "mg1",
-// 		policyDefinitions: map[string]*armpolicy.Definition{
-// 			"pd1": {},
-// 		},
-// 	}
-// 	updatePolicyDefinitions(alzmg)
-// 	expected := fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
-// 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
+	// Test with no policy set definitions or policy definitions.
+	alzmg = &ManagementGroup{
+		name:                 "mg1",
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+	}
+	pd2mg = map[string]string{}
+	updatePolicySetDefinitions(alzmg, pd2mg)
+	assert.Empty(t, alzmg.policySetDefinitions)
+}
 
-// 	// Test with multiple policy definitions.
-// 	alzmg = &AlzManagementGroup{
-// 		name: "mg1",
-// 		policyDefinitions: map[string]*armpolicy.Definition{
-// 			"pd1": {},
-// 			"pd2": {},
-// 		},
-// 	}
-// 	updatePolicyDefinitions(alzmg)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
-// 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd2")
-// 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd2"].ID)
+func TestModifyRoleDefinitions(t *testing.T) {
+	t.Parallel()
+	// Test with a single role definition
+	alzmg := &ManagementGroup{
+		name: "mg1",
+		roleDefinitions: map[string]*assets.RoleDefinition{
+			"rd1": assets.NewRoleDefinition(armauthorization.RoleDefinition{
+				Name: to.Ptr("role1"),
+				Properties: &armauthorization.RoleDefinitionProperties{
+					AssignableScopes: []*string{},
+				},
+			}),
+		},
+	}
+	updateRoleDefinitions(alzmg)
+	expected := fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
+	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
+	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
+	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
 
-// 	// Test with no policy definitions.
-// 	alzmg = &AlzManagementGroup{
-// 		name:              "mg1",
-// 		policyDefinitions: map[string]*armpolicy.Definition{},
-// 	}
-// 	updatePolicyDefinitions(alzmg)
-// 	assert.Empty(t, alzmg.policyDefinitions)
-// }
+	// Test with multiple role definitions
+	alzmg = &ManagementGroup{
+		name: "mg1",
+		roleDefinitions: map[string]*assets.RoleDefinition{
+			"rd1": assets.NewRoleDefinition(armauthorization.RoleDefinition{
+				Name: to.Ptr("role1"),
+				Properties: &armauthorization.RoleDefinitionProperties{
+					AssignableScopes: []*string{},
+				},
+			}),
+			"rd2": assets.NewRoleDefinition(armauthorization.RoleDefinition{
+				Name: to.Ptr("role2"),
+				Properties: &armauthorization.RoleDefinitionProperties{
+					AssignableScopes: []*string{},
+				},
+			}),
+		},
+	}
+	updateRoleDefinitions(alzmg)
+	expected = fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
+	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
+	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
+	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
+	assert.Equal(t, fmt.Sprintf(ManagementGroupIdFmt, "mg1"), *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
+	expected = fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role2"))
+	assert.Equal(t, expected, *alzmg.roleDefinitions["rd2"].ID)
+	assert.Len(t, alzmg.roleDefinitions["rd2"].Properties.AssignableScopes, 1)
+	assert.Equal(t, fmt.Sprintf(ManagementGroupIdFmt, "mg1"), *alzmg.roleDefinitions["rd2"].Properties.AssignableScopes[0])
 
-// func TestModifyPolicySetDefinitions(t *testing.T) {
-// 	t.Parallel()
-// 	// Test with a single policy set definition and a single policy definition.
-// 	alzmg := &AlzManagementGroup{
-// 		name: "mg1",
-// 		policySetDefinitions: map[string]*armpolicy.SetDefinition{
-// 			"psd1": {
-// 				Properties: &armpolicy.SetDefinitionProperties{
-// 					PolicyDefinitions: []*armpolicy.DefinitionReference{
-// 						{
-// 							PolicyDefinitionID: to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, "changeme", "pd1")),
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	pd2mg := map[string]string{
-// 		"pd1": "mg1",
-// 	}
-// 	updatePolicySetDefinitions(alzmg, pd2mg)
-// 	expected := fmt.Sprintf(policySetDefinitionIdFmt, "mg1", "psd1")
-// 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
-// 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
+	// Test with no role definitions.
+	alzmg = &ManagementGroup{
+		name:            "mg1",
+		roleDefinitions: map[string]*assets.RoleDefinition{},
+	}
+	updateRoleDefinitions(alzmg)
+	assert.Empty(t, alzmg.roleDefinitions)
+}
 
-// 	// Test with multiple policy set definitions and policy definitions.
-// 	alzmg = &AlzManagementGroup{
-// 		name: "mg1",
-// 		policySetDefinitions: map[string]*armpolicy.SetDefinition{
-// 			"psd1": {
-// 				Properties: &armpolicy.SetDefinitionProperties{
-// 					PolicyDefinitions: []*armpolicy.DefinitionReference{
-// 						{
-// 							PolicyDefinitionID: to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, "changeme", "pd1")),
-// 						},
-// 					},
-// 				},
-// 			},
-// 			"psd2": {
-// 				Properties: &armpolicy.SetDefinitionProperties{
-// 					PolicyDefinitions: []*armpolicy.DefinitionReference{
-// 						{
-// 							PolicyDefinitionID: to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, "changeme", "pd2")),
-// 						},
-// 						{
-// 							PolicyDefinitionID: to.Ptr(fmt.Sprintf(policyDefinitionIdFmt, "changeme", "pd3")),
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	pd2mg = map[string]string{
-// 		"pd1": "mg1",
-// 		"pd2": "mg1",
-// 		"pd3": "mg1",
-// 	}
-// 	updatePolicySetDefinitions(alzmg, pd2mg)
-// 	expected = fmt.Sprintf(policySetDefinitionIdFmt, "mg1", "psd1")
-// 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd1")
-// 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
-// 	expected = fmt.Sprintf(policySetDefinitionIdFmt, "mg1", "psd2")
-// 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].ID)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd2")
-// 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
-// 	expected = fmt.Sprintf(policyDefinitionIdFmt, "mg1", "pd3")
-// 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].Properties.PolicyDefinitions[1].PolicyDefinitionID)
+func TestModifyPolicyAssignment(t *testing.T) {
+	// Create a new AlzManagementGroup instance
+	alzmg := &ManagementGroup{
+		policyAssignments: make(map[string]*assets.PolicyAssignment),
+	}
 
-// 	// Test with no policy set definitions or policy definitions.
-// 	alzmg = &AlzManagementGroup{
-// 		name:                 "mg1",
-// 		policySetDefinitions: map[string]*armpolicy.SetDefinition{},
-// 	}
-// 	pd2mg = map[string]string{}
-// 	updatePolicySetDefinitions(alzmg, pd2mg)
-// 	assert.Empty(t, alzmg.policySetDefinitions)
-// }
+	// Add a policy assignment to the management group
+	pa := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("test-policy-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+		Properties: &armpolicy.AssignmentProperties{
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"parameter1": {Value: "value1"},
+			},
+		},
+	})
+	alzmg.policyAssignments["test-policy-assignment"] = pa
 
-// func TestModifyRoleDefinitions(t *testing.T) {
-// 	t.Parallel()
-// 	// Test with a single role definition
-// 	alzmg := &AlzManagementGroup{
-// 		name: "mg1",
-// 		roleDefinitions: map[string]*armauthorization.RoleDefinition{
-// 			"rd1": {
-// 				Name: to.Ptr("role1"),
-// 				Properties: &armauthorization.RoleDefinitionProperties{
-// 					AssignableScopes: []*string{},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	updateRoleDefinitions(alzmg)
-// 	expected := fmt.Sprintf(roleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
-// 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
-// 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
-// 	expected = fmt.Sprintf(managementGroupIdFmt, "mg1")
-// 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
+	// Define the expected modified policy assignment
+	expected := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("test-policy-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+		Properties: &armpolicy.AssignmentProperties{
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"parameter1": {Value: "value1"},
+				"parameter2": {Value: "value2"},
+			},
+			EnforcementMode:       to.Ptr(armpolicy.EnforcementModeDefault),
+			NonComplianceMessages: []*armpolicy.NonComplianceMessage{},
+			ResourceSelectors: []*armpolicy.ResourceSelector{
+				{
+					Name: to.Ptr("resourceSelector1"),
+					Selectors: []*armpolicy.Selector{
+						{
+							Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
+							In:   to.SliceOfPtrs([]string{"eastus"}...),
+						},
+					},
+				},
+			},
+			Overrides: []*armpolicy.Override{},
+		},
+		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+	})
 
-// 	// Test with multiple role definitions
-// 	alzmg = &AlzManagementGroup{
-// 		name: "mg1",
-// 		roleDefinitions: map[string]*armauthorization.RoleDefinition{
-// 			"rd1": {
-// 				Name: to.Ptr("role1"),
-// 				Properties: &armauthorization.RoleDefinitionProperties{
-// 					AssignableScopes: []*string{},
-// 				},
-// 			},
-// 			"rd2": {
-// 				Name: to.Ptr("role2"),
-// 				Properties: &armauthorization.RoleDefinitionProperties{
-// 					AssignableScopes: []*string{},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	updateRoleDefinitions(alzmg)
-// 	expected = fmt.Sprintf(roleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
-// 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
-// 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
-// 	expected = fmt.Sprintf(managementGroupIdFmt, "mg1")
-// 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
-// 	assert.Equal(t, fmt.Sprintf(managementGroupIdFmt, "mg1"), *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
-// 	expected = fmt.Sprintf(roleDefinitionIdFmt, "mg1", uuidV5("mg1", "role2"))
-// 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd2"].ID)
-// 	assert.Len(t, alzmg.roleDefinitions["rd2"].Properties.AssignableScopes, 1)
-// 	assert.Equal(t, fmt.Sprintf(managementGroupIdFmt, "mg1"), *alzmg.roleDefinitions["rd2"].Properties.AssignableScopes[0])
+	// Call the ModifyPolicyAssignment function
+	err := alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		map[string]*armpolicy.ParameterValuesValue{
+			"parameter2": {Value: "value2"},
+		},
+		to.Ptr(armpolicy.EnforcementModeDefault),
+		[]*armpolicy.NonComplianceMessage{},
+		&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+		[]*armpolicy.ResourceSelector{
+			{
+				Name: to.Ptr("resourceSelector1"),
+				Selectors: []*armpolicy.Selector{
+					{
+						Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
+						In:   to.SliceOfPtrs([]string{"eastus"}...),
+					},
+				},
+			},
+		},
+		[]*armpolicy.Override{},
+	)
 
-// 	// Test with no role definitions.
-// 	alzmg = &AlzManagementGroup{
-// 		name:            "mg1",
-// 		roleDefinitions: map[string]*armauthorization.RoleDefinition{},
-// 	}
-// 	updateRoleDefinitions(alzmg)
-// 	assert.Empty(t, alzmg.roleDefinitions)
-// }
+	// Check for errors
+	assert.NoError(t, err)
 
-// func TestCopyMap(t *testing.T) {
-// 	// Create a new map.
-// 	m := map[string]*int{
-// 		"foo": to.Ptr(1),
-// 		"bar": to.Ptr(2),
-// 		"baz": to.Ptr(3),
-// 	}
-
-// 	// Copy the map.
-// 	m2 := copyMap[string, int](m)
-
-// 	// Verify that the original map and the copied map are equal.
-// 	assert.Equal(t, len(m), len(m2))
-// 	for k, v := range m {
-// 		assert.Equal(t, *v, m2[k])
-// 	}
-
-// 	// Modify the original map.
-// 	m["foo"] = to.Ptr(4)
-
-// 	// Verify that the original map and the copied map are no longer equal.
-// 	assert.NotEqual(t, m, m2)
-// }
-
-// func TestModifyPolicyAssignment(t *testing.T) {
-// 	// Create a new AlzManagementGroup instance
-// 	alzmg := &AlzManagementGroup{
-// 		policyAssignments: make(map[string]*armpolicy.Assignment),
-// 	}
-
-// 	// Add a policy assignment to the management group
-// 	pa := &armpolicy.Assignment{
-// 		Name: to.Ptr("test-policy-assignment"),
-// 		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
-// 		Properties: &armpolicy.AssignmentProperties{
-// 			Parameters: map[string]*armpolicy.ParameterValuesValue{
-// 				"parameter1": {Value: "value1"},
-// 			},
-// 		},
-// 	}
-// 	alzmg.policyAssignments["test-policy-assignment"] = pa
-
-// 	// Define the expected modified policy assignment
-// 	expected := &armpolicy.Assignment{
-// 		Name: to.Ptr("test-policy-assignment"),
-// 		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
-// 		Properties: &armpolicy.AssignmentProperties{
-// 			Parameters: map[string]*armpolicy.ParameterValuesValue{
-// 				"parameter1": {Value: "value1"},
-// 				"parameter2": {Value: "value2"},
-// 			},
-// 			EnforcementMode:       to.Ptr(armpolicy.EnforcementModeDefault),
-// 			NonComplianceMessages: []*armpolicy.NonComplianceMessage{},
-// 			ResourceSelectors: []*armpolicy.ResourceSelector{
-// 				{
-// 					Name: to.Ptr("resourceSelector1"),
-// 					Selectors: []*armpolicy.Selector{
-// 						{
-// 							Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
-// 							In:   to.SliceOfPtrs([]string{"eastus"}...),
-// 						},
-// 					},
-// 				},
-// 			},
-// 			Overrides: []*armpolicy.Override{},
-// 		},
-// 		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-// 	}
-
-// 	// Call the ModifyPolicyAssignment function
-// 	err := alzmg.ModifyPolicyAssignment(
-// 		"test-policy-assignment",
-// 		map[string]*armpolicy.ParameterValuesValue{
-// 			"parameter2": {Value: "value2"},
-// 		},
-// 		to.Ptr(armpolicy.EnforcementModeDefault),
-// 		[]*armpolicy.NonComplianceMessage{},
-// 		&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-// 		[]*armpolicy.ResourceSelector{
-// 			{
-// 				Name: to.Ptr("resourceSelector1"),
-// 				Selectors: []*armpolicy.Selector{
-// 					{
-// 						Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
-// 						In:   to.SliceOfPtrs([]string{"eastus"}...),
-// 					},
-// 				},
-// 			},
-// 		},
-// 		[]*armpolicy.Override{},
-// 	)
-
-// 	// Check for errors
-// 	assert.NoError(t, err)
-
-// 	// Check if the policy assignment was modified correctly
-// 	assert.Equal(t, expected, alzmg.policyAssignments["test-policy-assignment"])
-// }
+	// Check if the policy assignment was modified correctly
+	assert.Equal(t, expected, alzmg.policyAssignments["test-policy-assignment"])
+}

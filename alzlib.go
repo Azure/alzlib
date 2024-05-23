@@ -87,6 +87,86 @@ func getDefaultAlzLibOptions() *AlzLibOptions {
 	}
 }
 
+// AddPolicyAssignments adds policy assignments to the AlzLib struct.
+func (az *AlzLib) AddPolicyAssignments(pas ...*assets.PolicyAssignment) error {
+	for _, pa := range pas {
+		if pa == nil || pa.Name == nil || *pa.Name == "" {
+			continue
+		}
+		az.mu.Lock()
+		defer az.mu.Unlock()
+		if _, exists := az.policyAssignments[*pa.Name]; exists && !az.Options.AllowOverwrite {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy assignment with name %s already exists and allow overwrite not set", *pa.Name)
+		}
+		copy, err := deep.Copy(pa)
+		if err != nil {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy assignment %s: %w", *pa.Name, err)
+		}
+		az.policyAssignments[*pa.Name] = copy
+	}
+	return nil
+}
+
+// AddPolicyDefinitions adds policy definitions to the AlzLib struct.
+func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
+	for _, pd := range pds {
+		if pd == nil || pd.Name == nil || *pd.Name == "" {
+			continue
+		}
+		az.mu.Lock()
+		defer az.mu.Unlock()
+		if _, exists := az.policyDefinitions[*pd.Name]; exists && !az.Options.AllowOverwrite {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy definition with name %s already exists and allow overwrite not set", *pd.Name)
+		}
+		copy, err := deep.Copy(pd)
+		if err != nil {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy definition %s: %w", *pd.Name, err)
+		}
+		az.policyDefinitions[*pd.Name] = copy
+	}
+	return nil
+}
+
+// AddPolicySetDefinitions adds policy set definitions to the AlzLib struct.
+func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) error {
+	for _, psd := range psds {
+		if psd == nil || psd.Name == nil || *psd.Name == "" {
+			continue
+		}
+		az.mu.Lock()
+		defer az.mu.Unlock()
+		if _, exists := az.policyDefinitions[*psd.Name]; exists && !az.Options.AllowOverwrite {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
+		}
+		copy, err := deep.Copy(psd)
+		if err != nil {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy set definition %s: %w", *psd.Name, err)
+		}
+		az.policySetDefinitions[*psd.Name] = copy
+	}
+	return nil
+}
+
+// AddRoleDefinitions adds role definitions to the AlzLib struct.
+func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
+	for _, rd := range rds {
+		if rd == nil || rd.Name == nil || *rd.Name == "" {
+			continue
+		}
+		az.mu.Lock()
+		defer az.mu.Unlock()
+		if _, exists := az.policyDefinitions[*rd.Name]; exists && !az.Options.AllowOverwrite {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: role definition with name %s already exists and allow overwrite not set", *rd.Name)
+		}
+		copy, err := deep.Copy(rd)
+		if err != nil {
+			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of role definition %s: %w", *rd.Name, err)
+		}
+		az.roleDefinitions[*rd.Name] = copy
+	}
+	return nil
+}
+
 // ListArchetypes returns a list of the archetypes in the AlzLib struct.
 func (az *AlzLib) ListArchetypes() []string {
 	result := make([]string, 0, len(az.archetypes))

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package processor
 
 // LibDefaultPolicyValues represents the default policy values that allow a single value to be mapped into different assignments.
