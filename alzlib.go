@@ -321,7 +321,7 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 				for _, ref := range pdrefs {
 					subResId, err := arm.ParseResourceID(*ref.PolicyDefinitionID)
 					if err != nil {
-						return fmt.Errorf("policy set definition %s has a nil policy definition ID", *psd.Name)
+						return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: policy set definition %s error parsing referenced definition resource id: %w", *psd.Name, err)
 					}
 					if _, exists := az.policyDefinitions[subResId.Name]; !exists {
 						policyDefsToGet.Add(subResId.Name)
