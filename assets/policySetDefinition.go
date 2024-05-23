@@ -8,7 +8,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	"github.com/brunoga/deep"
 )
 
 type PolicySetDefinition struct {
@@ -38,5 +37,5 @@ func (psd *PolicySetDefinition) GetPolicyDefinitionReferences() ([]*armpolicy.De
 	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
 		return nil, errors.New("policy set definition is nil, missing properties or policy definitions")
 	}
-	return deep.Copy(psd.Properties.PolicyDefinitions)
+	return psd.Properties.PolicyDefinitions, nil
 }

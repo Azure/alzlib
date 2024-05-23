@@ -21,7 +21,7 @@ func TestWellKnownParameterReplacement(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	dirfs := os.DirFS("./testdata/wellknownparameters")
+	dirfs := os.DirFS("../testdata/wellknownparameters")
 	err := az.Init(ctx, dirfs)
 	require.NoError(t, err)
 

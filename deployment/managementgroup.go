@@ -372,12 +372,12 @@ func updatePolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) er
 		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.name, k))
 		refs, err := psd.GetPolicyDefinitionReferences()
 		if err != nil {
-			return err
+			return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition references for policy set definition %s: %w", k, err)
 		}
 		for _, pd := range refs {
 			pdname, err := assets.NameFromResourceId(*pd.PolicyDefinitionID)
 			if err != nil {
-				return err
+				return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition name from resource id %s: %w", *pd.PolicyDefinitionID, err)
 			}
 			if mgname, ok := pd2mg[pdname]; ok {
 				pd.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mgname, pdname))

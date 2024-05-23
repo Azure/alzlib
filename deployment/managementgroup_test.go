@@ -287,7 +287,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 				Location: to.Ptr("changeme"),
 			}),
 		},
-		location: "changeme",
+		location: "eastus",
 	}
 	pd2mg = map[string]string{
 		"pd1": "mg1",
