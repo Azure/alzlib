@@ -1,29 +1,29 @@
 {
-  "name": "test-policy-set-definition",
-  "type": "Microsoft.Authorization/policySetDefinitions",
   "apiVersion": "2021-06-01",
-  "scope": null,
+  "name": "test-policy-set-definition",
   "properties": {
-    "policyType": "Custom",
-    "displayName": "Deploy Diagnostic Settings to Azure Services",
     "description": "This policy set deploys the configurations of application Azure resources to forward diagnostic logs and metrics to an Azure Log Analytics workspace. See the list of policies of the services that are included ",
+    "displayName": "Deploy Diagnostic Settings to Azure Services",
     "metadata": {
-      "version": "2.0.0",
-      "category": "Monitoring",
-      "source": "https://github.com/Azure/Enterprise-Scale/",
       "alzCloudEnvironments": [
         "AzureCloud"
-      ]
+      ],
+      "category": "Monitoring",
+      "source": "https://github.com/Azure/Enterprise-Scale/",
+      "version": "2.0.0"
     },
     "parameters": {},
+    "policyDefinitionGroups": null,
     "policyDefinitions": [
       {
-        "policyDefinitionReferenceId": "TestRefId",
-        "policyDefinitionId": "${root_scope_resource_id}/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition",
+        "groupNames": [],
         "parameters": {},
-        "groupNames": []
+        "policyDefinitionId": "/providers/Microsoft.Management/managementGroups/PLACEHOLDER/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition",
+        "policyDefinitionReferenceId": "TestRefId"
       }
     ],
-    "policyDefinitionGroups": null
-  }
+    "policyType": "Custom"
+  },
+  "scope": null,
+  "type": "Microsoft.Authorization/policySetDefinitions"
 }

@@ -52,7 +52,7 @@ func ExampleAlzLib_Init() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("Management groups: %v", depl)
+	fmt.Printf("Management groups: %v", depl.ListManagementGroups())
 
 	// Output:
 	// Management groups: [test]
