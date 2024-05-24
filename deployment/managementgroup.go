@@ -284,7 +284,10 @@ func (mg *ManagementGroup) update(papv PolicyAssignmentsParameterValues) error {
 
 	// re-write the policy set definition ID property and go through the referenced definitions
 	// and write the definition id if it's custom.
-	updatePolicySetDefinitions(mg, pd2mg)
+	if err := updatePolicySetDefinitions(mg, pd2mg); err != nil {
+		return fmt.Errorf("ManagementGroup.update: error updating policy set definitions for mg `%s`: %w", mg.name, err)
+
+	}
 
 	// re-write the assignableScopes for the role definitions.
 	updateRoleDefinitions(mg)

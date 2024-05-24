@@ -97,11 +97,11 @@ func (az *AlzLib) AddPolicyAssignments(pas ...*assets.PolicyAssignment) error {
 		if _, exists := az.policyAssignments[*pa.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy assignment with name %s already exists and allow overwrite not set", *pa.Name)
 		}
-		copy, err := deep.Copy(pa)
+		cpy, err := deep.Copy(pa)
 		if err != nil {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy assignment %s: %w", *pa.Name, err)
 		}
-		az.policyAssignments[*pa.Name] = copy
+		az.policyAssignments[*pa.Name] = cpy
 	}
 	return nil
 }
@@ -118,11 +118,11 @@ func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
 		if _, exists := az.policyDefinitions[*pd.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy definition with name %s already exists and allow overwrite not set", *pd.Name)
 		}
-		copy, err := deep.Copy(pd)
+		cpy, err := deep.Copy(pd)
 		if err != nil {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy definition %s: %w", *pd.Name, err)
 		}
-		az.policyDefinitions[*pd.Name] = copy
+		az.policyDefinitions[*pd.Name] = cpy
 	}
 	return nil
 }
@@ -138,11 +138,11 @@ func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) e
 		if _, exists := az.policyDefinitions[*psd.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
 		}
-		copy, err := deep.Copy(psd)
+		cpy, err := deep.Copy(psd)
 		if err != nil {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy set definition %s: %w", *psd.Name, err)
 		}
-		az.policySetDefinitions[*psd.Name] = copy
+		az.policySetDefinitions[*psd.Name] = cpy
 	}
 	return nil
 }
@@ -158,11 +158,11 @@ func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
 		if _, exists := az.policyDefinitions[*rd.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: role definition with name %s already exists and allow overwrite not set", *rd.Name)
 		}
-		copy, err := deep.Copy(rd)
+		cpy, err := deep.Copy(rd)
 		if err != nil {
 			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of role definition %s: %w", *rd.Name, err)
 		}
-		az.roleDefinitions[*rd.Name] = copy
+		az.roleDefinitions[*rd.Name] = cpy
 	}
 	return nil
 }

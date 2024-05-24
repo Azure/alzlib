@@ -168,9 +168,9 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	mg.policyAssignments[*paSetDef.Name] = paSetDef
 
 	// add the policy (set) definitions to the alzlib.
-	az.AddPolicyDefinitions(pd1, pd2)
-	az.AddPolicySetDefinitions(ps)
-	az.AddPolicyAssignments(paDef, paSetDef)
+	_ = az.AddPolicyDefinitions(pd1, pd2)
+	_ = az.AddPolicySetDefinitions(ps)
+	_ = az.AddPolicyAssignments(paDef, paSetDef)
 
 	depl := NewHierarchy(az)
 	depl.mgs["mg1"] = mg
@@ -392,7 +392,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	pd2mg := map[string]string{
 		"pd1": "mg1",
 	}
-	updatePolicySetDefinitions(alzmg, pd2mg)
+	_ = updatePolicySetDefinitions(alzmg, pd2mg)
 	expected := fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
 	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
@@ -430,7 +430,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 		"pd2": "mg1",
 		"pd3": "mg1",
 	}
-	updatePolicySetDefinitions(alzmg, pd2mg)
+	_ = updatePolicySetDefinitions(alzmg, pd2mg)
 	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
 	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
@@ -448,7 +448,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
 	}
 	pd2mg = map[string]string{}
-	updatePolicySetDefinitions(alzmg, pd2mg)
+	_ = updatePolicySetDefinitions(alzmg, pd2mg)
 	assert.Empty(t, alzmg.policySetDefinitions)
 }
 
