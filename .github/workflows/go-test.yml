@@ -51,7 +51,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         persist-credentials: false
 
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v5.0.1
       name: setup go
       with:
         go-version-file: 'go.mod'
