@@ -48,7 +48,7 @@ func ExampleAlzLib_Init() {
 		ParentIsExternal: true,
 		Archetype:        arch,
 	}
-	if err := depl.AddManagementGroup(ctx, req); err != nil {
+	if _, err := depl.AddManagementGroup(ctx, req); err != nil {
 		fmt.Println(err)
 		return
 	}

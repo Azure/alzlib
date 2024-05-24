@@ -40,7 +40,8 @@ func TestWellKnownParameterReplacement(t *testing.T) {
 		Archetype:        arch,
 	}
 	depl := NewHierarchy(az)
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
+	_, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
 
 	paramValue := depl.mgs["test"].policyAssignments["Deploy-AzActivity-Log"].Properties.Parameters["logAnalytics"].Value
 	assert.Equal(t, "testlaworkspaceid", paramValue)

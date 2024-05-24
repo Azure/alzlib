@@ -45,8 +45,9 @@ func TestFullAlz(t *testing.T) {
 		Archetype:        arch,
 	}
 	depl := deployment.NewHierarchy(az)
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("root").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err := depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating landing_zones management group")
 	arch, err = az.CopyArchetype("landing_zones")
@@ -58,8 +59,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("landing_zones").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating platform management group")
 	arch, err = az.CopyArchetype("platform")
@@ -71,8 +73,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("platform").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating sandboxes management group")
 	arch, err = az.CopyArchetype("sandboxes")
@@ -84,8 +87,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("sandboxes").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating management management group")
 	arch, err = az.CopyArchetype("management")
@@ -97,8 +101,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("management").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating identity management group")
 	arch, err = az.CopyArchetype("identity")
@@ -110,8 +115,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("identity").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating connectivity management group")
 	arch, err = az.CopyArchetype("connectivity")
@@ -123,8 +129,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("connectivity").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating corp management group")
 	arch, err = az.CopyArchetype("corp")
@@ -136,8 +143,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("corp").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 
 	t.Log("Creating online management group")
 	arch, err = az.CopyArchetype("online")
@@ -149,8 +157,9 @@ func TestFullAlz(t *testing.T) {
 		ParentIsExternal: false,
 		Archetype:        arch,
 	}
-	assert.NoError(t, depl.AddManagementGroup(context.Background(), req))
-	assert.NoError(t, depl.GetManagementGroup("online").GeneratePolicyAssignmentAdditionalRoleAssignments())
+	mg, err = depl.AddManagementGroup(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NoError(t, mg.GeneratePolicyAssignmentAdditionalRoleAssignments())
 }
 
 // TestInitMultiLib tests that we can initialize the library with multiple urls.

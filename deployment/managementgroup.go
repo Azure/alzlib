@@ -291,7 +291,7 @@ func (mg *ManagementGroup) update(papv PolicyAssignmentsParameterValues) error {
 	updateRoleDefinitions(mg)
 
 	if err := updatePolicyAsignments(mg, pd2mg, psd2mg, papv); err != nil {
-		return err
+		return fmt.Errorf("ManagementGroup.update: error updating policy assignments: %w", err)
 	}
 
 	return nil

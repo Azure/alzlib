@@ -39,10 +39,9 @@ func TestAddManagementGroup(t *testing.T) {
 	}
 	depl := deployment.NewHierarchy(az)
 
-	err := depl.AddManagementGroup(context.Background(), req)
+	mg, err := depl.AddManagementGroup(context.Background(), req)
 	assert.NoError(t, err)
 	assert.True(t, slices.Equal(depl.ListManagementGroups(), []string{"mg1"}))
-	mg := depl.GetManagementGroup("mg1")
 	assert.Len(t, mg.Children(), 0)
 	assert.Equal(t, "mg1", mg.DisplayName())
 	assert.Nil(t, mg.Parent())
@@ -58,11 +57,10 @@ func TestAddManagementGroup(t *testing.T) {
 		Location:         "eastus2",
 	}
 	// test adding a new management group with a parent.
-	err = depl.AddManagementGroup(context.Background(), req)
+	mg, err = depl.AddManagementGroup(context.Background(), req)
 	assert.NoError(t, err)
 	assert.Len(t, depl.ListManagementGroups(), 2)
 	assert.Contains(t, depl.ListManagementGroups(), "mg2")
-	mg = depl.GetManagementGroup("mg2")
 	assert.Equal(t, "mg2", mg.Name())
 	assert.Equal(t, "mg2", mg.DisplayName())
 	assert.NotNil(t, mg.Parent())
@@ -80,7 +78,7 @@ func TestAddManagementGroup(t *testing.T) {
 		Archetype:        arch,
 	}
 	// test adding a new management group with a non-existent parent.
-	err = depl.AddManagementGroup(context.Background(), req)
+	_, err = depl.AddManagementGroup(context.Background(), req)
 	assert.Error(t, err)
 
 	req = deployment.ManagementGroupAddRequest{
@@ -91,7 +89,7 @@ func TestAddManagementGroup(t *testing.T) {
 		Archetype:        arch,
 	}
 	// test adding a new management group with multiple root management groups.
-	err = depl.AddManagementGroup(context.Background(), req)
+	_, err = depl.AddManagementGroup(context.Background(), req)
 	assert.Error(t, err)
 
 	req = deployment.ManagementGroupAddRequest{
@@ -102,6 +100,6 @@ func TestAddManagementGroup(t *testing.T) {
 		Archetype:        arch,
 	}
 	// test adding a new management group with an existing name.
-	err = depl.AddManagementGroup(context.Background(), req)
+	_, err = depl.AddManagementGroup(context.Background(), req)
 	assert.Error(t, err)
 }
