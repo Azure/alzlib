@@ -4,7 +4,6 @@ run:
   modules-download-mode: readonly
 
 issues:
-  max-per-linter: 0
   max-same-issues: 0
 
 linters:
@@ -17,6 +16,7 @@ linters:
     - godot
     - gofmt
     - gosimple
+    - govet
     - ineffassign
     - makezero
     - misspell
@@ -27,4 +27,3 @@ linters:
     - unconvert
     - unparam
     - unused
-    - vet

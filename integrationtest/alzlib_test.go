@@ -1,20 +1,18 @@
-package alzlib_test
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+package integrationtest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/to"
+	"github.com/Azure/alzlib/deployment"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 )
-
-func TestNewAlzLibOptions(t *testing.T) {
-	az := alzlib.NewAlzLib()
-	assert.Equal(t, 10, az.Options.Parallelism)
-}
 
 func TestNewAlzLibOptionsError(t *testing.T) {
 	az := new(alzlib.AlzLib)
@@ -27,37 +25,34 @@ func TestNewAlzLibOptionsError(t *testing.T) {
 
 // ExampleAlzLib_E2E demonstrates the creation of a new AlzLib based a sample directory.
 func ExampleAlzLib_Init() {
-	az := alzlib.NewAlzLib()
+	az := alzlib.NewAlzLib(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	dirfs := os.DirFS("./testdata/simple")
+	dirfs := os.DirFS("../testdata/simple")
 	if err := az.Init(ctx, dirfs); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	wkpv := &alzlib.WellKnownPolicyValues{
-		DefaultLocation:                to.Ptr("eastus"),
-		DefaultLogAnalyticsWorkspaceId: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test/providers/Microsoft.OperationalInsights/workspaces/test"),
-		PrivateDnsZoneResourceGroupId:  to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test"),
-	}
-	arch, err := az.CopyArchetype("root", wkpv)
+	arch, err := az.CopyArchetype("root")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	req := alzlib.AlzManagementGroupAddRequest{
+
+	depl := deployment.NewHierarchy(az)
+	req := deployment.ManagementGroupAddRequest{
 		Id:               "test",
 		DisplayName:      "test",
 		ParentId:         "00000000-0000-0000-0000-000000000000",
 		ParentIsExternal: true,
 		Archetype:        arch,
 	}
-	if err := az.AddManagementGroupToDeployment(ctx, req); err != nil {
+	if _, err := depl.AddManagementGroup(ctx, req); err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("Management groups: %v", az.Deployment.ListManagementGroups())
+	fmt.Printf("Management groups: %v", depl.ListManagementGroups())
 
 	// Output:
 	// Management groups: [test]

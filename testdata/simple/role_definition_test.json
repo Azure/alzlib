@@ -1,11 +1,11 @@
 {
-    "name": "dc726155-3983-5405-b446-9bb27b94e02c",
-    "type": "Microsoft.Authorization/roleDefinitions",
     "apiVersion": "2018-01-01-preview",
+    "name": "dc726155-3983-5405-b446-9bb27b94e02c",
     "properties": {
-        "roleName": "test-role-definition",
+        "assignableScopes": [
+            "/providers/Microsoft.Management/managementGroups/PLACEHOLDER"
+        ],
         "description": "Platform-wide global connectivity management: virtual networks, UDRs, NSGs, NVAs, VPN, Azure ExpressRoute, and others",
-        "type": "customRole",
         "permissions": [
             {
                 "actions": [
@@ -14,13 +14,13 @@
                     "Microsoft.Resources/deployments/*",
                     "Microsoft.Support/*"
                 ],
-                "notActions": [],
                 "dataActions": [],
+                "notActions": [],
                 "notDataActions": []
             }
         ],
-        "assignableScopes": [
-            "${current_scope_resource_id}"
-        ]
-    }
+        "roleName": "test-role-definition",
+        "type": "customRole"
+    },
+    "type": "Microsoft.Authorization/roleDefinitions"
 }
