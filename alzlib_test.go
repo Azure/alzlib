@@ -37,7 +37,7 @@ func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
 	az := NewAlzLib(nil)
 	dir := os.DirFS("./testdata/badlib-duplicatearchetypedef")
 	err := az.Init(context.Background(), dir)
-	assert.ErrorContains(t, err, "archetype with name duplicate already exists")
+	assert.ErrorContains(t, err, "archetype with name `duplicate` already exists")
 }
 
 func TestGetBuiltInPolicy(t *testing.T) {

@@ -586,3 +586,41 @@ func TestModifyPolicyAssignment(t *testing.T) {
 	// Check if the policy assignment was modified correctly
 	assert.Equal(t, expected, alzmg.policyAssignments["test-policy-assignment"])
 }
+
+func TestUpdatePolicyAssignments(t *testing.T) {
+	mg := &ManagementGroup{
+		policyAssignments: make(map[string]*assets.PolicyAssignment),
+	}
+
+	// Create a sample policy assignment
+	pa := assets.NewPolicyAssignment(armpolicy.Assignment{
+		ID:   to.Ptr("/providers/Microsoft.Authorization/policyAssignments/sample-policy-assignment-id"),
+		Name: to.Ptr("sample-policy-assignment"),
+		Properties: &armpolicy.AssignmentProperties{
+			Scope:              to.Ptr("sample-scope"),
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/sample-policy-definition-id"),
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"param1": {Value: "changeme"},
+			},
+		},
+	})
+
+	// Add the sample policy assignment to the management group
+	mg.policyAssignments["sample-policy-assignment"] = pa
+
+	// Create a sample policy assignments parameter values
+	papv := PolicyAssignmentsParameterValues{
+		"sample-policy-assignment": {
+			"param1": &armpolicy.ParameterValuesValue{Value: "value1"},
+			"param2": &armpolicy.ParameterValuesValue{Value: "value2"},
+		},
+	}
+
+	// Call the updatePolicyAssignments function
+	err := updatePolicyAsignments(mg, map[string]string{}, map[string]string{}, papv)
+	assert.NoError(t, err)
+
+	// Assert that the policy assignment has been updated with the new parameters
+	assert.Equal(t, armpolicy.ParameterValuesValue{Value: "value1"}, *pa.Properties.Parameters["param1"])
+	assert.Equal(t, armpolicy.ParameterValuesValue{Value: "value2"}, *pa.Properties.Parameters["param2"])
+}

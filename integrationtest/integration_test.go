@@ -36,7 +36,7 @@ func TestFullAlz(t *testing.T) {
 
 	t.Log("Creating root management group")
 	arch, err := az.CopyArchetype("root")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	req := deployment.ManagementGroupAddRequest{
 		Id:               "root",
 		DisplayName:      "root",
@@ -170,7 +170,7 @@ func TestInitMultiLib(t *testing.T) {
 	defer cancel()
 	remoteLib, err := getRemoteLib(ctx)
 	assert.NoError(t, err)
-	dirfs := os.DirFS("./testdata/simple")
+	dirfs := os.DirFS("../testdata/simple")
 	err = az.Init(ctx, remoteLib, dirfs)
 	assert.NoError(t, err)
 	assert.Equal(t, 12, len(az.ListArchetypes()))
@@ -187,10 +187,11 @@ func getRemoteLib(ctx context.Context) (fs.FS, error) {
 	q := url.Values{}
 	q.Add("depth", "1")
 	q.Add("ref", "platform/alz/2024.03.00")
-	u := "https://github.com/Azure/Azure-Landing-Zones-Library//platform/alz?" + q.Encode()
+	u := "github.com/Azure/Azure-Landing-Zones-Library//platform/alz?" + q.Encode()
 	dst := filepath.Join(".alzlib", "lib")
 	client := getter.Client{}
 	wd, _ := os.Getwd()
+	_ = os.RemoveAll(dst)
 	req := &getter.Request{
 		Src: u,
 		Dst: dst,

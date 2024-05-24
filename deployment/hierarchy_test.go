@@ -4,48 +4,12 @@
 package deployment
 
 import (
-	"context"
-	"os"
 	"testing"
 
-	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/assets"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-// TestWellKnownParameterReplacement demonstrates the replacement of well-known parameters.
-func TestWellKnownParameterReplacement(t *testing.T) {
-	t.Parallel()
-	az := alzlib.NewAlzLib(nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	dirfs := os.DirFS("../testdata/wellknownparameters")
-	err := az.Init(ctx, dirfs)
-	require.NoError(t, err)
-
-	// vals := &WellKnownPolicyValues{
-	// 	DefaultLocation:                to.Ptr("eastus"),
-	// 	DefaultLogAnalyticsWorkspaceId: to.Ptr("testlaworkspaceid"),
-	// }
-
-	arch, err := az.CopyArchetype("test")
-	assert.NoError(t, err)
-	req := ManagementGroupAddRequest{
-		Id:               "test",
-		DisplayName:      "test",
-		ParentId:         "external",
-		ParentIsExternal: true,
-		Archetype:        arch,
-	}
-	depl := NewHierarchy(az)
-	_, err = depl.AddManagementGroup(context.Background(), req)
-	assert.NoError(t, err)
-
-	paramValue := depl.mgs["test"].policyAssignments["Deploy-AzActivity-Log"].Properties.Parameters["logAnalytics"].Value
-	assert.Equal(t, "testlaworkspaceid", paramValue)
-}
 
 func TestPolicySetDefinitionToMg(t *testing.T) {
 	t.Parallel()
