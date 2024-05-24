@@ -62,7 +62,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 	// Walk the embedded lib FS and process files
 	if err := fs.WalkDir(client.fs, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("error walking directory %s: %w", path, err)
+			return fmt.Errorf("ProcessorClient.Process: error walking directory %s: %w", path, err)
 		}
 		// Skip directories
 		if d.IsDir() {
@@ -73,7 +73,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 		}
 		file, err := client.fs.Open(path)
 		if err != nil {
-			return fmt.Errorf("error opening file %s: %w", path, err)
+			return fmt.Errorf("ProcessorClient.Process: error opening file %s: %w", path, err)
 		}
 		return classifyLibFile(res, file, d.Name())
 	}); err != nil {
@@ -118,7 +118,7 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 	}
 
 	if err != nil {
-		err = fmt.Errorf("error processing file: %w", err)
+		err = fmt.Errorf("classifyLibFile: error processing file: %w", err)
 	}
 
 	return err
@@ -129,11 +129,11 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 func processDefaultPolicyValues(res *Result, data []byte) error {
 	lpv := new(LibDefaultPolicyValues)
 	if err := json.Unmarshal(data, lpv); err != nil {
-		return fmt.Errorf("error processing default policy values: %w", err)
+		return fmt.Errorf("processDefaultPolicyValues: error processing default policy values: %w", err)
 	}
 	for _, d := range lpv.Defaults {
 		if _, exists := res.LibDefaultPolicyValues[d.DefaultName]; exists {
-			return fmt.Errorf("default policy values with name %s already exists", d.DefaultName)
+			return fmt.Errorf("processDefaultPolicyValues: default policy values with name `%s` already exists", d.DefaultName)
 		}
 		res.LibDefaultPolicyValues[d.DefaultName] = lpv
 	}
@@ -146,10 +146,10 @@ func processArchetype(res *Result, data []byte) error {
 	la := new(LibArchetype)
 
 	if err := json.Unmarshal(data, la); err != nil {
-		return fmt.Errorf("error processing archetype definition: %w", err)
+		return fmt.Errorf("processArchetype: error processing archetype definition: %w", err)
 	}
 	if _, exists := res.LibArchetypes[la.Name]; exists {
-		return fmt.Errorf("archetype with name %s already exists", la.Name)
+		return fmt.Errorf("processArchetype: archetype with name `%s` already exists", la.Name)
 	}
 	res.LibArchetypes[la.Name] = la
 	return nil
@@ -160,10 +160,10 @@ func processArchetype(res *Result, data []byte) error {
 func processArchetypeOverride(res *Result, data []byte) error {
 	lao := new(LibArchetypeOverride)
 	if err := json.Unmarshal(data, lao); err != nil {
-		return fmt.Errorf("error processing archetype definition: %w", err)
+		return fmt.Errorf("processArchetypeOverride: error processing archetype definition: %w", err)
 	}
 	if _, exists := res.LibArchetypeOverrides[lao.Name]; exists {
-		return fmt.Errorf("archetype override with name %s already exists", lao.Name)
+		return fmt.Errorf("processArchetypeOverride: archetype override with name `%s` already exists", lao.Name)
 	}
 	res.LibArchetypeOverrides[lao.Name] = lao
 	return nil
@@ -174,13 +174,13 @@ func processArchetypeOverride(res *Result, data []byte) error {
 func processPolicyAssignment(res *Result, data []byte) error {
 	pa := new(armpolicy.Assignment)
 	if err := json.Unmarshal(data, pa); err != nil {
-		return fmt.Errorf("error unmarshalling policy assignment: %w", err)
+		return fmt.Errorf("processPolicyAssignment: error unmarshalling policy assignment: %w", err)
 	}
 	if pa.Name == nil || *pa.Name == "" {
-		return fmt.Errorf("policy assignment name is empty or not present")
+		return fmt.Errorf("processPolicyAssignment: policy assignment name is empty or not present")
 	}
 	if _, exists := res.PolicyAssignments[*pa.Name]; exists {
-		return fmt.Errorf("policy assignment with name %s already exists", *pa.Name)
+		return fmt.Errorf("processPolicyAssignment: policy assignment with name `%s` already exists", *pa.Name)
 	}
 	res.PolicyAssignments[*pa.Name] = pa
 	return nil
@@ -191,13 +191,13 @@ func processPolicyAssignment(res *Result, data []byte) error {
 func processPolicyDefinition(res *Result, data []byte) error {
 	pd := new(armpolicy.Definition)
 	if err := json.Unmarshal(data, pd); err != nil {
-		return fmt.Errorf("error unmarshalling policy definition: %w", err)
+		return fmt.Errorf("processPolicyDefinition: error unmarshalling policy definition: %w", err)
 	}
 	if pd.Name == nil || *pd.Name == "" {
-		return fmt.Errorf("policy definition name is empty or not present")
+		return fmt.Errorf("processPolicyDefinition: policy definition name is empty or not present")
 	}
 	if _, exists := res.PolicyDefinitions[*pd.Name]; exists {
-		return fmt.Errorf("policy definition with name %s already exists", *pd.Name)
+		return fmt.Errorf("processPolicyDefinition: policy definition with name `%s` already exists", *pd.Name)
 	}
 	res.PolicyDefinitions[*pd.Name] = pd
 	return nil
@@ -208,13 +208,13 @@ func processPolicyDefinition(res *Result, data []byte) error {
 func processPolicySetDefinition(res *Result, data []byte) error {
 	psd := new(armpolicy.SetDefinition)
 	if err := json.Unmarshal(data, psd); err != nil {
-		return fmt.Errorf("error unmarshalling policy set definition: %w", err)
+		return fmt.Errorf("processPolicySetDefinition: error unmarshalling policy set definition: %w", err)
 	}
 	if psd.Name == nil || *psd.Name == "" {
-		return fmt.Errorf("policy set definition name is empty or not present")
+		return fmt.Errorf("processPolicySetDefinition: policy set definition name is empty or not present")
 	}
 	if _, exists := res.PolicySetDefinitions[*psd.Name]; exists {
-		return fmt.Errorf("policy set definition with name %s already exists", *psd.Name)
+		return fmt.Errorf("processPolicySetDefinition: policy set definition with name `%s` already exists", *psd.Name)
 	}
 	res.PolicySetDefinitions[*psd.Name] = psd
 	return nil
@@ -225,13 +225,13 @@ func processPolicySetDefinition(res *Result, data []byte) error {
 func processRoleDefinition(res *Result, data []byte) error {
 	rd := new(armauthorization.RoleDefinition)
 	if err := json.Unmarshal(data, rd); err != nil {
-		return fmt.Errorf("error unmarshalling role definition: %w", err)
+		return fmt.Errorf("processRoleDefinition: error unmarshalling role definition: %w", err)
 	}
 	if rd.Name == nil || *rd.Name == "" {
-		return fmt.Errorf("policy set definition name is empty or not present")
+		return fmt.Errorf("processRoleDefinition: policy set definition name is empty or not present")
 	}
 	if _, exists := res.PolicySetDefinitions[*rd.Name]; exists {
-		return fmt.Errorf("policy set definition with name %s already exists", *rd.Name)
+		return fmt.Errorf("processRoleDefinition: policy set definition with name `%s` already exists", *rd.Name)
 	}
 	// Use roleName here not the name, which is a GUID
 	res.RoleDefinitions[*rd.Properties.RoleName] = rd

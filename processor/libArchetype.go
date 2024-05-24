@@ -5,6 +5,7 @@ package processor
 
 import (
 	"encoding/json"
+	"fmt"
 
 	mapset "github.com/deckarep/golang-set/v2"
 )
@@ -29,7 +30,7 @@ func (la *LibArchetype) UnmarshalJSON(data []byte) error {
 		RoleDefinitions      []string `json:"role_definitions"`
 	}{}
 	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
+		return fmt.Errorf("LibArchetype.UnmarshalJSON: json.Unmarshal error: %w", err)
 	}
 	la.Name = tmp.Name
 	la.PolicyAssignments = mapset.NewSet[string](tmp.PolicyAssignments...)

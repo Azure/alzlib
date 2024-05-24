@@ -263,7 +263,7 @@ func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 // It populates the struct with the results of the processing.
 func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	if az.Options == nil || az.Options.Parallelism == 0 {
-		return errors.New("alzlib Options not set or parallelism is 0")
+		return errors.New("Alzlib.Init: alzlib Options not set or parallelism is `0`")
 	}
 
 	// Process the libraries
@@ -271,25 +271,24 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		res := new(processor.Result)
 		pc := processor.NewProcessorClient(lib)
 		if err := pc.Process(res); err != nil {
-			return fmt.Errorf("error processing library %v: %w", lib, err)
+			return fmt.Errorf("Alzlib.Init: error processing library %v: %w", lib, err)
 		}
 
 		// Put results into the AlzLib.
 		if err := az.addProcessedResult(res); err != nil {
-			return err
+			return fmt.Errorf("Alzlib.Init: error adding processed result to AlzLib: %w", err)
 		}
 
 		// Generate archetypes
 		if err := az.generateArchetypes(res); err != nil {
-			return err
+			return fmt.Errorf("Alzlib.Init: error generating archetypes: %w", err)
 		}
 
 		// Generate override archetypes
 		if err := az.generateOverrideArchetypes(res); err != nil {
-			return err
+			return fmt.Errorf("Alzlib.Init: error generating override archetypes: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -370,14 +369,14 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error 
 			}
 			resp, err := pdclient.GetBuiltIn(ctx, name, nil)
 			if err != nil {
-				return fmt.Errorf("Alzlib.getBuiltInPolicies: error getting built-in policy definition %s: %w", name, err)
+				return fmt.Errorf("error getting built-in policy definition %s: %w", name, err)
 			}
 			az.policyDefinitions[name] = assets.NewPolicyDefinition(resp.Definition)
 			return nil
 		})
 	}
 	if err := grp.Wait(); err != nil {
-		return err
+		return fmt.Errorf("Alzlib.getBuiltInPolicies: error from errorgroup.Group: %w", err)
 	}
 	return nil
 }
@@ -407,7 +406,7 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 			}
 			resp, err := psclient.GetBuiltIn(ctxErrGroup, name, nil)
 			if err != nil {
-				return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting built-in policy set definition %s: %w", name, err)
+				return fmt.Errorf("error getting built-in policy set definition %s: %w", name, err)
 			}
 			// Add set definition to the AlzLib.
 			az.policySetDefinitions[name] = assets.NewPolicySetDefinition(resp.SetDefinition)
@@ -419,7 +418,7 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 		})
 	}
 	if err := grp.Wait(); err != nil {
-		return err
+		return fmt.Errorf("Alzlib.getBuiltInPolicySets: error from errorgroup.Group: %w", err)
 	}
 
 	// Get the policy definitions for newly added policy set definitions.
@@ -442,7 +441,7 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 		}
 	}
 	if err := az.getBuiltInPolicies(ctx, defnames); err != nil {
-		return err
+		return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting new built-in policy definitions referenced by policy sets: %w", err)
 	}
 
 	return nil

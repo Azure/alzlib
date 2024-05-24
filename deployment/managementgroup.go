@@ -141,24 +141,23 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 		// get the policy definition name using the resource id
 		policyDefinitionRef, err := pa.ReferencedPolicyDefinitionResourceId()
 		if err != nil {
-			return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting referenced policy definition type for policy assignment %s: %w", paName, err)
+			return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting referenced policy definition type for policy assignment `%s`: %w", paName, err)
 		}
 
 		switch policyDefinitionRef.ResourceType.Type {
 		case "policyDefinitions":
 			// check the definition exists in the AlzLib
-
 			pd, err := mg.hierarchy.alzlib.GetPolicyDefinition(policyDefinitionRef.Name)
 			if err != nil {
-				return err
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
 			// get the role definition ids from the policy definition and add to the additional role assignment data
 			rdids, err := pd.GetNormalizedRoleDefinitionResourceIds()
 			if err != nil {
-				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting role definition ids for policy definition %s: %w", *pd.Name, err)
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting role definition ids for policy definition `%s`: %w", *pd.Name, err)
 			}
 			if len(rdids) == 0 {
-				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition %s has no role definition ids", *pd.Name)
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s` has no role definition ids", *pd.Name)
 			}
 			for _, rdid := range rdids {
 				mg.policyRoleAssignments.Add(PolicyRoleAssignment{
@@ -172,13 +171,13 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 			// add the additional role assignment data unless the parameter value is empty
 			assignPermissionParams, err := pd.GetAssignPermissionsParameterNames()
 			if err != nil {
-				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting assign permissions parameter names for policy definition %s: %w", *pd.Name, err)
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting assign permissions parameter names for policy definition `%s`: %w", *pd.Name, err)
 			}
 			for _, paramName := range assignPermissionParams {
 
 				paParamVal, err := pa.GetParameterValueAsString(paramName)
 				if err != nil {
-					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting parameter value for parameter %s in policy assignment %s: %w", paramName, paName, err)
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting parameter value for parameter `%s` in policy assignment `%s`: %w", paramName, paName, err)
 				}
 				if paParamVal == "" {
 					continue
@@ -199,7 +198,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 		case "policySetDefinitions":
 			psd, err := mg.hierarchy.alzlib.GetPolicySetDefinition(policyDefinitionRef.Name)
 			if err != nil {
-				return err
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy set definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
 			pdRefs, err := psd.GetPolicyDefinitionReferences()
 			if err != nil {
@@ -209,11 +208,11 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 			for _, pdRef := range pdRefs {
 				pdName, err := assets.NameFromResourceId(*pdRef.PolicyDefinitionID)
 				if err != nil {
-					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting policy definition name from id %s: %w", *pdRef.PolicyDefinitionID, err)
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting policy definition name from id `%s`: %w", *pdRef.PolicyDefinitionID, err)
 				}
 				pd, err := mg.hierarchy.alzlib.GetPolicyDefinition(pdName)
 				if err != nil {
-					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition %s, referenced by %s not found in AlzLib", pdName, *psd.Name)
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s`, referenced by `%s` not found in AlzLib", pdName, *psd.Name)
 				}
 
 				// get the role definition ids from the policy definition and add to the additional role assignment data
@@ -238,17 +237,17 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 					}
 					// get the parameter value from the policy reference within the set definition
 					if _, ok := pd.Properties.Parameters[paramName]; !ok {
-						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: parameter %s not found in policy definition %s", paramName, *pd.Name)
+						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: parameter `%s` not found in policy definition `%s`", paramName, *pd.Name)
 					}
 					pdrefParamVal := pdRef.Parameters[paramName].Value
 					pdrefParamValStr, ok := pdrefParamVal.(string)
 					if !ok {
-						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: parameter %s value in policy definition %s is not a string", paramName, *pd.Name)
+						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: parameter `%s` value in policy definition `%s` is not a string", paramName, *pd.Name)
 					}
 					// extract the assignment exposed policy set parameter name from the ARM function used in the policy definition reference
 					paParamName, err := extractParameterNameFromArmFunction(pdrefParamValStr)
 					if err != nil {
-						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error extracting parameter name from ARM function %s: %w", pdrefParamValStr, err)
+						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error extracting parameter name from ARM function `%s`: %w", pdrefParamValStr, err)
 					}
 
 					// if the parameter in the assignment doesn't exist, skip it

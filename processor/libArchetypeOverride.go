@@ -5,6 +5,7 @@ package processor
 
 import (
 	"encoding/json"
+	"fmt"
 
 	mapset "github.com/deckarep/golang-set/v2"
 )
@@ -39,7 +40,7 @@ func (lao *LibArchetypeOverride) UnmarshalJSON(data []byte) error {
 		RoleDefinitionsToRemove      []string `json:"role_definitions_to_remove"`
 	}{}
 	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
+		return fmt.Errorf("LibArchetypeOverride.UnmarshalJSON: json.Unmarshal error: %w", err)
 	}
 	lao.Name = tmp.Name
 	lao.BaseArchetype = tmp.BaseArchetype
