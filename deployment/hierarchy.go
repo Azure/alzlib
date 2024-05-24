@@ -23,7 +23,7 @@ const (
 	RoleDefinitionIdFmt      = "/providers/Microsoft.Management/managementGroups/%s/providers/Microsoft.Authorization/roleDefinitions/%s"
 )
 
-// Hierarchy represents a deployment of Azure management group hierarchy
+// Hierarchy represents a deployment of Azure management group hierarchy.go
 type Hierarchy struct {
 	mgs    map[string]*ManagementGroup
 	alzlib *alzlib.AlzLib
