@@ -15,9 +15,7 @@ import (
 	"github.com/Azure/alzlib/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
-
 	"golang.org/x/sync/errgroup"
 )
 
@@ -480,13 +478,15 @@ func (az *AlzLib) addProcessedResult(res *processor.Result) error {
 // The archetypes are stored in the AlzLib instance.
 func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 	// add empty archetype if it doesn't exist.
-	if _, exists := res.LibArchetypes["empty"]; !exists {
-		res.LibArchetypes["empty"] = &processor.LibArchetype{
-			Name:                 "empty",
-			PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
-			PolicyDefinitions:    mapset.NewThreadUnsafeSet[string](),
-			PolicySetDefinitions: mapset.NewThreadUnsafeSet[string](),
-			RoleDefinitions:      mapset.NewThreadUnsafeSet[string](),
+	if _, exists := az.archetypes["empty"]; !exists {
+		if _, exists := res.LibArchetypes["empty"]; !exists {
+			res.LibArchetypes["empty"] = &processor.LibArchetype{
+				Name:                 "empty",
+				PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
+				PolicyDefinitions:    mapset.NewThreadUnsafeSet[string](),
+				PolicySetDefinitions: mapset.NewThreadUnsafeSet[string](),
+				RoleDefinitions:      mapset.NewThreadUnsafeSet[string](),
+			}
 		}
 	}
 
