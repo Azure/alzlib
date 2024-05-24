@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/alzlib/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
 	"golang.org/x/sync/errgroup"
 )
