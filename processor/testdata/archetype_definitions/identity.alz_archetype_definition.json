@@ -1,0 +1,16 @@
+{
+  "name": "identity",
+  "policy_assignments": [
+    "Deny-MgmtPorts-Internet",
+    "Deny-Public-IP",
+    "Deny-Subnet-Without-Nsg",
+    "Deploy-VM-Backup"
+  ],
+  "policy_definitions": [],
+  "policy_set_definitions": [],
+  "role_definitions": [],
+  "archetype_config": {
+    "parameters": {},
+    "access_control": {}
+  }
+}

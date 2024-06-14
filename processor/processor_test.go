@@ -33,8 +33,8 @@ func TestProcessArchetypeOverrideValid(t *testing.T) {
 	res := &Result{
 		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
 	}
-
-	assert.NoError(t, processArchetypeOverride(res, sampleData))
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.NoError(t, processArchetypeOverride(res, unmar))
 	assert.Equal(t, len(res.LibArchetypeOverrides), 1)
 	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyAssignmentsToAdd.Cardinality(), 1)
 	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyAssignmentsToRemove.Cardinality(), 1)
@@ -49,9 +49,9 @@ func TestProcessArchetypeOverrideInvalid(t *testing.T) {
 	res := &Result{
 		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
 	}
-
-	err := processArchetypeOverride(res, sampleData)
-	assert.ErrorContains(t, err, "error processing archetype definition: invalid character ']' after object key:value pair")
+	unmar := newUnmarshaler(sampleData, ".json")
+	err := processArchetypeOverride(res, unmar)
+	assert.ErrorContains(t, err, "invalid character ']' after object key:value pair")
 }
 
 // TestProcessArchetypeDefinitionValid test the processing of a valid archetype definition.
@@ -61,8 +61,8 @@ func TestProcessArchetypeDefinitionValid(t *testing.T) {
 	res := &Result{
 		LibArchetypes: make(map[string]*LibArchetype, 0),
 	}
-
-	assert.NoError(t, processArchetype(res, sampleData))
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.NoError(t, processArchetype(res, unmar))
 	assert.Equal(t, len(res.LibArchetypes), 1)
 	assert.Equal(t, res.LibArchetypes["test"].PolicyAssignments.Cardinality(), 1)
 	assert.Equal(t, res.LibArchetypes["test"].PolicyDefinitions.Cardinality(), 1)
@@ -78,8 +78,8 @@ func Test_processArchetypeDefinition_invalidJson(t *testing.T) {
 	res := &Result{
 		LibArchetypes: make(map[string]*LibArchetype, 0),
 	}
-
-	assert.ErrorContains(t, processArchetype(res, sampleData), "invalid character '[' after object key")
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.ErrorContains(t, processArchetype(res, unmar), "invalid character '[' after object key")
 }
 
 // TestProcessPolicyAssignmentValid tests the processing of a valid policy assignment.
@@ -89,8 +89,8 @@ func TestProcessPolicyAssignmentValid(t *testing.T) {
 	res := &Result{
 		PolicyAssignments: make(map[string]*armpolicy.Assignment),
 	}
-
-	assert.NoError(t, processPolicyAssignment(res, sampleData))
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.NoError(t, processPolicyAssignment(res, unmar))
 	assert.Equal(t, len(res.PolicyAssignments), 1)
 	assert.Equal(t, *res.PolicyAssignments["Deny-Storage-http"].Name, "Deny-Storage-http")
 	assert.Equal(t, *res.PolicyAssignments["Deny-Storage-http"].Properties.DisplayName, "Secure transfer to storage accounts should be enabled")
@@ -104,7 +104,8 @@ func TestProcessPolicyAssignmentNoName(t *testing.T) {
 	res := &Result{
 		PolicyAssignments: make(map[string]*armpolicy.Assignment),
 	}
-	assert.ErrorContains(t, processPolicyAssignment(res, sampleData), "policy assignment name is empty or not present")
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.ErrorContains(t, processPolicyAssignment(res, unmar), "policy assignment name is empty or not present")
 }
 
 // TestProcessPolicyDefinitionValid tests the processing of a valid policy definition.
@@ -114,7 +115,8 @@ func TestProcessPolicyDefinitionValid(t *testing.T) {
 	res := &Result{
 		PolicyDefinitions: make(map[string]*armpolicy.Definition),
 	}
-	assert.NoError(t, processPolicyDefinition(res, sampleData))
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.NoError(t, processPolicyDefinition(res, unmar))
 	assert.Equal(t, len(res.PolicyDefinitions), 1)
 	assert.Equal(t, *res.PolicyDefinitions["Append-AppService-httpsonly"].Name, "Append-AppService-httpsonly")
 	assert.Equal(t, *res.PolicyDefinitions["Append-AppService-httpsonly"].Properties.PolicyType, armpolicy.PolicyTypeCustom)
@@ -128,7 +130,8 @@ func TestProcessPolicyDefinitionNoName(t *testing.T) {
 	res := &Result{
 		PolicyDefinitions: make(map[string]*armpolicy.Definition),
 	}
-	assert.ErrorContains(t, processPolicyDefinition(res, sampleData), "policy definition name is empty or not present")
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.ErrorContains(t, processPolicyDefinition(res, unmar), "policy definition name is empty or not present")
 }
 
 // TestProcessSetPolicyDefinitionValid tests the processing of a valid policy set definition.
@@ -138,8 +141,8 @@ func TestProcessSetPolicyDefinitionValid(t *testing.T) {
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*armpolicy.SetDefinition),
 	}
-
-	assert.NoError(t, processPolicySetDefinition(res, sampleData))
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.NoError(t, processPolicySetDefinition(res, unmar))
 	assert.Equal(t, len(res.PolicySetDefinitions), 1)
 	assert.Equal(t, *res.PolicySetDefinitions["Deploy-MDFC-Config"].Name, "Deploy-MDFC-Config")
 	assert.Equal(t, *res.PolicySetDefinitions["Deploy-MDFC-Config"].Properties.PolicyType, armpolicy.PolicyTypeCustom)
@@ -153,29 +156,32 @@ func TestProcessPolicySetDefinitionNoName(t *testing.T) {
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*armpolicy.SetDefinition),
 	}
-
-	assert.ErrorContains(t, processPolicySetDefinition(res, sampleData), "policy set definition name is empty or not present")
+	unmar := newUnmarshaler(sampleData, ".json")
+	assert.ErrorContains(t, processPolicySetDefinition(res, unmar), "policy set definition name is empty or not present")
 }
 
 // TestProcessPolicyAssignmentNoData tests the processing of an invalid policy assignment with no data.
 func TestProcessPolicyAssignmentNoData(t *testing.T) {
 	t.Parallel()
 	res := &Result{}
-	assert.ErrorContains(t, processPolicyAssignment(res, make([]byte, 0)), "error unmarshalling policy assignment")
+	unmar := newUnmarshaler([]byte{}, ".json")
+	assert.ErrorContains(t, processPolicyAssignment(res, unmar), "unexpected end of JSON input")
 }
 
 // TestProcessPolicyDefinitionNoData tests the processing of an invalid policy definition with no data.
 func TestProcessPolicyDefinitionNoData(t *testing.T) {
 	t.Parallel()
 	res := &Result{}
-	assert.ErrorContains(t, processPolicyDefinition(res, make([]byte, 0)), "error unmarshalling policy definition")
+	unmar := newUnmarshaler([]byte{}, ".json")
+	assert.ErrorContains(t, processPolicyDefinition(res, unmar), "unexpected end of JSON input")
 }
 
 // TestProcessSetPolicyDefinitionNoData tests the processing of an invalid policy set definition with no data.
 func TestProcessPolicySetDefinitionNoData(t *testing.T) {
 	t.Parallel()
 	res := &Result{}
-	assert.ErrorContains(t, processPolicySetDefinition(res, make([]byte, 0)), "error unmarshalling policy set definition")
+	unmar := newUnmarshaler([]byte{}, ".json")
+	assert.ErrorContains(t, processPolicySetDefinition(res, unmar), "unexpected end of JSON input")
 }
 
 // getSampleArchetypeDefinition_valid returns a valid archetype definition.

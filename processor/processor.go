@@ -4,10 +4,10 @@
 package processor
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
@@ -16,14 +16,24 @@ import (
 
 // These are the file prefixes for the resource types.
 const (
-	archetypeDefinitionPrefix = "archetype_definition_"
-	archetypeOverridePrefix   = "archetype_override_"
-	policyAssignmentPrefix    = "policy_assignment_"
-	policyDefinitionPrefix    = "policy_definition_"
-	policySetDefinitionPrefix = "policy_set_definition_"
-	roleDefinitionPrefix      = "role_definition_"
-	policyDefaultValuesPrefix = "policy_default_values_"
+	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.[json|yaml]"
+	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition.[json|yaml]"
+	archetypeOverrideSuffix      = ".+\\.alz_archetype_override.[json|yaml]"
+	policyAssignmentSuffix       = ".+\\.alz_policy_assignment.[json|yaml]"
+	policyDefinitionSuffix       = ".+\\.alz_policy_definition.[json|yaml]"
+	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition.[json|yaml]"
+	roleDefinitionSuffix         = ".+\\.alz_role_definition.[json|yaml]"
+	policyDefaultValuesSuffix    = ".+\\.alz_policy_default_values.[json|yaml]"
 )
+
+var architectureDefinitionRegex = regexp.MustCompile(architectureDefinitionSuffix)
+var archetypeDefinitionRegex = regexp.MustCompile(archetypeDefinitionSuffix)
+var archetypeOverrideRegex = regexp.MustCompile(archetypeOverrideSuffix)
+var policyAssignmentRegex = regexp.MustCompile(policyAssignmentSuffix)
+var policyDefinitionRegex = regexp.MustCompile(policyDefinitionSuffix)
+var policySetDefinitionRegex = regexp.MustCompile(policySetDefinitionSuffix)
+var roleDefinitionRegex = regexp.MustCompile(roleDefinitionSuffix)
+var policyDefaultValuesRegex = regexp.MustCompile(policyDefaultValuesSuffix)
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
@@ -34,10 +44,11 @@ type Result struct {
 	LibArchetypes          map[string]*LibArchetype
 	LibArchetypeOverrides  map[string]*LibArchetypeOverride
 	LibDefaultPolicyValues map[string]*LibDefaultPolicyValues
+	LibArchitectures       map[string]*LibArchitecture
 }
 
 // processFunc is the function signature that is used to process different types of lib file.
-type processFunc func(result *Result, data []byte) error
+type processFunc func(result *Result, data unmarshaler) error
 
 // ProcessorClient is the client that is used to process the library files.
 type ProcessorClient struct {
@@ -58,6 +69,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 	res.RoleDefinitions = make(map[string]*armauthorization.RoleDefinition)
 	res.LibArchetypeOverrides = make(map[string]*LibArchetypeOverride)
 	res.LibDefaultPolicyValues = make(map[string]*LibDefaultPolicyValues)
+	res.LibArchitectures = make(map[string]*LibArchitecture)
 
 	// Walk the embedded lib FS and process files
 	if err := fs.WalkDir(client.fs, ".", func(path string, d fs.DirEntry, err error) error {
@@ -89,32 +101,37 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 	// process by file type
 	switch n := strings.ToLower(name); {
 	// if the file is a policy definition
-	case strings.HasPrefix(n, policyDefinitionPrefix):
+	case policyDefinitionRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processPolicyDefinition)
 
 	// if the file is a policy set definition
-	case strings.HasPrefix(n, policySetDefinitionPrefix):
+	case policySetDefinitionRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processPolicySetDefinition)
 
 	// if the file is a policy assignment
-	case strings.HasPrefix(n, policyAssignmentPrefix):
+	case policyAssignmentRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processPolicyAssignment)
 
 	// if the file is a role definition
-	case strings.HasPrefix(n, roleDefinitionPrefix):
+	case roleDefinitionRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processRoleDefinition)
 
 	// if the file is an archetype definition
-	case strings.HasPrefix(n, archetypeDefinitionPrefix):
+	case archetypeDefinitionRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processArchetype)
 
 	// if the file is an archetype override
-	case strings.HasPrefix(n, archetypeOverridePrefix):
+	case archetypeOverrideRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processArchetypeOverride)
 
-		// if the file is an policy default values file
-	case strings.HasPrefix(n, policyDefaultValuesPrefix):
+	// if the file is an policy default values file
+	case policyDefaultValuesRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processDefaultPolicyValues)
+	}
+
+	// if the file is an architecture definition
+	if architectureDefinitionRegex.MatchString(name) {
+		err = readAndProcessFile(res, file, processArchitecture)
 	}
 
 	if err != nil {
@@ -124,12 +141,29 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 	return err
 }
 
+// processArchitecture is a processFunc that reads the default_policy_values
+// bytes, processes, then adds the created processArchitecture to the result.
+func processArchitecture(res *Result, unmar unmarshaler) error {
+	arch := new(LibArchitecture)
+	if err := unmar.unmarshal(arch); err != nil {
+		return fmt.Errorf("processArchitecture: error unmarshaling: %w", err)
+	}
+	if arch.Name == "" {
+		return fmt.Errorf("processArchitecture: architecture name is empty")
+	}
+	if _, exists := res.LibArchitectures[arch.Name]; exists {
+		return fmt.Errorf("processArchitecture: architecture with name `%s` already exists", arch.Name)
+	}
+	res.LibArchitectures[arch.Name] = arch
+	return nil
+}
+
 // processDefaultPolicyValues is a processFunc that reads the default_policy_values
-// bytes, processes, then adds the created LibArchetypeDefinition to the result.
-func processDefaultPolicyValues(res *Result, data []byte) error {
+// bytes, processes, then adds the created LibDefaultPolicyValues to the result.
+func processDefaultPolicyValues(res *Result, unmar unmarshaler) error {
 	lpv := new(LibDefaultPolicyValues)
-	if err := json.Unmarshal(data, lpv); err != nil {
-		return fmt.Errorf("processDefaultPolicyValues: error processing default policy values: %w", err)
+	if err := unmar.unmarshal(lpv); err != nil {
+		return fmt.Errorf("processDefaultPolicyValues: error unmarshaling: %w", err)
 	}
 	for _, d := range lpv.Defaults {
 		if _, exists := res.LibDefaultPolicyValues[d.DefaultName]; exists {
@@ -141,12 +175,11 @@ func processDefaultPolicyValues(res *Result, data []byte) error {
 }
 
 // processArchetype is a processFunc that reads the archetype_definition
-// bytes, processes, then adds the created LibArchetypeDefinition to the result.
-func processArchetype(res *Result, data []byte) error {
+// bytes, processes, then adds the created LibArchetype to the result.
+func processArchetype(res *Result, unmar unmarshaler) error {
 	la := new(LibArchetype)
-
-	if err := json.Unmarshal(data, la); err != nil {
-		return fmt.Errorf("processArchetype: error processing archetype definition: %w", err)
+	if err := unmar.unmarshal(la); err != nil {
+		return fmt.Errorf("processArchetype: error unmarshaling: %w", err)
 	}
 	if _, exists := res.LibArchetypes[la.Name]; exists {
 		return fmt.Errorf("processArchetype: archetype with name `%s` already exists", la.Name)
@@ -156,11 +189,11 @@ func processArchetype(res *Result, data []byte) error {
 }
 
 // processArchetypeOverride is a processFunc that reads the archetype_override
-// bytes, processes, then adds the created LibArchetypeDefinition to the result.
-func processArchetypeOverride(res *Result, data []byte) error {
+// bytes, processes, then adds the created LibArchetypeOverride to the result.
+func processArchetypeOverride(res *Result, unmar unmarshaler) error {
 	lao := new(LibArchetypeOverride)
-	if err := json.Unmarshal(data, lao); err != nil {
-		return fmt.Errorf("processArchetypeOverride: error processing archetype definition: %w", err)
+	if err := unmar.unmarshal(lao); err != nil {
+		return fmt.Errorf("processArchetypeOverride: error unmarshaling: %w", err)
 	}
 	if _, exists := res.LibArchetypeOverrides[lao.Name]; exists {
 		return fmt.Errorf("processArchetypeOverride: archetype override with name `%s` already exists", lao.Name)
@@ -171,10 +204,10 @@ func processArchetypeOverride(res *Result, data []byte) error {
 
 // processPolicyAssignment is a processFunc that reads the policy_assignment
 // bytes, processes, then adds the created armpolicy.Assignment to the result.
-func processPolicyAssignment(res *Result, data []byte) error {
+func processPolicyAssignment(res *Result, unmar unmarshaler) error {
 	pa := new(armpolicy.Assignment)
-	if err := json.Unmarshal(data, pa); err != nil {
-		return fmt.Errorf("processPolicyAssignment: error unmarshalling policy assignment: %w", err)
+	if err := unmar.unmarshal(pa); err != nil {
+		return fmt.Errorf("processPolicyAssignment: error unmarshaling: %w", err)
 	}
 	if pa.Name == nil || *pa.Name == "" {
 		return fmt.Errorf("processPolicyAssignment: policy assignment name is empty or not present")
@@ -188,10 +221,10 @@ func processPolicyAssignment(res *Result, data []byte) error {
 
 // processPolicyAssignment is a processFunc that reads the policy_definition
 // bytes, processes, then adds the created armpolicy.Definition to the result.
-func processPolicyDefinition(res *Result, data []byte) error {
+func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 	pd := new(armpolicy.Definition)
-	if err := json.Unmarshal(data, pd); err != nil {
-		return fmt.Errorf("processPolicyDefinition: error unmarshalling policy definition: %w", err)
+	if err := unmar.unmarshal(pd); err != nil {
+		return fmt.Errorf("processPolicyDefinition: error unmarshaling: %w", err)
 	}
 	if pd.Name == nil || *pd.Name == "" {
 		return fmt.Errorf("processPolicyDefinition: policy definition name is empty or not present")
@@ -205,10 +238,10 @@ func processPolicyDefinition(res *Result, data []byte) error {
 
 // processPolicyAssignment is a processFunc that reads the policy_set_definition
 // bytes, processes, then adds the created armpolicy.SetDefinition to the result.
-func processPolicySetDefinition(res *Result, data []byte) error {
+func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 	psd := new(armpolicy.SetDefinition)
-	if err := json.Unmarshal(data, psd); err != nil {
-		return fmt.Errorf("processPolicySetDefinition: error unmarshalling policy set definition: %w", err)
+	if err := unmar.unmarshal(psd); err != nil {
+		return fmt.Errorf("processPolicySetDefinition: error unmarshaling: %w", err)
 	}
 	if psd.Name == nil || *psd.Name == "" {
 		return fmt.Errorf("processPolicySetDefinition: policy set definition name is empty or not present")
@@ -222,10 +255,10 @@ func processPolicySetDefinition(res *Result, data []byte) error {
 
 // processRoleDefinition is a processFunc that reads the role_definition
 // bytes, processes, then adds the created armpolicy.SetDefinition to the result.
-func processRoleDefinition(res *Result, data []byte) error {
+func processRoleDefinition(res *Result, unmar unmarshaler) error {
 	rd := new(armauthorization.RoleDefinition)
-	if err := json.Unmarshal(data, rd); err != nil {
-		return fmt.Errorf("processRoleDefinition: error unmarshalling role definition: %w", err)
+	if err := unmar.unmarshal(rd); err != nil {
+		return fmt.Errorf("processRoleDefinition: error unmarshalling: %w", err)
 	}
 	if rd.Name == nil || *rd.Name == "" {
 		return fmt.Errorf("processRoleDefinition: policy set definition name is empty or not present")
@@ -250,8 +283,12 @@ func readAndProcessFile(res *Result, file fs.File, processFn processFunc) error 
 		return err
 	}
 
+	ext := filepath.Ext(s.Name())
+	// create a new unmarshaler
+	unmar := newUnmarshaler(data, ext)
+
 	// pass the  data to the supplied process function
-	if err := processFn(res, data); err != nil {
+	if err := processFn(res, unmar); err != nil {
 		return err
 	}
 	return nil
