@@ -94,7 +94,18 @@ func TestGenerateOverrideArchetypes(t *testing.T) {
 			},
 		},
 	}
-
+	az.policyAssignments["assignment1"] = nil
+	az.policyAssignments["assignment2"] = nil
+	az.policyAssignments["assignment3"] = nil
+	az.policyDefinitions["policy1"] = nil
+	az.policyDefinitions["policy2"] = nil
+	az.policyDefinitions["policy3"] = nil
+	az.policySetDefinitions["policySet1"] = nil
+	az.policySetDefinitions["policySet2"] = nil
+	az.policySetDefinitions["policySet3"] = nil
+	az.roleDefinitions["role1"] = nil
+	az.roleDefinitions["role2"] = nil
+	az.roleDefinitions["role3"] = nil
 	err := az.generateOverrideArchetypes(result)
 	assert.NoError(t, err)
 
