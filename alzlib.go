@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"slices"
 	"strings"
 	"sync"
 
@@ -623,7 +622,7 @@ func (az *AlzLib) generateArchitectures(res *processor.Result) error {
 			return fmt.Errorf("Alzlib.generateArchitectures: error processing architecture %s - it already exists in the library", name)
 		}
 		arch := NewArchitecture(name)
-		if err := architectureRecursion(nil, libArch, arch); err != nil {
+		if err := architectureRecursion(nil, libArch, arch, az, 0); err != nil {
 			return fmt.Errorf("Alzlib.generateArchitectures: error processing architecture %s: %w", name, err)
 		}
 		az.architectures[name] = arch
@@ -631,18 +630,27 @@ func (az *AlzLib) generateArchitectures(res *processor.Result) error {
 	return nil
 }
 
-func architectureRecursion(parents []string, libArch *processor.LibArchitecture, arch *Architecture) error {
-	newParents := make([]string, 0)
+func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArchitecture, arch *Architecture, az *AlzLib, depth int) error {
+	if depth > 5 {
+		return fmt.Errorf("architectureRecursion: error processing architecture %s: recursion depth exceeded", arch.name)
+	}
+	newParents := mapset.NewThreadUnsafeSet[string]()
 	for _, mg := range libArch.ManagementGroups {
-		if (parents == nil && mg.ParentId == nil) || slices.Contains(parents, *mg.ParentId) {
-			if err := arch.addMg(mg); err != nil {
-				return fmt.Errorf("childArchitectures: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
+		if depth == 0 && mg.ParentId == nil {
+			if err := arch.addMgFromProcessor(mg, az); err != nil {
+				return fmt.Errorf("architectureRecursion: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
 			}
-			newParents = append(newParents, mg.Id)
+			continue
+		}
+		if parents.Contains(*mg.ParentId) {
+			if err := arch.addMgFromProcessor(mg, az); err != nil {
+				return fmt.Errorf("architectureRecursion: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
+			}
+			newParents.Add(mg.Id)
 		}
 	}
-	if len(newParents) > 0 {
-		return architectureRecursion(newParents, libArch, arch)
+	if newParents.Cardinality() > 0 {
+		return architectureRecursion(newParents, libArch, arch, az, depth+1)
 	}
 	return nil
 }
