@@ -66,6 +66,8 @@ func (d *Hierarchy) ListManagementGroups() []string {
 // The archetype should have been obtained using the `AlzLib.CopyArchetype` method.
 // This allows for customization and ensures the correct policy assignment values have been set.
 func (h *Hierarchy) AddManagementGroup(ctx context.Context, req ManagementGroupAddRequest) (*ManagementGroup, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if _, exists := h.mgs[req.Id]; exists {
 		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: management group %s already exists", req.Id)
 	}

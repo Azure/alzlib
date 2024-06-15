@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"slices"
 	"strings"
 	"sync"
 
@@ -31,12 +32,13 @@ type AlzLib struct {
 	Options *AlzLibOptions
 
 	archetypes           map[string]*Archetype
+	architectures        map[string]*Architecture
 	policyAssignments    map[string]*assets.PolicyAssignment
 	policyDefinitions    map[string]*assets.PolicyDefinition
 	policySetDefinitions map[string]*assets.PolicySetDefinition
 	roleDefinitions      map[string]*assets.RoleDefinition
 	clients              *azureClients
-	mu                   sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps (not the Deployment maps, which are protected by the Deployment mutex)
+	mu                   sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
 }
 
 type azureClients struct {
@@ -48,16 +50,6 @@ type azureClients struct {
 type AlzLibOptions struct {
 	AllowOverwrite bool // AllowOverwrite allows overwriting of existing policy assignments when processing additional libraries with AlzLib.Init()
 	Parallelism    int  // Parallelism is the number of parallel requests to make to Azure APIs
-}
-
-// Archetype represents an archetype definition that hasn't been assigned to a management group
-// The contents of the sets represent the map keys of the corresponding AlzLib maps.
-type Archetype struct {
-	PolicyDefinitions    mapset.Set[string]
-	PolicyAssignments    mapset.Set[string]
-	PolicySetDefinitions mapset.Set[string]
-	RoleDefinitions      mapset.Set[string]
-	name                 string
 }
 
 // NewAlzLib returns a new instance of the alzlib library, optionally using the supplied directory
@@ -169,6 +161,8 @@ func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
 
 // ListArchetypes returns a list of the archetypes in the AlzLib struct.
 func (az *AlzLib) ListArchetypes() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	result := make([]string, 0, len(az.archetypes))
 	for k := range az.archetypes {
 		result = append(result, k)
@@ -179,6 +173,8 @@ func (az *AlzLib) ListArchetypes() []string {
 // CopyArchetype returns a copy of the requested archetype by name.
 // The returned struct can be used as a parameter to the Deployment.AddManagementGroup method.
 func (az *AlzLib) CopyArchetype(name string) (*Archetype, error) {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	if arch, ok := az.archetypes[name]; ok {
 		rtn := new(Archetype)
 		*rtn = *arch
@@ -193,24 +189,32 @@ func (az *AlzLib) CopyArchetype(name string) (*Archetype, error) {
 
 // PolicyDefinitionExists returns true if the policy definition exists in the AlzLib struct.
 func (az *AlzLib) PolicyDefinitionExists(name string) bool {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	_, exists := az.policyDefinitions[name]
 	return exists
 }
 
 // PolicySetDefinitionExists returns true if the policy set definition exists in the AlzLib struct.
 func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	_, exists := az.policySetDefinitions[name]
 	return exists
 }
 
 // PolicyAssignmentExists returns true if the policy assignment exists in the AlzLib struct.
 func (az *AlzLib) PolicyAssignmentExists(name string) bool {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	_, exists := az.policyAssignments[name]
 	return exists
 }
 
 // RoleDefinitionExists returns true if the role definition exists in the AlzLib struct.
 func (az *AlzLib) RoleDefinitionExists(name string) bool {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	_, exists := az.roleDefinitions[name]
 	return exists
 }
@@ -218,6 +222,8 @@ func (az *AlzLib) RoleDefinitionExists(name string) bool {
 // GetPolicyDefinition returns a deep copy of the requested policy definition.
 // This is safe to modify without affecting the original.
 func (az *AlzLib) GetPolicyDefinition(name string) (*assets.PolicyDefinition, error) {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	if pd, exists := az.policyDefinitions[name]; exists {
 		return deep.Copy(pd)
 	}
@@ -227,6 +233,8 @@ func (az *AlzLib) GetPolicyDefinition(name string) (*assets.PolicyDefinition, er
 // GetPolicySetDefinition returns a deep copy of the requested policy set definition.
 // This is safe to modify without affecting the original.
 func (az *AlzLib) GetPolicyAssignment(name string) (*assets.PolicyAssignment, error) {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	if pa, exists := az.policyAssignments[name]; exists {
 		return deep.Copy(pa)
 	}
@@ -236,6 +244,8 @@ func (az *AlzLib) GetPolicyAssignment(name string) (*assets.PolicyAssignment, er
 // GetPolicySetDefinition returns a deep copy of the requested policy set definition.
 // This is safe to modify without affecting the original.
 func (az *AlzLib) GetPolicySetDefinition(name string) (*assets.PolicySetDefinition, error) {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	if psd, exists := az.policySetDefinitions[name]; exists {
 		return deep.Copy(psd)
 	}
@@ -245,6 +255,8 @@ func (az *AlzLib) GetPolicySetDefinition(name string) (*assets.PolicySetDefiniti
 // GetRoleDefinition returns a deep copy of the requested role definition.
 // This is safe to modify without affecting the original.
 func (az *AlzLib) GetRoleDefinition(name string) (*assets.RoleDefinition, error) {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
 	if rd, exists := az.roleDefinitions[name]; exists {
 		return deep.Copy(rd)
 	}
@@ -254,6 +266,8 @@ func (az *AlzLib) GetRoleDefinition(name string) (*assets.RoleDefinition, error)
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.
 // This is needed to get policy objects from Azure.
 func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	az.clients.policyClient = client
 }
 
@@ -261,6 +275,8 @@ func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 // These are typically the embed.FS global var `Lib`, or an `os.DirFS`.
 // It populates the struct with the results of the processing.
 func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	if az.Options == nil || az.Options.Parallelism == 0 {
 		return errors.New("Alzlib.Init: alzlib Options not set or parallelism is `0`")
 	}
@@ -287,6 +303,11 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		if err := az.generateOverrideArchetypes(res); err != nil {
 			return fmt.Errorf("Alzlib.Init: error generating override archetypes: %w", err)
 		}
+
+		// Generate architectures
+		if err := az.generateArchitectures(res); err != nil {
+			return fmt.Errorf("Alzlib.Init: error generating architectures: %w", err)
+		}
 	}
 	return nil
 }
@@ -295,6 +316,8 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 // It then fetches them from Azure if needed and adds them to the AlzLib struct.
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	policySetDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	for _, pd := range pds {
@@ -590,6 +613,36 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 			name:                 name,
 		}
 		az.archetypes[name] = newArch
+	}
+	return nil
+}
+
+func (az *AlzLib) generateArchitectures(res *processor.Result) error {
+	for name, libArch := range res.LibArchitectures {
+		if _, exists := az.architectures[name]; exists && !az.Options.AllowOverwrite {
+			return fmt.Errorf("Alzlib.generateArchitectures: error processing architecture %s - it already exists in the library", name)
+		}
+		arch := NewArchitecture(name)
+		if err := architectureRecursion(nil, libArch, arch); err != nil {
+			return fmt.Errorf("Alzlib.generateArchitectures: error processing architecture %s: %w", name, err)
+		}
+		az.architectures[name] = arch
+	}
+	return nil
+}
+
+func architectureRecursion(parents []string, libArch *processor.LibArchitecture, arch *Architecture) error {
+	newParents := make([]string, 0)
+	for _, mg := range libArch.ManagementGroups {
+		if (parents == nil && mg.ParentId == nil) || slices.Contains(parents, *mg.ParentId) {
+			if err := arch.addMg(mg); err != nil {
+				return fmt.Errorf("childArchitectures: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
+			}
+			newParents = append(newParents, mg.Id)
+		}
+	}
+	if len(newParents) > 0 {
+		return architectureRecursion(newParents, libArch, arch)
 	}
 	return nil
 }
