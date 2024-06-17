@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib/processor"
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
@@ -117,4 +118,119 @@ func TestGenerateOverrideArchetypes(t *testing.T) {
 	assert.True(t, mapset.NewThreadUnsafeSet("assignment2", "assignment3").Equal(overrideArchetype.PolicyAssignments))
 	assert.True(t, mapset.NewThreadUnsafeSet("role2", "role3").Equal(overrideArchetype.RoleDefinitions))
 	assert.Equal(t, "overrideArchetype", overrideArchetype.name)
+}
+
+func TestGenerateArchitectures(t *testing.T) {
+	az := NewAlzLib(nil)
+	az.architectures = make(map[string]*Architecture)
+	az.archetypes["archetype1"] = &Archetype{
+		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+		PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+		RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+		name:                 "archetype1",
+	}
+	az.archetypes["archetype2"] = &Archetype{
+		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+		PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
+		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+		RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+		name:                 "archetype2",
+	}
+	res := &processor.Result{
+		LibArchitectures: map[string]*processor.LibArchitecture{
+			"architecture1": {
+				Name: "architecture1",
+				ManagementGroups: []processor.LibArchitectureManagementGroup{
+					{
+						Id:          "mg1",
+						ParentId:    nil,
+						Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+						DisplayName: "mg1",
+						Exists:      false,
+					},
+					{
+						Id:          "mg2",
+						ParentId:    to.Ptr("mg1"),
+						Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
+						DisplayName: "mg2",
+						Exists:      false,
+					},
+				},
+			},
+		},
+	}
+	err := az.generateArchitectures(res)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(az.architectures))
+	assert.NotNil(t, az.architectures["architecture1"])
+}
+
+func TestGenerateArchitecturesTbt(t *testing.T) {
+	testCases := []struct {
+		name            string
+		setupAlzLib     func(az *AlzLib)
+		expectedLength  int
+		expectedNotNil  string
+		processorOutput *processor.Result
+	}{
+		{
+			name: "single architecture with two management groups",
+			setupAlzLib: func(az *AlzLib) {
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+					name:                 "archetype1",
+				}
+				az.archetypes["archetype2"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+					name:                 "archetype2",
+				}
+				az.architectures = make(map[string]*Architecture)
+			},
+			processorOutput: &processor.Result{
+				LibArchitectures: map[string]*processor.LibArchitecture{
+					"architecture1": {
+						Name: "architecture1",
+						ManagementGroups: []processor.LibArchitectureManagementGroup{
+							{
+								Id:          "mg1",
+								ParentId:    nil,
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "mg1",
+								Exists:      false,
+							},
+							{
+								Id:          "mg2",
+								ParentId:    to.Ptr("mg1"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
+								DisplayName: "mg2",
+								Exists:      false,
+							},
+						},
+					},
+				},
+			},
+			expectedLength: 1,
+			expectedNotNil: "architecture1",
+		},
+		// Add more test cases here
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			az := NewAlzLib(nil)
+			tc.setupAlzLib(az)
+
+			err := az.generateArchitectures(tc.processorOutput)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedLength, len(az.architectures))
+			assert.NotNil(t, az.architectures[tc.expectedNotNil])
+		})
+	}
 }

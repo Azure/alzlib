@@ -60,6 +60,7 @@ func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 	az := &AlzLib{
 		Options:              opts,
 		archetypes:           make(map[string]*Archetype),
+		architectures:        make(map[string]*Architecture),
 		policyAssignments:    make(map[string]*assets.PolicyAssignment),
 		policyDefinitions:    make(map[string]*assets.PolicyDefinition),
 		policySetDefinitions: make(map[string]*assets.PolicySetDefinition),
@@ -636,13 +637,19 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 	}
 	newParents := mapset.NewThreadUnsafeSet[string]()
 	for _, mg := range libArch.ManagementGroups {
-		if depth == 0 && mg.ParentId == nil {
+		switch {
+		case depth == 0 && mg.ParentId == nil:
 			if err := arch.addMgFromProcessor(mg, az); err != nil {
 				return fmt.Errorf("architectureRecursion: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
 			}
-			continue
-		}
-		if parents.Contains(*mg.ParentId) {
+			newParents.Add(mg.Id)
+		case depth > 0 && mg.ParentId != nil:
+			if parents == nil {
+				return fmt.Errorf("architectureRecursion: error processing architecture %s: depth > 1 and parent management group set is nil", arch.name)
+			}
+			if !parents.Contains(*mg.ParentId) {
+				continue
+			}
 			if err := arch.addMgFromProcessor(mg, az); err != nil {
 				return fmt.Errorf("architectureRecursion: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
 			}

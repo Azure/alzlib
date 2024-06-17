@@ -20,7 +20,7 @@ func NewArchitecture(name string) *Architecture {
 }
 
 type managementGroup struct {
-	name        string
+	id          string
 	displayName string
 	children    mapset.Set[*managementGroup]
 	parent      *managementGroup
@@ -28,11 +28,21 @@ type managementGroup struct {
 	archetypes  mapset.Set[*Archetype]
 }
 
+func newManagementGroup(id, displayName string, exists bool) *managementGroup {
+	return &managementGroup{
+		id:          id,
+		displayName: displayName,
+		children:    mapset.NewThreadUnsafeSet[*managementGroup](),
+		exists:      exists,
+		archetypes:  mapset.NewThreadUnsafeSet[*Archetype](),
+	}
+}
+
 func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagementGroup, az *AlzLib) error {
 	if _, ok := a.mgs[libMg.Id]; ok {
 		return fmt.Errorf("Architecture.addMg: management group %s already exists", libMg.Id)
 	}
-	mg := new(managementGroup)
+	mg := newManagementGroup(libMg.Id, libMg.DisplayName, libMg.Exists)
 	// check parent exists and create parent-child relationship
 	if libMg.ParentId != nil {
 		parent, ok := a.mgs[*libMg.ParentId]
@@ -42,9 +52,6 @@ func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagem
 		mg.parent = parent
 		mg.parent.children.Add(mg)
 	}
-	mg.name = libMg.Id
-	mg.displayName = libMg.DisplayName
-	mg.exists = libMg.Exists
 	mg.archetypes = mapset.NewThreadUnsafeSet[*Archetype]()
 	for archName := range libMg.Archetypes.Iter() {
 		arch, err := az.CopyArchetype(archName)
@@ -53,5 +60,6 @@ func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagem
 		}
 		mg.archetypes.Add(arch)
 	}
+	a.mgs[mg.id] = mg
 	return nil
 }
