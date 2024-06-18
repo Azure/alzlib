@@ -171,6 +171,7 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 		name            string
 		setupAlzLib     func(az *AlzLib)
 		expectedLength  int
+		expectedError   string
 		expectedNotNil  string
 		processorOutput *processor.Result
 	}{
@@ -216,10 +217,211 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 					},
 				},
 			},
+			expectedError:  "",
 			expectedLength: 1,
 			expectedNotNil: "architecture1",
 		},
-		// Add more test cases here
+		{
+			name: "single architecture with two management groups and incorrect parent",
+			setupAlzLib: func(az *AlzLib) {
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+					name:                 "archetype1",
+				}
+				az.archetypes["archetype2"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+					name:                 "archetype2",
+				}
+				az.architectures = make(map[string]*Architecture)
+			},
+			processorOutput: &processor.Result{
+				LibArchitectures: map[string]*processor.LibArchitecture{
+					"architecture1": {
+						Name: "architecture1",
+						ManagementGroups: []processor.LibArchitectureManagementGroup{
+							{
+								Id:          "mg1",
+								ParentId:    nil,
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "mg1",
+								Exists:      false,
+							},
+							{
+								Id:          "mg2",
+								ParentId:    to.Ptr("notexist"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
+								DisplayName: "mg2",
+								Exists:      false,
+							},
+						},
+					},
+				},
+			},
+			expectedError:  "",
+			expectedLength: 1,
+			expectedNotNil: "architecture1",
+		},
+		{
+			name: "single architecture with no management groups",
+			setupAlzLib: func(az *AlzLib) {
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+					name:                 "archetype1",
+				}
+				az.architectures = make(map[string]*Architecture)
+			},
+			processorOutput: &processor.Result{
+				LibArchitectures: map[string]*processor.LibArchitecture{
+					"architecture1": {
+						Name:             "architecture1",
+						ManagementGroups: []processor.LibArchitectureManagementGroup{},
+					},
+				},
+			},
+			expectedError:  "architectureRecursion: no management groups found",
+			expectedLength: 1,
+			expectedNotNil: "architecture1",
+		},
+		{
+			name: "multiple architectures with management groups",
+			setupAlzLib: func(az *AlzLib) {
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+					name:                 "archetype1",
+				}
+				az.archetypes["archetype2"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+					name:                 "archetype2",
+				}
+				az.architectures = make(map[string]*Architecture)
+			},
+			processorOutput: &processor.Result{
+				LibArchitectures: map[string]*processor.LibArchitecture{
+					"architecture1": {
+						Name: "architecture1",
+						ManagementGroups: []processor.LibArchitectureManagementGroup{
+							{
+								Id:          "mg1",
+								ParentId:    nil,
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "mg1",
+								Exists:      false,
+							},
+							{
+								Id:          "mg2",
+								ParentId:    to.Ptr("mg1"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
+								DisplayName: "mg2",
+								Exists:      false,
+							},
+						},
+					},
+					"architecture2": {
+						Name: "architecture2",
+						ManagementGroups: []processor.LibArchitectureManagementGroup{
+							{
+								Id:          "mg3",
+								ParentId:    nil,
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1", "archetype2"),
+								DisplayName: "mg3",
+								Exists:      false,
+							},
+						},
+					},
+				},
+			},
+			expectedError:  "",
+			expectedLength: 2,
+			expectedNotNil: "architecture1",
+		},
+		{
+			name: "management group hierarchy too deep",
+			setupAlzLib: func(az *AlzLib) {
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+					name:                 "archetype1",
+				}
+			},
+			processorOutput: &processor.Result{
+				LibArchitectures: map[string]*processor.LibArchitecture{
+					"toodeep": {
+						Name: "toodeep",
+						ManagementGroups: []processor.LibArchitectureManagementGroup{
+							{
+								Id:          "level0",
+								ParentId:    nil,
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level0",
+								Exists:      false,
+							},
+							{
+								Id:          "level1",
+								ParentId:    to.Ptr("level0"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level0",
+								Exists:      false,
+							},
+							{
+								Id:          "level2",
+								ParentId:    to.Ptr("level1"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level2",
+								Exists:      false,
+							},
+							{
+								Id:          "level3",
+								ParentId:    to.Ptr("level2"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level3",
+								Exists:      false,
+							},
+							{
+								Id:          "level4",
+								ParentId:    to.Ptr("level3"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level4",
+								Exists:      false,
+							},
+							{
+								Id:          "level5",
+								ParentId:    to.Ptr("level4"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level5",
+								Exists:      false,
+							},
+							{
+								Id:          "level6",
+								ParentId:    to.Ptr("level5"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level6",
+								Exists:      false,
+							},
+						},
+					},
+				},
+			},
+			expectedLength: 1,
+			expectedNotNil: "toodeep",
+			expectedError:  "architectureRecursion: recursion depth exceeded",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -228,9 +430,13 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 			tc.setupAlzLib(az)
 
 			err := az.generateArchitectures(tc.processorOutput)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedLength, len(az.architectures))
-			assert.NotNil(t, az.architectures[tc.expectedNotNil])
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedLength, len(az.architectures))
+				assert.NotNil(t, az.architectures[tc.expectedNotNil])
+			} else {
+				assert.ErrorContains(t, err, tc.expectedError)
+			}
 		})
 	}
 }

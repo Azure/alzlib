@@ -633,28 +633,38 @@ func (az *AlzLib) generateArchitectures(res *processor.Result) error {
 
 func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArchitecture, arch *Architecture, az *AlzLib, depth int) error {
 	if depth > 5 {
-		return fmt.Errorf("architectureRecursion: error processing architecture %s: recursion depth exceeded", arch.name)
+		return errors.New("architectureRecursion: recursion depth exceeded")
 	}
 	newParents := mapset.NewThreadUnsafeSet[string]()
+	if len(libArch.ManagementGroups) == 0 {
+		return errors.New("architectureRecursion: no management groups found")
+	}
 	for _, mg := range libArch.ManagementGroups {
+		parentFound := false
 		switch {
 		case depth == 0 && mg.ParentId == nil:
 			if err := arch.addMgFromProcessor(mg, az); err != nil {
-				return fmt.Errorf("architectureRecursion: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
+				return fmt.Errorf("architectureRecursion: error adding management group %s: %w", mg.Id, err)
 			}
-			newParents.Add(mg.Id)
+			parentFound = true
 		case depth > 0 && mg.ParentId != nil:
 			if parents == nil {
-				return fmt.Errorf("architectureRecursion: error processing architecture %s: depth > 1 and parent management group set is nil", arch.name)
+				return errors.New("architectureRecursion: depth > 1 and parents set to nil")
 			}
 			if !parents.Contains(*mg.ParentId) {
 				continue
 			}
 			if err := arch.addMgFromProcessor(mg, az); err != nil {
-				return fmt.Errorf("architectureRecursion: error adding management group %s to architecture %s: %w", mg.Id, arch.name, err)
+				return fmt.Errorf("architectureRecursion: error adding management group %s: %w", mg.Id, err)
 			}
-			newParents.Add(mg.Id)
+			parentFound = true
+		default:
+			continue
 		}
+		if !parentFound {
+			return fmt.Errorf("architectureRecursion: management group %s has no valid parent", mg.Id)
+		}
+		newParents.Add(mg.Id)
 	}
 	if newParents.Cardinality() > 0 {
 		return architectureRecursion(newParents, libArch, arch, az, depth+1)
