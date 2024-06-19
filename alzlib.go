@@ -316,8 +316,6 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 // It then fetches them from Azure if needed and adds them to the AlzLib struct.
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
-	az.mu.Lock()
-	defer az.mu.Unlock()
 	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	policySetDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	for _, pd := range pds {
@@ -333,8 +331,12 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 		case "policysetdefinitions":
 			// If the set is not present, OR if the set contains referenced definitions that are not present
 			// add it to the list of set defs to get.
-			psd, exists := az.policySetDefinitions[resId.Name]
+			exists := az.PolicySetDefinitionExists(resId.Name)
 			if exists {
+				psd, err := az.GetPolicySetDefinition(resId.Name)
+				if err != nil {
+					return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting policy set definition %s: %w", pd, err)
+				}
 				pdrefs, err := psd.GetPolicyDefinitionReferences()
 				if err != nil {
 					return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting policy definition references for policy set definition %s: %w", pd, err)

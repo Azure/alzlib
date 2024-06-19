@@ -16,4 +16,4 @@ test:
 .PHONY: testcover
 testcover:
 	if [ -f "coverage.out" ]; then rm coverage.out; fi
-	go test -coverprofile=coverage.out -covermode=count $(TEST)
+	go test -v -coverprofile=coverage.out -covermode=count $(TEST)
