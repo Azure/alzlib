@@ -22,7 +22,7 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 
 	// create a new AlzManagementGroup instance.
-	mg := &ManagementGroup{
+	mg := &HierarchyManagementGroup{
 		policyRoleAssignments: mapset.NewThreadUnsafeSet[PolicyRoleAssignment](),
 		policyDefinitions:     make(map[string]*assets.PolicyDefinition),
 		policySetDefinitions:  make(map[string]*assets.PolicySetDefinition),
@@ -236,7 +236,7 @@ func TestExtractParameterNameFromArmFunction(t *testing.T) {
 func TestModifyPolicyAssignments(t *testing.T) {
 	t.Parallel()
 	// Test with a single policy assignment and policy definition.
-	mg := &ManagementGroup{
+	mg := &HierarchyManagementGroup{
 		name: "mg1",
 		policyAssignments: map[string]*assets.PolicyAssignment{
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
@@ -267,7 +267,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Location)
 
 	// Test with multiple policy assignments and policy definitions.
-	mg = &ManagementGroup{
+	mg = &HierarchyManagementGroup{
 		name: "mg1",
 		policyAssignments: map[string]*assets.PolicyAssignment{
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
@@ -315,7 +315,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	assert.Equal(t, expected, *mg.policyAssignments["pa2"].Location)
 
 	// Test with invalid policy definition id.
-	mg = &ManagementGroup{
+	mg = &HierarchyManagementGroup{
 		name: "mg1",
 		policyAssignments: map[string]*assets.PolicyAssignment{
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
@@ -339,7 +339,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 func TestModifyPolicyDefinitions(t *testing.T) {
 	t.Parallel()
 	// Test with a single policy definition.
-	alzmg := &ManagementGroup{
+	alzmg := &HierarchyManagementGroup{
 		name: "mg1",
 		policyDefinitions: map[string]*assets.PolicyDefinition{
 			"pd1": {},
@@ -350,7 +350,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
 
 	// Test with multiple policy definitions.
-	alzmg = &ManagementGroup{
+	alzmg = &HierarchyManagementGroup{
 		name: "mg1",
 		policyDefinitions: map[string]*assets.PolicyDefinition{
 			"pd1": {},
@@ -364,7 +364,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd2"].ID)
 
 	// Test with no policy definitions.
-	alzmg = &ManagementGroup{
+	alzmg = &HierarchyManagementGroup{
 		name:              "mg1",
 		policyDefinitions: map[string]*assets.PolicyDefinition{},
 	}
@@ -375,7 +375,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 func TestModifyPolicySetDefinitions(t *testing.T) {
 	t.Parallel()
 	// Test with a single policy set definition and a single policy definition.
-	alzmg := &ManagementGroup{
+	alzmg := &HierarchyManagementGroup{
 		name: "mg1",
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{
 			"psd1": assets.NewPolicySetDefinition(armpolicy.SetDefinition{
@@ -399,7 +399,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
 
 	// Test with multiple policy set definitions and policy definitions.
-	alzmg = &ManagementGroup{
+	alzmg = &HierarchyManagementGroup{
 		name: "mg1",
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{
 			"psd1": assets.NewPolicySetDefinition(armpolicy.SetDefinition{
@@ -443,7 +443,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].Properties.PolicyDefinitions[1].PolicyDefinitionID)
 
 	// Test with no policy set definitions or policy definitions.
-	alzmg = &ManagementGroup{
+	alzmg = &HierarchyManagementGroup{
 		name:                 "mg1",
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
 	}
@@ -455,7 +455,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 func TestModifyRoleDefinitions(t *testing.T) {
 	t.Parallel()
 	// Test with a single role definition
-	alzmg := &ManagementGroup{
+	alzmg := &HierarchyManagementGroup{
 		name: "mg1",
 		roleDefinitions: map[string]*assets.RoleDefinition{
 			"rd1": assets.NewRoleDefinition(armauthorization.RoleDefinition{
@@ -474,7 +474,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
 
 	// Test with multiple role definitions
-	alzmg = &ManagementGroup{
+	alzmg = &HierarchyManagementGroup{
 		name: "mg1",
 		roleDefinitions: map[string]*assets.RoleDefinition{
 			"rd1": assets.NewRoleDefinition(armauthorization.RoleDefinition{
@@ -504,7 +504,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf(ManagementGroupIdFmt, "mg1"), *alzmg.roleDefinitions["rd2"].Properties.AssignableScopes[0])
 
 	// Test with no role definitions.
-	alzmg = &ManagementGroup{
+	alzmg = &HierarchyManagementGroup{
 		name:            "mg1",
 		roleDefinitions: map[string]*assets.RoleDefinition{},
 	}
@@ -514,7 +514,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 
 func TestModifyPolicyAssignment(t *testing.T) {
 	// Create a new AlzManagementGroup instance
-	alzmg := &ManagementGroup{
+	alzmg := &HierarchyManagementGroup{
 		policyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
 
@@ -588,7 +588,7 @@ func TestModifyPolicyAssignment(t *testing.T) {
 }
 
 func TestUpdatePolicyAssignments(t *testing.T) {
-	mg := &ManagementGroup{
+	mg := &HierarchyManagementGroup{
 		policyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
 

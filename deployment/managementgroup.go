@@ -16,9 +16,9 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-// ManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
+// HierarchyManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
 // Note: this is not thread safe, and should not be used concurrently without an external mutex.
-type ManagementGroup struct {
+type HierarchyManagementGroup struct {
 	name                  string
 	displayName           string
 	policyDefinitions     map[string]*assets.PolicyDefinition
@@ -26,21 +26,22 @@ type ManagementGroup struct {
 	policyAssignments     map[string]*assets.PolicyAssignment
 	roleDefinitions       map[string]*assets.RoleDefinition
 	policyRoleAssignments mapset.Set[PolicyRoleAssignment]
-	children              mapset.Set[*ManagementGroup]
-	parent                *ManagementGroup
+	children              mapset.Set[*HierarchyManagementGroup]
+	parent                *HierarchyManagementGroup
 	parentExternal        *string
 	hierarchy             *Hierarchy
 	location              string
 }
 
-// ManagementGroupAddRequest represents the request to add a management group to the hierarchy.
-type ManagementGroupAddRequest struct {
-	Id               string            // The name of the management group, forming the last part of the resource id.
-	DisplayName      string            // The display name of the management group.
-	ParentId         string            // The name of the parent management group.
-	ParentIsExternal bool              // If true, the parent management group is external to the hierarchy.
-	Archetype        *alzlib.Archetype // The archetype to use for the management group.
-	Location         string            // The default location to use for artifacts in the management group.
+// managementGroupAddRequest represents the request to add a management group to the hierarchy.
+type managementGroupAddRequest struct {
+	id               string              // The name of the management group, forming the last part of the resource id.
+	displayName      string              // The display name of the management group.
+	parentId         string              // The name of the parent management group.
+	parentIsExternal bool                // If true, the parent management group is external to the hierarchy.
+	archetype        *alzlib.Archetype   // The archetype to use for the management group.
+	archetypes       []*alzlib.Archetype // The archetypes to use for the management group.
+	location         string              // The default location to use for artifacts in the management group.
 }
 
 // PolicyRoleAssignment represents the role assignments that need to be created for a management group.
@@ -53,24 +54,24 @@ type PolicyRoleAssignment struct {
 }
 
 // Children returns the children of the management group.
-func (alzmg *ManagementGroup) Children() []*ManagementGroup {
+func (alzmg *HierarchyManagementGroup) Children() []*HierarchyManagementGroup {
 	return alzmg.children.ToSlice()
 }
 
 // DisplayName returns the display name of the management group.
-func (mg *ManagementGroup) DisplayName() string {
+func (mg *HierarchyManagementGroup) DisplayName() string {
 	return mg.displayName
 }
 
 // Name returns the name/id of the management group.
-func (mg *ManagementGroup) Name() string {
+func (mg *HierarchyManagementGroup) Name() string {
 	return mg.name
 }
 
 // ParentId returns the ID of the parent management group.
 // If the parent is external, this will be preferred.
 // If neither are set an empty string is returned (though this should never happen).
-func (mg *ManagementGroup) ParentId() string {
+func (mg *HierarchyManagementGroup) ParentId() string {
 	if mg.parentExternal != nil {
 		return *mg.parentExternal
 	}
@@ -82,7 +83,7 @@ func (mg *ManagementGroup) ParentId() string {
 
 // Parent returns parent *AlzManagementGroup.
 // If the parent is external, the result will be nil.
-func (mg *ManagementGroup) Parent() *ManagementGroup {
+func (mg *HierarchyManagementGroup) Parent() *HierarchyManagementGroup {
 	if mg.parentExternal != nil {
 		return nil
 	}
@@ -90,7 +91,7 @@ func (mg *ManagementGroup) Parent() *ManagementGroup {
 }
 
 // ParentIsExternal returns a bool value depending on whether the parent MG is external or not.
-func (mg *ManagementGroup) ParentIsExternal() bool {
+func (mg *HierarchyManagementGroup) ParentIsExternal() bool {
 	if mg.parentExternal != nil && *mg.parentExternal != "" {
 		return true
 	}
@@ -98,32 +99,32 @@ func (mg *ManagementGroup) ParentIsExternal() bool {
 }
 
 // ResourceId returns the resource ID of the management group.
-func (mg *ManagementGroup) ResourceId() string {
+func (mg *HierarchyManagementGroup) ResourceId() string {
 	return fmt.Sprintf(ManagementGroupIdFmt, mg.name)
 }
 
 // PolicyAssignmentMap returns a copy of the policy assignments map.
-func (mg *ManagementGroup) PolicyAssignmentMap() map[string]*assets.PolicyAssignment {
+func (mg *HierarchyManagementGroup) PolicyAssignmentMap() map[string]*assets.PolicyAssignment {
 	return copyMap[string, *assets.PolicyAssignment](mg.policyAssignments)
 }
 
 // PolicyDefinitionsMap returns a copy of the policy definitions map.
-func (mg *ManagementGroup) PolicyDefinitionsMap() map[string]*assets.PolicyDefinition {
+func (mg *HierarchyManagementGroup) PolicyDefinitionsMap() map[string]*assets.PolicyDefinition {
 	return copyMap[string, *assets.PolicyDefinition](mg.policyDefinitions)
 }
 
 // PolicySetDefinitionsMap returns a copy of the policy definitions map.
-func (mg *ManagementGroup) PolicySetDefinitionsMap() map[string]*assets.PolicySetDefinition {
+func (mg *HierarchyManagementGroup) PolicySetDefinitionsMap() map[string]*assets.PolicySetDefinition {
 	return copyMap[string, *assets.PolicySetDefinition](mg.policySetDefinitions)
 }
 
 // RoleDefinitionsMap returns a copy of the role definitions map.
-func (alzmg *ManagementGroup) RoleDefinitionsMap() map[string]*assets.RoleDefinition {
+func (alzmg *HierarchyManagementGroup) RoleDefinitionsMap() map[string]*assets.RoleDefinition {
 	return copyMap[string, *assets.RoleDefinition](alzmg.roleDefinitions)
 }
 
 // GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
-func (mg *ManagementGroup) PolicyRoleAssignments() []PolicyRoleAssignment {
+func (mg *HierarchyManagementGroup) PolicyRoleAssignments() []PolicyRoleAssignment {
 	return mg.policyRoleAssignments.ToSlice()
 }
 
@@ -131,7 +132,7 @@ func (mg *ManagementGroup) PolicyRoleAssignments() []PolicyRoleAssignment {
 // It should be run once the policy assignments map has been fully populated for a given ALZManagementGroup.
 // It will iterate through all policy assignments and generate the additional role assignments for each one,
 // storing them in the AdditionalRoleAssignmentsByPolicyAssignment map.
-func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() error {
+func (mg *HierarchyManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() error {
 	for paName, pa := range mg.policyAssignments {
 		// we only care about policy assignments that use an identity
 		if pa.IdentityType() == armpolicy.ResourceIdentityTypeNone {
@@ -147,7 +148,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 		switch policyDefinitionRef.ResourceType.Type {
 		case "policyDefinitions":
 			// check the definition exists in the AlzLib
-			pd, err := mg.hierarchy.alzlib.GetPolicyDefinition(policyDefinitionRef.Name)
+			pd, err := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name)
 			if err != nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
@@ -196,7 +197,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 			}
 
 		case "policySetDefinitions":
-			psd, err := mg.hierarchy.alzlib.GetPolicySetDefinition(policyDefinitionRef.Name)
+			psd, err := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name)
 			if err != nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy set definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
@@ -210,7 +211,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 				if err != nil {
 					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting policy definition name from id `%s`: %w", *pdRef.PolicyDefinitionID, err)
 				}
-				pd, err := mg.hierarchy.alzlib.GetPolicyDefinition(pdName)
+				pd, err := mg.hierarchy.alzlib.PolicyDefinition(pdName)
 				if err != nil {
 					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s`, referenced by `%s` not found in AlzLib", pdName, *psd.Name)
 				}
@@ -275,7 +276,7 @@ func (mg *ManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() e
 
 // update will update the AlzManagementGroup resources with the correct resource ids, references, etc.
 // Make sure to pass in any updates to the policy assignment parameter values.
-func (mg *ManagementGroup) update(papv PolicyAssignmentsParameterValues) error {
+func (mg *HierarchyManagementGroup) update(papv PolicyAssignmentsParameterValues) error {
 	pd2mg := mg.hierarchy.policyDefinitionToMg()
 	psd2mg := mg.hierarchy.policySetDefinitionToMg()
 
@@ -301,7 +302,7 @@ func (mg *ManagementGroup) update(papv PolicyAssignmentsParameterValues) error {
 
 // ModifyPolicyAssignment modifies an existing policy assignment in the management group.
 // It will deep merge the supplied assignments with the existing assignments.
-func (alzmg *ManagementGroup) ModifyPolicyAssignment(
+func (alzmg *HierarchyManagementGroup) ModifyPolicyAssignment(
 	name string,
 	parameters map[string]*armpolicy.ParameterValuesValue,
 	enforcementMode *armpolicy.EnforcementMode,
@@ -358,7 +359,7 @@ func extractParameterNameFromArmFunction(value string) (string, error) {
 }
 
 // updatePolicyDefinitions re-writes the policy definition resource IDs for the correct management group.
-func updatePolicyDefinitions(mg *ManagementGroup) {
+func updatePolicyDefinitions(mg *HierarchyManagementGroup) {
 	for k, v := range mg.policyDefinitions {
 		v.ID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mg.name, k))
 	}
@@ -369,7 +370,7 @@ func updatePolicyDefinitions(mg *ManagementGroup) {
 // It looks up the policy definition names that are in all archetypes in the Deployment.
 // If it is found, the definition reference id is re-written with the correct management group name.
 // If it is not found, we assume that it's built-in.
-func updatePolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) error {
+func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]string) error {
 	for k, psd := range mg.policySetDefinitions {
 		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.name, k))
 		refs, err := psd.GetPolicyDefinitionReferences()
@@ -389,7 +390,7 @@ func updatePolicySetDefinitions(mg *ManagementGroup, pd2mg map[string]string) er
 	return nil
 }
 
-func updatePolicyAsignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string, papv PolicyAssignmentsParameterValues) error {
+func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[string]string, papv PolicyAssignmentsParameterValues) error {
 	for assignmentName, params := range papv {
 		pa, ok := mg.policyAssignments[assignmentName]
 		if !ok {
@@ -434,7 +435,7 @@ func updatePolicyAsignments(mg *ManagementGroup, pd2mg, psd2mg map[string]string
 	return nil
 }
 
-func updateRoleDefinitions(alzmg *ManagementGroup) {
+func updateRoleDefinitions(alzmg *HierarchyManagementGroup) {
 	for _, roledef := range alzmg.roleDefinitions {
 		u := uuidV5(alzmg.name, *roledef.Name)
 		roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.name, u))
@@ -445,8 +446,8 @@ func updateRoleDefinitions(alzmg *ManagementGroup) {
 	}
 }
 
-func newManagementGroup() *ManagementGroup {
-	return &ManagementGroup{
+func newManagementGroup() *HierarchyManagementGroup {
+	return &HierarchyManagementGroup{
 		policyRoleAssignments: mapset.NewThreadUnsafeSet[PolicyRoleAssignment](),
 		policyDefinitions:     make(map[string]*assets.PolicyDefinition),
 		policySetDefinitions:  make(map[string]*assets.PolicySetDefinition),

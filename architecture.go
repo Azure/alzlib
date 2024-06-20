@@ -8,41 +8,77 @@ import (
 )
 
 type Architecture struct {
-	name string
-	mgs  map[string]*managementGroup
+	name   string
+	mgs    map[string]*ArchitectureManagementGroup
+	alzlib *AlzLib
 }
 
-func NewArchitecture(name string) *Architecture {
+func NewArchitecture(name string, az *AlzLib) *Architecture {
 	return &Architecture{
-		name: name,
-		mgs:  make(map[string]*managementGroup),
+		name:   name,
+		mgs:    make(map[string]*ArchitectureManagementGroup),
+		alzlib: az,
 	}
 }
 
-type managementGroup struct {
-	id          string
-	displayName string
-	children    mapset.Set[*managementGroup]
-	parent      *managementGroup
-	exists      bool
-	archetypes  mapset.Set[*Archetype]
+func (a *Architecture) RootMgs() (res []*ArchitectureManagementGroup) {
+	for _, mg := range a.mgs {
+		if mg.parent != nil {
+			continue
+		}
+		res = append(res, mg)
+	}
+	return res
 }
 
-func newManagementGroup(id, displayName string, exists bool) *managementGroup {
-	return &managementGroup{
-		id:          id,
-		displayName: displayName,
-		children:    mapset.NewThreadUnsafeSet[*managementGroup](),
-		exists:      exists,
-		archetypes:  mapset.NewThreadUnsafeSet[*Archetype](),
+type ArchitectureManagementGroup struct {
+	id           string
+	displayName  string
+	children     mapset.Set[*ArchitectureManagementGroup]
+	parent       *ArchitectureManagementGroup
+	exists       bool
+	archetypes   mapset.Set[*archetype]
+	architecture *Architecture
+}
+
+func newArchitectureManagementGroup(id, displayName string, exists bool, arch *Architecture) *ArchitectureManagementGroup {
+	return &ArchitectureManagementGroup{
+		id:           id,
+		displayName:  displayName,
+		children:     mapset.NewThreadUnsafeSet[*ArchitectureManagementGroup](),
+		exists:       exists,
+		archetypes:   mapset.NewThreadUnsafeSet[*archetype](),
+		architecture: arch,
 	}
+}
+
+func (mg *ArchitectureManagementGroup) Archetypes() (res []*Archetype) {
+	for arch := range mg.archetypes.Iter() {
+		res = append(res, arch.copy())
+	}
+	return res
+}
+
+func (mg *ArchitectureManagementGroup) Children() (res []*ArchitectureManagementGroup) {
+	for child := range mg.children.Iter() {
+		res = append(res, child)
+	}
+	return res
+}
+
+func (mg *ArchitectureManagementGroup) DisplayName() string {
+	return mg.displayName
+}
+
+func (mg *ArchitectureManagementGroup) Id() string {
+	return mg.id
 }
 
 func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagementGroup, az *AlzLib) error {
 	if _, ok := a.mgs[libMg.Id]; ok {
 		return fmt.Errorf("Architecture.addMg: management group %s already exists", libMg.Id)
 	}
-	mg := newManagementGroup(libMg.Id, libMg.DisplayName, libMg.Exists)
+	mg := newArchitectureManagementGroup(libMg.Id, libMg.DisplayName, libMg.Exists, a)
 	// check parent exists and create parent-child relationship
 	if libMg.ParentId != nil {
 		parent, ok := a.mgs[*libMg.ParentId]
@@ -52,11 +88,11 @@ func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagem
 		mg.parent = parent
 		mg.parent.children.Add(mg)
 	}
-	mg.archetypes = mapset.NewThreadUnsafeSet[*Archetype]()
+	mg.archetypes = mapset.NewThreadUnsafeSet[*archetype]()
 	for archName := range libMg.Archetypes.Iter() {
-		arch, err := az.CopyArchetype(archName)
-		if err != nil {
-			return fmt.Errorf("Architecture.addMg: error adding archetype `%s` to management group `%s` %w", archName, libMg.Id, err)
+		arch, ok := az.archetypes[archName]
+		if !ok {
+			return fmt.Errorf("Architecture.addMg: archetype not found adding archetype `%s` to management group `%s`", archName, libMg.Id)
 		}
 		mg.archetypes.Add(arch)
 	}
