@@ -8,6 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -17,6 +20,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/hashicorp/go-getter/v2"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -670,4 +674,41 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 		return architectureRecursion(newParents, libArch, arch, az, depth+1)
 	}
 	return nil
+}
+
+// FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member and tag.
+// It calls FetchLibraryByGetterString with the appropriate URL.
+// The destination directory will be the tag value and will be appended to the .alzlib directory in the current working directory.
+// To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (2024.03.03) as the second parameter.
+func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag string) (fs.FS, error) {
+	tag = fmt.Sprintf("platform/alz/%s", tag)
+	q := url.Values{}
+	q.Add("depth", "1")
+	q.Add("ref", tag)
+	u := fmt.Sprintf("github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
+	dst := filepath.Join(".alzlib", member, tag)
+	return FetchLibraryByGetterString(ctx, u, dst)
+}
+
+// FetchLibraryByGetterString fetches a library from a URL using the go-getter library.
+// The caller must supply a valid go-getter URL and a destination directory, which will eb appended to
+// the .alzlib directory in the current working directory.
+// It returns an fs.FS interface to the fetched library to be used in the AlzLib.Init() method.
+func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
+	u := getterString
+	dst := filepath.Join(".alzlib", dstDir)
+	client := getter.Client{}
+	wd, _ := os.Getwd()
+	_ = os.RemoveAll(dst)
+	req := &getter.Request{
+		Src: u,
+		Dst: dst,
+		Pwd: wd,
+	}
+	res, err := client.Get(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	_ = res
+	return os.DirFS(dst), nil
 }
