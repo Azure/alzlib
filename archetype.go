@@ -50,7 +50,7 @@ func (a *Archetype) Name() string {
 	return a.name
 }
 
-// copy creates a deep copy of the archetype
+// copy creates a deep copy of the archetype.
 func (a *archetype) copy() *Archetype {
 	return &Archetype{
 		PolicyDefinitions:    a.policyDefinitions.Clone(),
