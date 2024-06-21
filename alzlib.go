@@ -525,13 +525,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 		if _, exists := az.archetypes[k]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.generateArchetypes: archetype %s already exists in the library", v.Name)
 		}
-		arch := &archetype{
-			policyDefinitions:    mapset.NewSet[string](),
-			policyAssignments:    mapset.NewSet[string](),
-			policySetDefinitions: mapset.NewSet[string](),
-			roleDefinitions:      mapset.NewSet[string](),
-			name:                 v.Name,
-		}
+		arch := newArchitype(v.Name)
 		for pd := range v.PolicyDefinitions.Iter() {
 			if _, ok := az.policyDefinitions[pd]; !ok {
 				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy definition %s does not exist in the library", k, pd)

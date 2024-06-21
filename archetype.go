@@ -26,6 +26,16 @@ type archetype struct {
 	name                 string
 }
 
+func newArchitype(name string) *archetype {
+	return &archetype{
+		policyDefinitions:    mapset.NewThreadUnsafeSet[string](),
+		policyAssignments:    mapset.NewThreadUnsafeSet[string](),
+		policySetDefinitions: mapset.NewThreadUnsafeSet[string](),
+		roleDefinitions:      mapset.NewThreadUnsafeSet[string](),
+		name:                 name,
+	}
+}
+
 func NewArchetype(name string) *Archetype {
 	return &Archetype{
 		PolicyDefinitions:    mapset.NewThreadUnsafeSet[string](),

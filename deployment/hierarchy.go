@@ -110,8 +110,9 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 	}
 	mg := newManagementGroup()
 
-	mg.name = req.id
+	mg.id = req.id
 	mg.displayName = req.displayName
+	mg.exists = req.exists
 	mg.children = mapset.NewSet[*HierarchyManagementGroup]()
 	mg.location = req.location
 	if req.parentIsExternal {
@@ -131,7 +132,13 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
 	assignedPolicyDefinitionIds := mapset.NewThreadUnsafeSet[string]()
-	for pa := range req.archetype.PolicyAssignments.Iter() {
+
+	// Copmbine all assignments form all supplied archetypes into a single set
+	allPolicyAssignments := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allPolicyAssignments = allPolicyAssignments.Union(archetype.PolicyAssignments)
+	}
+	for pa := range allPolicyAssignments.Iter() {
 		polAssign, err := h.alzlib.PolicyAssignment(pa)
 		if err != nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy assignment `%s` referenced in management group `%s` does not exist in the library", pa, req.id)
@@ -147,29 +154,48 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: adding mg `%s` error getting policy definitions from Azure: %w", req.id, err)
 	}
 
+	// Now that we are sure that we have all the definitions in the library,
 	// make copies of the archetype resources for modification in the Deployment management group.
-	for name := range req.archetype.PolicyDefinitions.Iter() {
+
+	// Copmbine all policy definitions form all supplied archetypes into a single set
+	allPolicyDefinitions := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allPolicyDefinitions = allPolicyDefinitions.Union(archetype.PolicyDefinitions)
+	}
+	for name := range allPolicyDefinitions.Iter() {
 		newDef, err := h.alzlib.PolicyDefinition(name)
 		if err != nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policyDefinitions[name] = newDef
 	}
-	for name := range req.archetype.PolicySetDefinitions.Iter() {
+	// Copmbine all policy set definitions form all supplied archetypes into a single set
+	allPolicySetDefinitions := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allPolicySetDefinitions = allPolicySetDefinitions.Union(archetype.PolicySetDefinitions)
+	}
+	for name := range allPolicySetDefinitions.Iter() {
 		newSetDef, err := h.alzlib.PolicySetDefinition(name)
 		if err != nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy set definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policySetDefinitions[name] = newSetDef
 	}
-	for name := range req.archetype.PolicyAssignments.Iter() {
+	// Now that the policy definitions and policy set definitions have been copied, we can add the policy assignments
+	for name := range allPolicyAssignments.Iter() {
 		newpolassign, err := h.alzlib.PolicyAssignment(name)
 		if err != nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy assignment `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policyAssignments[name] = newpolassign
 	}
-	for name := range req.archetype.RoleDefinitions.Iter() {
+
+	// Copmbine all role definitions form all supplied archetypes into a single set
+	allRoleDefinitions := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allRoleDefinitions = allRoleDefinitions.Union(archetype.RoleDefinitions)
+	}
+	for name := range allRoleDefinitions.Iter() {
 		newroledef, err := h.alzlib.RoleDefinition(name)
 		if err != nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): role definition `%s` in management group `%s` does not exist in the library", name, req.id)

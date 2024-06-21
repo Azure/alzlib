@@ -120,52 +120,6 @@ func TestGenerateOverrideArchetypes(t *testing.T) {
 	assert.Equal(t, "overrideArchetype", overrideArchetype.name)
 }
 
-func TestGenerateArchitectures(t *testing.T) {
-	az := NewAlzLib(nil)
-	az.architectures = make(map[string]*Architecture)
-	az.archetypes["archetype1"] = &archetype{
-		policyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
-		policyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
-		policySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
-		roleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
-		name:                 "archetype1",
-	}
-	az.archetypes["archetype2"] = &archetype{
-		policyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
-		policyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
-		policySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
-		roleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
-		name:                 "archetype2",
-	}
-	res := &processor.Result{
-		LibArchitectures: map[string]*processor.LibArchitecture{
-			"architecture1": {
-				Name: "architecture1",
-				ManagementGroups: []processor.LibArchitectureManagementGroup{
-					{
-						Id:          "mg1",
-						ParentId:    nil,
-						Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
-						DisplayName: "mg1",
-						Exists:      false,
-					},
-					{
-						Id:          "mg2",
-						ParentId:    to.Ptr("mg1"),
-						Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
-						DisplayName: "mg2",
-						Exists:      false,
-					},
-				},
-			},
-		},
-	}
-	err := az.generateArchitectures(res)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(az.architectures))
-	assert.NotNil(t, az.architectures["architecture1"])
-}
-
 func TestGenerateArchitecturesTbt(t *testing.T) {
 	testCases := []struct {
 		name            string

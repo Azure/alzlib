@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
@@ -236,8 +237,9 @@ func TestExtractParameterNameFromArmFunction(t *testing.T) {
 func TestModifyPolicyAssignments(t *testing.T) {
 	t.Parallel()
 	// Test with a single policy assignment and policy definition.
+	h := NewHierarchy(nil)
 	mg := &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		policyAssignments: map[string]*assets.PolicyAssignment{
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
 				Name: to.Ptr("pa1"),
@@ -250,13 +252,14 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		},
 		location: "eastus",
 	}
+	h.mgs["mg1"] = mg
 	pd2mg := map[string]string{
 		"pd1": "mg1",
 	}
 	psd2mg := map[string]string{}
 
 	err := updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
 	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
@@ -268,7 +271,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 
 	// Test with multiple policy assignments and policy definitions.
 	mg = &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		policyAssignments: map[string]*assets.PolicyAssignment{
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
 				Name: to.Ptr("pa1"),
@@ -296,7 +299,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		"psd1": "mg1",
 	}
 	err = updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected = fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
 	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
@@ -316,7 +319,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 
 	// Test with invalid policy definition id.
 	mg = &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		policyAssignments: map[string]*assets.PolicyAssignment{
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
 				Name: to.Ptr("policy1"),
@@ -340,7 +343,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 	t.Parallel()
 	// Test with a single policy definition.
 	alzmg := &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		policyDefinitions: map[string]*assets.PolicyDefinition{
 			"pd1": {},
 		},
@@ -351,7 +354,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 
 	// Test with multiple policy definitions.
 	alzmg = &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		policyDefinitions: map[string]*assets.PolicyDefinition{
 			"pd1": {},
 			"pd2": {},
@@ -365,7 +368,7 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 
 	// Test with no policy definitions.
 	alzmg = &HierarchyManagementGroup{
-		name:              "mg1",
+		id:                "mg1",
 		policyDefinitions: map[string]*assets.PolicyDefinition{},
 	}
 	updatePolicyDefinitions(alzmg)
@@ -376,7 +379,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	t.Parallel()
 	// Test with a single policy set definition and a single policy definition.
 	alzmg := &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{
 			"psd1": assets.NewPolicySetDefinition(armpolicy.SetDefinition{
 				Properties: &armpolicy.SetDefinitionProperties{
@@ -400,7 +403,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 
 	// Test with multiple policy set definitions and policy definitions.
 	alzmg = &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{
 			"psd1": assets.NewPolicySetDefinition(armpolicy.SetDefinition{
 				Properties: &armpolicy.SetDefinitionProperties{
@@ -444,7 +447,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 
 	// Test with no policy set definitions or policy definitions.
 	alzmg = &HierarchyManagementGroup{
-		name:                 "mg1",
+		id:                   "mg1",
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
 	}
 	pd2mg = map[string]string{}
@@ -456,7 +459,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 	t.Parallel()
 	// Test with a single role definition
 	alzmg := &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		roleDefinitions: map[string]*assets.RoleDefinition{
 			"rd1": assets.NewRoleDefinition(armauthorization.RoleDefinition{
 				Name: to.Ptr("role1"),
@@ -475,7 +478,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 
 	// Test with multiple role definitions
 	alzmg = &HierarchyManagementGroup{
-		name: "mg1",
+		id: "mg1",
 		roleDefinitions: map[string]*assets.RoleDefinition{
 			"rd1": assets.NewRoleDefinition(armauthorization.RoleDefinition{
 				Name: to.Ptr("role1"),
@@ -505,7 +508,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 
 	// Test with no role definitions.
 	alzmg = &HierarchyManagementGroup{
-		name:            "mg1",
+		id:              "mg1",
 		roleDefinitions: map[string]*assets.RoleDefinition{},
 	}
 	updateRoleDefinitions(alzmg)
@@ -623,4 +626,68 @@ func TestUpdatePolicyAssignments(t *testing.T) {
 	// Assert that the policy assignment has been updated with the new parameters
 	assert.Equal(t, armpolicy.ParameterValuesValue{Value: "value1"}, *pa.Properties.Parameters["param1"])
 	assert.Equal(t, armpolicy.ParameterValuesValue{Value: "value2"}, *pa.Properties.Parameters["param2"])
+}
+
+func TestHasParent(t *testing.T) {
+	mg1 := &HierarchyManagementGroup{
+		id:             "mg1",
+		parent:         nil,
+		parentExternal: nil,
+	}
+	mg2 := &HierarchyManagementGroup{
+		id:             "mg2",
+		parent:         mg1,
+		parentExternal: nil,
+	}
+	mg3 := &HierarchyManagementGroup{
+		id:             "mg3",
+		parent:         mg2,
+		parentExternal: nil,
+	}
+	mg4 := &HierarchyManagementGroup{
+		id:             "mg4",
+		parent:         nil,
+		parentExternal: to.Ptr("external"),
+	}
+
+	tests := []struct {
+		name     string
+		mg       *HierarchyManagementGroup
+		parentID string
+		want     bool
+	}{
+		{
+			name:     "HasParent with direct parent",
+			mg:       mg2,
+			parentID: "mg1",
+			want:     true,
+		},
+		{
+			name:     "HasParent with indirect parent",
+			mg:       mg3,
+			parentID: "mg1",
+			want:     true,
+		},
+		{
+			name:     "HasParent with non-existent parent",
+			mg:       mg3,
+			parentID: "mg5",
+			want:     false,
+		},
+		{
+			name:     "HasParent with external parent",
+			mg:       mg4,
+			parentID: "external",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.mg.HasParent(tt.parentID)
+			if got != tt.want {
+				t.Errorf("HasParent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
