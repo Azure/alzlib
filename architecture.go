@@ -2,6 +2,7 @@ package alzlib
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Azure/alzlib/processor"
 	mapset "github.com/deckarep/golang-set/v2"
@@ -28,6 +29,15 @@ func (a *Architecture) RootMgs() (res []*ArchitectureManagementGroup) {
 		}
 		res = append(res, mg)
 	}
+	slices.SortFunc(res, func(a, b *ArchitectureManagementGroup) int {
+		if a.id < b.id {
+			return -1
+		}
+		if a.id > b.id {
+			return 1
+		}
+		return 0
+	})
 	return res
 }
 

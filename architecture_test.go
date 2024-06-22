@@ -1,6 +1,8 @@
 package alzlib
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestRootMgs(t *testing.T) {
 	az := NewAlzLib(nil)
