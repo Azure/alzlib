@@ -6,6 +6,7 @@ package integrationtest
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
@@ -49,8 +50,10 @@ func Example_deploymentNewHierarchy() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("Management groups:", h.ManagementGroups())
+	mgs := h.ManagementGroups()
+	slices.Sort(mgs)
+	fmt.Println("Management groups:", mgs)
 
 	// Output:
-	// Management groups: [online sandboxes platform management connectivity identity alzroot landingzones corp]
+	// Management groups: [alzroot connectivity corp identity landingzones management online platform sandboxes]
 }
