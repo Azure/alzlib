@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -280,7 +281,7 @@ func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 }
 
 // Init processes ALZ libraries, supplied as fs.FS interfaces.
-// These are typically the embed.FS global var `Lib`, or an `os.DirFS`.
+// Use FetchAzureLandingZonesLibraryMember to get the library from GitHub.
 // It populates the struct with the results of the processing.
 func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	az.mu.Lock()
@@ -291,6 +292,9 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 
 	// Process the libraries
 	for _, lib := range libs {
+		if lib == nil {
+			return errors.New("Alzlib.Init: library is nil")
+		}
 		res := new(processor.Result)
 		pc := processor.NewProcessorClient(lib)
 		if err := pc.Process(res); err != nil {
@@ -678,15 +682,14 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 
 // FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member and tag.
 // It calls FetchLibraryByGetterString with the appropriate URL.
-// The destination directory will be the tag value and will be appended to the .alzlib directory in the current working directory.
-// To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (2024.03.03) as the second parameter.
-func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag string) (fs.FS, error) {
+// The destination directory will be appended to the .alzlib directory in the current working directory.
+// To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (2024.03.03).
+func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dst string) (fs.FS, error) {
 	tag = fmt.Sprintf("platform/alz/%s", tag)
 	q := url.Values{}
 	q.Add("depth", "1")
 	q.Add("ref", tag)
 	u := fmt.Sprintf("github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
-	dst := filepath.Join(".alzlib", member, tag)
 	return FetchLibraryByGetterString(ctx, u, dst)
 }
 
@@ -695,20 +698,26 @@ func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag string
 // the .alzlib directory in the current working directory.
 // It returns an fs.FS interface to the fetched library to be used in the AlzLib.Init() method.
 func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
-	u := getterString
+	if !validDstDir(dstDir) {
+		return nil, errors.New("FetchLibraryByGetterString: invalid destination directory")
+	}
 	dst := filepath.Join(".alzlib", dstDir)
 	client := getter.Client{}
 	wd, _ := os.Getwd()
 	_ = os.RemoveAll(dst)
 	req := &getter.Request{
-		Src: u,
+		Src: getterString,
 		Dst: dst,
 		Pwd: wd,
 	}
-	res, err := client.Get(ctx, req)
+	_, err := client.Get(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	_ = res
 	return os.DirFS(dst), nil
+}
+
+func validDstDir(dst string) bool {
+	re := regexp.MustCompile(`^\w+$`)
+	return re.MatchString(dst)
 }

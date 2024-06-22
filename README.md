@@ -14,7 +14,7 @@ go get -u github.com/Azure/alzlib
 
 ## Usage
 
-See the `ExampleAlzLib_Init` in the `integrationtest/alzlib_test.go` file for usage examples.
+See the examples in the `integrationtest/examples_test.go` file for usage examples.
 
 ## Contributing
 
