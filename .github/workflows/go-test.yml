@@ -42,43 +42,43 @@ jobs:
       )
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      name: checkout
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
-        persist-credentials: false
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        name: checkout
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
-    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
-      name: setup go
-      with:
-        go-version-file: 'go.mod'
-        cache: true
+      - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        name: setup go
+        with:
+          go-version-file: "go.mod"
+          cache: true
 
-    - uses: azure/login@6c251865b4e6290e7b78be643ea2d005bc51f69a # v2.1.1
-      name: Azure login
-      with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        allow-no-subscriptions: true
+      - uses: azure/login@6c251865b4e6290e7b78be643ea2d005bc51f69a # v2.1.1
+        name: Azure login
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
 
-    - run: make test
-      name: make test
-      # Tests are run on Linux using make testcover
-      if: matrix.os != 'ubuntu-latest'
+      - run: make test
+        name: make test
+        # Tests are run on Linux using make testcover
+        if: matrix.os != 'ubuntu-latest'
 
-    - run: make testrace
-      name: make testrace
-      if: matrix.os == 'ubuntu-latest'
+      - run: make testrace
+        name: make testrace
+        if: matrix.os == 'ubuntu-latest'
 
-    - run: make testcover
-      name: make testcover
-      if: matrix.os == 'ubuntu-latest'
+      - run: make testcover
+        name: make testcover
+        if: matrix.os == 'ubuntu-latest'
 
-    - uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673 # v4.5.0
-      if: matrix.os == 'ubuntu-latest' && github.event_name != 'merge_group'
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.out
+      - uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673 # v4.5.0
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'merge_group'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.out
