@@ -24,7 +24,7 @@ func TestGetReferencedPolicyDefinitionNames(t *testing.T) {
 	})
 
 	expectedNames := []string{"policy1", "policy2"}
-	names, err := psd.GetReferencedPolicyDefinitionNames()
+	names, err := psd.ReferencedPolicyDefinitionNames()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestGetPolicyDefinitionReferences(t *testing.T) {
 			PolicyDefinitionID: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Authorization/policyDefinitions/policy2"),
 		},
 	}
-	references, err := psd.GetPolicyDefinitionReferences()
+	references, err := psd.PolicyDefinitionReferences()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

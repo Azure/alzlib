@@ -67,7 +67,7 @@ func TestGetParameterValueAsString(t *testing.T) {
 	})
 	paramName := "param1"
 	expectedValue := "value1"
-	paramValue, err := pa.GetParameterValueAsString(paramName)
+	paramValue, err := pa.ParameterValueAsString(paramName)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestGetParameterValueAsString(t *testing.T) {
 	}
 
 	paramName = "param2"
-	_, err = pa.GetParameterValueAsString(paramName)
+	_, err = pa.ParameterValueAsString(paramName)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -86,7 +86,7 @@ func TestGetParameterValueAsString(t *testing.T) {
 	}
 
 	paramName = "param3"
-	_, err = pa.GetParameterValueAsString(paramName)
+	_, err = pa.ParameterValueAsString(paramName)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}

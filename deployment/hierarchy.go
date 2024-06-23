@@ -6,6 +6,7 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -48,8 +49,8 @@ func (h *Hierarchy) ManagementGroup(name string) *HierarchyManagementGroup {
 	return nil
 }
 
-// ManagementGroups returns the management group names as a slice of string.
-func (h *Hierarchy) ManagementGroups() []string {
+// ManagementGroupNames returns the management group names as a slice of string.
+func (h *Hierarchy) ManagementGroupNames() []string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	res := make([]string, len(h.mgs))
@@ -58,7 +59,21 @@ func (h *Hierarchy) ManagementGroups() []string {
 		res[i] = mgname
 		i++
 	}
+	slices.Sort(res)
 	return res
+}
+
+func (h *Hierarchy) ManagementGroupsAtLevel(level int) map[string]*HierarchyManagementGroup {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	res := make(map[string]*HierarchyManagementGroup)
+	for mgname, mg := range h.mgs {
+		if mg.level != level {
+			continue
+		}
+		res[mgname] = mg
+	}
+	return h.mgs
 }
 
 func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId, location string) error {
@@ -68,14 +83,26 @@ func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId
 	}
 	// Get the architecture root management groups.
 	for _, a := range architecture.RootMgs() {
-		if err := recurseAddManagementGroup(ctx, h, a, externalParentId, location, true); err != nil {
+		if err := recurseAddManagementGroup(ctx, h, a, externalParentId, location, true, 0); err != nil {
 			return fmt.Errorf("Hierarchy.FromArchitecture: recursion error on architecture `%s` %w", arch, err)
 		}
 	}
 	return nil
 }
 
-func recurseAddManagementGroup(ctx context.Context, h *Hierarchy, archMg *alzlib.ArchitectureManagementGroup, parent, location string, externalParent bool) error {
+func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) mapset.Set[PolicyRoleAssignment] {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	res := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
+	// Get the policy assignments for each management group.
+	for _, mg := range h.mgs {
+		mg.generatePolicyAssignmentAdditionalRoleAssignments()
+		res = res.Union(mg.policyRoleAssignments)
+	}
+	return res
+}
+
+func recurseAddManagementGroup(ctx context.Context, h *Hierarchy, archMg *alzlib.ArchitectureManagementGroup, parent, location string, externalParent bool, level int) error {
 	req := managementGroupAddRequest{
 		id:               archMg.Id(),
 		displayName:      archMg.DisplayName(),
@@ -83,12 +110,13 @@ func recurseAddManagementGroup(ctx context.Context, h *Hierarchy, archMg *alzlib
 		location:         location,
 		parentId:         parent,
 		parentIsExternal: externalParent,
+		level:            level,
 	}
 	if _, err := h.addManagementGroup(ctx, req); err != nil {
 		return fmt.Errorf("Hierarchy.recurseAddManagementGroup: error adding management group `%s`: %w", archMg.Id(), err)
 	}
 	for _, child := range archMg.Children() {
-		if err := recurseAddManagementGroup(ctx, h, child, archMg.Id(), location, false); err != nil {
+		if err := recurseAddManagementGroup(ctx, h, child, archMg.Id(), location, false, level+1); err != nil {
 			return err
 		}
 	}
@@ -113,6 +141,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 	mg.id = req.id
 	mg.displayName = req.displayName
 	mg.exists = req.exists
+	mg.level = req.level
 	mg.children = mapset.NewSet[*HierarchyManagementGroup]()
 	mg.location = req.location
 	if req.parentIsExternal {
@@ -133,7 +162,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
 	assignedPolicyDefinitionIds := mapset.NewThreadUnsafeSet[string]()
 
-	// Copmbine all assignments form all supplied archetypes into a single set
+	// Combine all assignments form all supplied archetypes into a single set
 	allPolicyAssignments := mapset.NewThreadUnsafeSet[string]()
 	for _, archetype := range req.archetypes {
 		allPolicyAssignments = allPolicyAssignments.Union(archetype.PolicyAssignments)

@@ -178,7 +178,7 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	mg.hierarchy = depl
 
 	// generate the additional role assignments.
-	err := mg.GeneratePolicyAssignmentAdditionalRoleAssignments()
+	err := mg.generatePolicyAssignmentAdditionalRoleAssignments()
 
 	// check that there were no errors.
 	assert.NoError(t, err)

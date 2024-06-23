@@ -18,7 +18,7 @@ func NewPolicySetDefinition(psd armpolicy.SetDefinition) *PolicySetDefinition {
 	return &PolicySetDefinition{psd}
 }
 
-func (psd *PolicySetDefinition) GetReferencedPolicyDefinitionNames() ([]string, error) {
+func (psd *PolicySetDefinition) ReferencedPolicyDefinitionNames() ([]string, error) {
 	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
 		return nil, errors.New("policy set definition is nil, missing properties or policy definitions")
 	}
@@ -33,7 +33,7 @@ func (psd *PolicySetDefinition) GetReferencedPolicyDefinitionNames() ([]string, 
 	return names, nil
 }
 
-func (psd *PolicySetDefinition) GetPolicyDefinitionReferences() ([]*armpolicy.DefinitionReference, error) {
+func (psd *PolicySetDefinition) PolicyDefinitionReferences() ([]*armpolicy.DefinitionReference, error) {
 	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
 		return nil, errors.New("policy set definition is nil, missing properties or policy definitions")
 	}

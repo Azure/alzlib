@@ -50,7 +50,7 @@ func Example_deploymentNewHierarchy() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	mgs := h.ManagementGroups()
+	mgs := h.ManagementGroupNames()
 	slices.Sort(mgs)
 	fmt.Println("Management groups:", mgs)
 

@@ -24,6 +24,7 @@ type HierarchyManagementGroup struct {
 	exists                bool                                   // Whether the management group already exists in the hierarchy.
 	hierarchy             *Hierarchy                             // The hierarchy that the management group belongs to.
 	id                    string                                 // The name of the management group, forming the last part of the resource id.
+	level                 int                                    // The level of the management group in the hierarchy.
 	location              string                                 // The default location to use for artifacts in the management group.
 	parent                *HierarchyManagementGroup              // The internal parent management group - will be nil if parent is external.
 	parentExternal        *string                                // The external parent management group - will be nil if parent is internal.
@@ -42,6 +43,7 @@ type managementGroupAddRequest struct {
 	parentId         string              // The name of the parent management group.
 	parentIsExternal bool                // If true, the parent management group is external to the hierarchy.
 	archetypes       []*alzlib.Archetype // The archetypes to use for the management group.
+	level            int                 // The level of the management group in the hierarchy.
 	location         string              // The default location to use for artifacts in the management group.
 }
 
@@ -136,16 +138,11 @@ func (alzmg *HierarchyManagementGroup) RoleDefinitionsMap() map[string]*assets.R
 	return copyMap[string, *assets.RoleDefinition](alzmg.roleDefinitions)
 }
 
-// GetPolicyRoleAssignmentsMap returns a copy of the additional role assignments slice.
-func (mg *HierarchyManagementGroup) PolicyRoleAssignments() []PolicyRoleAssignment {
-	return mg.policyRoleAssignments.ToSlice()
-}
-
-// GeneratePolicyAssignmentAdditionalRoleAssignments generates the additional role assignment data needed for the policy assignments
-// It should be run once the policy assignments map has been fully populated for a given ALZManagementGroup.
+// generatePolicyAssignmentAdditionalRoleAssignments generates the additional role assignment data needed for the policy assignments
+// It should be run once the policy assignments map has been fully populated for a given HierarchyManagementGroup.
 // It will iterate through all policy assignments and generate the additional role assignments for each one,
 // storing them in the AdditionalRoleAssignmentsByPolicyAssignment map.
-func (mg *HierarchyManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssignments() error {
+func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssignments() error {
 	for paName, pa := range mg.policyAssignments {
 		// we only care about policy assignments that use an identity
 		if pa.IdentityType() == armpolicy.ResourceIdentityTypeNone {
@@ -166,7 +163,7 @@ func (mg *HierarchyManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssign
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
 			// get the role definition ids from the policy definition and add to the additional role assignment data
-			rdids, err := pd.GetNormalizedRoleDefinitionResourceIds()
+			rdids, err := pd.NormalizedRoleDefinitionResourceIds()
 			if err != nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting role definition ids for policy definition `%s`: %w", *pd.Name, err)
 			}
@@ -183,13 +180,13 @@ func (mg *HierarchyManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssign
 
 			// for each parameter with assignPermissions = true
 			// add the additional role assignment data unless the parameter value is empty
-			assignPermissionParams, err := pd.GetAssignPermissionsParameterNames()
+			assignPermissionParams, err := pd.AssignPermissionsParameterNames()
 			if err != nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting assign permissions parameter names for policy definition `%s`: %w", *pd.Name, err)
 			}
 			for _, paramName := range assignPermissionParams {
 
-				paParamVal, err := pa.GetParameterValueAsString(paramName)
+				paParamVal, err := pa.ParameterValueAsString(paramName)
 				if err != nil {
 					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting parameter value for parameter `%s` in policy assignment `%s`: %w", paramName, paName, err)
 				}
@@ -214,7 +211,7 @@ func (mg *HierarchyManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssign
 			if err != nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy set definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
-			pdRefs, err := psd.GetPolicyDefinitionReferences()
+			pdRefs, err := psd.PolicyDefinitionReferences()
 			if err != nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting referenced policy definition names for policy set definition %s: %w", *psd.Name, err)
 			}
@@ -230,7 +227,7 @@ func (mg *HierarchyManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssign
 				}
 
 				// get the role definition ids from the policy definition and add to the additional role assignment data
-				rdids, err := pd.GetNormalizedRoleDefinitionResourceIds()
+				rdids, err := pd.NormalizedRoleDefinitionResourceIds()
 				if err != nil {
 					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting role definition ids for policy definition %s: %w", pdName, err)
 				}
@@ -265,7 +262,7 @@ func (mg *HierarchyManagementGroup) GeneratePolicyAssignmentAdditionalRoleAssign
 					}
 
 					// if the parameter in the assignment doesn't exist, skip it
-					paParamVal, err := pa.GetParameterValueAsString(paParamName)
+					paParamVal, err := pa.ParameterValueAsString(paParamName)
 					if err != nil {
 						continue
 					}
@@ -384,7 +381,7 @@ func updatePolicyDefinitions(mg *HierarchyManagementGroup) {
 func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]string) error {
 	for k, psd := range mg.policySetDefinitions {
 		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.id, k))
-		refs, err := psd.GetPolicyDefinitionReferences()
+		refs, err := psd.PolicyDefinitionReferences()
 		if err != nil {
 			return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition references for policy set definition %s: %w", k, err)
 		}

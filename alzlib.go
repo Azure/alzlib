@@ -349,7 +349,7 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 				if err != nil {
 					return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting policy set definition %s: %w", pd, err)
 				}
-				pdrefs, err := psd.GetPolicyDefinitionReferences()
+				pdrefs, err := psd.PolicyDefinitionReferences()
 				if err != nil {
 					return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting policy definition references for policy set definition %s: %w", pd, err)
 				}
@@ -461,7 +461,7 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	defnames := make([]string, 0)
 	for _, name := range names {
 		name := name
-		refs, err := az.policySetDefinitions[name].GetPolicyDefinitionReferences()
+		refs, err := az.policySetDefinitions[name].PolicyDefinitionReferences()
 		if err != nil {
 			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition %s: %w", name, err)
 		}
