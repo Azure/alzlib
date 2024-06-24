@@ -683,7 +683,7 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 // FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member and tag.
 // It calls FetchLibraryByGetterString with the appropriate URL.
 // The destination directory will be appended to the .alzlib directory in the current working directory.
-// To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (2024.03.03).
+// To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (e.g. 2024.03.03).
 func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dst string) (fs.FS, error) {
 	tag = fmt.Sprintf("platform/alz/%s", tag)
 	q := url.Values{}
@@ -694,7 +694,7 @@ func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dst s
 }
 
 // FetchLibraryByGetterString fetches a library from a URL using the go-getter library.
-// The caller must supply a valid go-getter URL and a destination directory, which will eb appended to
+// The caller must supply a valid go-getter URL and a destination directory, which will be appended to
 // the .alzlib directory in the current working directory.
 // It returns an fs.FS interface to the fetched library to be used in the AlzLib.Init() method.
 func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
