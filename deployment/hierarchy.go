@@ -6,6 +6,7 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -25,125 +26,210 @@ const (
 
 // Hierarchy represents a deployment of Azure management group hierarchy.
 type Hierarchy struct {
-	mgs    map[string]*ManagementGroup
+	mgs    map[string]*HierarchyManagementGroup
 	alzlib *alzlib.AlzLib
 	mu     *sync.RWMutex
 }
 
 func NewHierarchy(alzlib *alzlib.AlzLib) *Hierarchy {
 	return &Hierarchy{
-		mgs:    make(map[string]*ManagementGroup),
+		mgs:    make(map[string]*HierarchyManagementGroup),
 		alzlib: alzlib,
 		mu:     new(sync.RWMutex),
 	}
 }
 
-// GetManagementGroup returns the management group with the given name.
-func (d *Hierarchy) GetManagementGroup(name string) *ManagementGroup {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	if mg, ok := d.mgs[name]; ok {
+// ManagementGroup returns the management group with the given name.
+func (h *Hierarchy) ManagementGroup(name string) *HierarchyManagementGroup {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if mg, ok := h.mgs[name]; ok {
 		return mg
 	}
 	return nil
 }
 
-// ListManagementGroups returns the management group names as a slice of string.
-func (d *Hierarchy) ListManagementGroups() []string {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	res := make([]string, len(d.mgs))
+// ManagementGroupNames returns the management group names as a slice of string.
+func (h *Hierarchy) ManagementGroupNames() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	res := make([]string, len(h.mgs))
 	i := 0
-	for mgname := range d.mgs {
+	for mgname := range h.mgs {
 		res[i] = mgname
 		i++
 	}
+	slices.Sort(res)
 	return res
 }
 
-// AddManagementGroup adds a management group to the hierarchy, with a parent if specified.
+func (h *Hierarchy) ManagementGroupsAtLevel(level int) map[string]*HierarchyManagementGroup {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	res := make(map[string]*HierarchyManagementGroup)
+	for mgname, mg := range h.mgs {
+		if mg.level != level {
+			continue
+		}
+		res[mgname] = mg
+	}
+	return h.mgs
+}
+
+func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId, location string) error {
+	architecture, err := h.alzlib.Architecture(arch)
+	if err != nil {
+		return fmt.Errorf("Hierarchy.FromArchitecture: error getting architecture `%s`: %w", arch, err)
+	}
+	// Get the architecture root management groups.
+	for _, a := range architecture.RootMgs() {
+		if err := recurseAddManagementGroup(ctx, h, a, externalParentId, location, true, 0); err != nil {
+			return fmt.Errorf("Hierarchy.FromArchitecture: recursion error on architecture `%s` %w", arch, err)
+		}
+	}
+	return nil
+}
+
+func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[PolicyRoleAssignment], error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	res := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
+	// Get the policy assignments for each management group.
+	for _, mg := range h.mgs {
+		if err := mg.generatePolicyAssignmentAdditionalRoleAssignments(); err != nil {
+			return nil, fmt.Errorf("Hierarchy.PolicyRoleAssignments: error generating additional role assignments for management group `%s`: %w", mg.id, err)
+		}
+		res = res.Union(mg.policyRoleAssignments)
+	}
+	return res, nil
+}
+
+func recurseAddManagementGroup(ctx context.Context, h *Hierarchy, archMg *alzlib.ArchitectureManagementGroup, parent, location string, externalParent bool, level int) error {
+	req := managementGroupAddRequest{
+		id:               archMg.Id(),
+		displayName:      archMg.DisplayName(),
+		archetypes:       archMg.Archetypes(),
+		location:         location,
+		parentId:         parent,
+		parentIsExternal: externalParent,
+		level:            level,
+	}
+	if _, err := h.addManagementGroup(ctx, req); err != nil {
+		return fmt.Errorf("Hierarchy.recurseAddManagementGroup: error adding management group `%s`: %w", archMg.Id(), err)
+	}
+	for _, child := range archMg.Children() {
+		if err := recurseAddManagementGroup(ctx, h, child, archMg.Id(), location, false, level+1); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addManagementGroup adds a management group to the hierarchy, with a parent if specified.
 // If the parent is not specified, the management group is considered the root of the hierarchy.
 // The archetype should have been obtained using the `AlzLib.CopyArchetype` method.
 // This allows for customization and ensures the correct policy assignment values have been set.
-func (h *Hierarchy) AddManagementGroup(ctx context.Context, req ManagementGroupAddRequest) (*ManagementGroup, error) {
-	if _, exists := h.mgs[req.Id]; exists {
-		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: management group %s already exists", req.Id)
+func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupAddRequest) (*HierarchyManagementGroup, error) {
+	if req.parentId == "" {
+		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: parent management group not specified for `%s`", req.id)
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if _, exists := h.mgs[req.id]; exists {
+		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: management group %s already exists", req.id)
 	}
 	mg := newManagementGroup()
 
-	mg.name = req.Id
-	mg.displayName = req.DisplayName
-	mg.children = mapset.NewSet[*ManagementGroup]()
-	mg.location = req.Location
-	if req.ParentIsExternal {
-		if _, ok := h.mgs[req.ParentId]; ok {
-
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: external parent management group set, but already exists %s", req.ParentId)
+	mg.id = req.id
+	mg.displayName = req.displayName
+	mg.exists = req.exists
+	mg.level = req.level
+	mg.children = mapset.NewSet[*HierarchyManagementGroup]()
+	mg.location = req.location
+	if req.parentIsExternal {
+		if _, ok := h.mgs[req.parentId]; ok {
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: external parent management group set, but already exists %s", req.parentId)
 		}
-		mg.parentExternal = to.Ptr[string](req.ParentId)
+		mg.parentExternal = to.Ptr(req.parentId)
 	}
-	if !req.ParentIsExternal && req.ParentId != "" {
-		parentMg, ok := h.mgs[req.ParentId]
+	if !req.parentIsExternal {
+		parentMg, ok := h.mgs[req.parentId]
 		if !ok {
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: parent management group not found %s", req.ParentId)
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: parent management group not found %s", req.parentId)
 		}
 		mg.parent = parentMg
-		h.mgs[req.ParentId].children.Add(mg)
-	}
-
-	// We only allow one intermediate root management group, so check if this is the first one.
-	if req.ParentIsExternal {
-		for mgname, mg := range h.mgs {
-			if mg.parentExternal != nil {
-				return nil, fmt.Errorf("Hierarchy.AddManagementGroup: multiple root management groups: %s and %s", mgname, req.Id)
-			}
-		}
+		h.mgs[req.parentId].children.Add(mg)
 	}
 
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
 	assignedPolicyDefinitionIds := mapset.NewThreadUnsafeSet[string]()
-	for pa := range req.Archetype.PolicyAssignments.Iter() {
-		polAssign, err := h.alzlib.GetPolicyAssignment(pa)
+
+	// Combine all assignments form all supplied archetypes into a single set
+	allPolicyAssignments := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allPolicyAssignments = allPolicyAssignments.Union(archetype.PolicyAssignments)
+	}
+	for pa := range allPolicyAssignments.Iter() {
+		polAssign, err := h.alzlib.PolicyAssignment(pa)
 		if err != nil {
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy assignment `%s` referenced in management group `%s` does not exist in the library", pa, req.Id)
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy assignment `%s` referenced in management group `%s` does not exist in the library", pa, req.id)
 		}
 		referencedResourceId, err := polAssign.ReferencedPolicyDefinitionResourceId()
 		if err != nil {
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: error getting referenced policy definition resource ID for policy assignment `%s` in management group `%s`: %w", pa, req.Id, err)
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: error getting referenced policy definition resource ID for policy assignment `%s` in management group `%s`: %w", pa, req.id, err)
 		}
 		assignedPolicyDefinitionIds.Add(referencedResourceId.String())
 	}
 
 	if err := h.alzlib.GetDefinitionsFromAzure(ctx, assignedPolicyDefinitionIds.ToSlice()); err != nil {
-		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: adding mg `%s` error getting policy definitions from Azure: %w", req.Id, err)
+		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: adding mg `%s` error getting policy definitions from Azure: %w", req.id, err)
 	}
 
+	// Now that we are sure that we have all the definitions in the library,
 	// make copies of the archetype resources for modification in the Deployment management group.
-	for name := range req.Archetype.PolicyDefinitions.Iter() {
-		newDef, err := h.alzlib.GetPolicyDefinition(name)
+
+	// Copmbine all policy definitions form all supplied archetypes into a single set
+	allPolicyDefinitions := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allPolicyDefinitions = allPolicyDefinitions.Union(archetype.PolicyDefinitions)
+	}
+	for name := range allPolicyDefinitions.Iter() {
+		newDef, err := h.alzlib.PolicyDefinition(name)
 		if err != nil {
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy definition `%s` in management group `%s` does not exist in the library", name, req.Id)
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policyDefinitions[name] = newDef
 	}
-	for name := range req.Archetype.PolicySetDefinitions.Iter() {
-		newSetDef, err := h.alzlib.GetPolicySetDefinition(name)
+	// Copmbine all policy set definitions form all supplied archetypes into a single set
+	allPolicySetDefinitions := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allPolicySetDefinitions = allPolicySetDefinitions.Union(archetype.PolicySetDefinitions)
+	}
+	for name := range allPolicySetDefinitions.Iter() {
+		newSetDef, err := h.alzlib.PolicySetDefinition(name)
 		if err != nil {
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy set definition `%s` in management group `%s` does not exist in the library", name, req.Id)
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy set definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policySetDefinitions[name] = newSetDef
 	}
-	for name := range req.Archetype.PolicyAssignments.Iter() {
-		newpolassign, err := h.alzlib.GetPolicyAssignment(name)
+	// Now that the policy definitions and policy set definitions have been copied, we can add the policy assignments
+	for name := range allPolicyAssignments.Iter() {
+		newpolassign, err := h.alzlib.PolicyAssignment(name)
 		if err != nil {
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy assignment `%s` in management group `%s` does not exist in the library", name, req.Id)
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy assignment `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policyAssignments[name] = newpolassign
 	}
-	for name := range req.Archetype.RoleDefinitions.Iter() {
-		newroledef, err := h.alzlib.GetRoleDefinition(name)
+
+	// Copmbine all role definitions form all supplied archetypes into a single set
+	allRoleDefinitions := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range req.archetypes {
+		allRoleDefinitions = allRoleDefinitions.Union(archetype.RoleDefinitions)
+	}
+	for name := range allRoleDefinitions.Iter() {
+		newroledef, err := h.alzlib.RoleDefinition(name)
 		if err != nil {
-			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): role definition `%s` in management group `%s` does not exist in the library", name, req.Id)
+			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): role definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.roleDefinitions[name] = newroledef
 	}
@@ -152,11 +238,11 @@ func (h *Hierarchy) AddManagementGroup(ctx context.Context, req ManagementGroupA
 	mg.hierarchy = h
 
 	// add the management group to the deployment.
-	h.mgs[req.Id] = mg
+	h.mgs[req.id] = mg
 
 	// run Update to change all refs, etc.
-	if err := h.mgs[req.Id].update(nil); err != nil {
-		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: adding `%s` error updating assets at scope %w", req.Id, err)
+	if err := h.mgs[req.id].update(nil); err != nil {
+		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: adding `%s` error updating assets at scope %w", req.id, err)
 	}
 
 	return mg, nil

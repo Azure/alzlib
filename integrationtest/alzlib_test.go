@@ -5,13 +5,12 @@ package integrationtest
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/deployment"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewAlzLibOptionsError(t *testing.T) {
@@ -23,37 +22,22 @@ func TestNewAlzLibOptionsError(t *testing.T) {
 	assert.ErrorContains(t, az.Init(ctx), "parallelism")
 }
 
-// ExampleAlzLib_E2E demonstrates the creation of a new AlzLib based a sample directory.
-func ExampleAlzLib_Init() {
+// TestInitMultiLib tests that we can initialize the library with multiple urls.
+func TestInitMultiLib(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
+	az.Options.AllowOverwrite = true
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	remoteLib, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, alzLibraryMember, alzLibraryTag, "alz")
+	require.NoError(t, err)
 	dirfs := os.DirFS("../testdata/simple")
-	if err := az.Init(ctx, dirfs); err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	arch, err := az.CopyArchetype("root")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	depl := deployment.NewHierarchy(az)
-	req := deployment.ManagementGroupAddRequest{
-		Id:               "test",
-		DisplayName:      "test",
-		ParentId:         "00000000-0000-0000-0000-000000000000",
-		ParentIsExternal: true,
-		Archetype:        arch,
-	}
-	if _, err := depl.AddManagementGroup(ctx, req); err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("Management groups: %v", depl.ListManagementGroups())
-
-	// Output:
-	// Management groups: [test]
+	err = az.Init(ctx, remoteLib, dirfs)
+	require.NoError(t, err)
+	assert.Equal(t, 12, len(az.Archetypes()))
+	// Test root archetype has been overridden
+	arch, _ := az.Archetype("root")
+	assert.Equal(t, 1, arch.PolicyDefinitions.Cardinality())
+	arch, _ = az.Archetype("simpleo")
+	assert.Equal(t, 1, arch.PolicyDefinitions.Cardinality())
+	assert.Equal(t, 1, arch.PolicyAssignments.Cardinality())
 }

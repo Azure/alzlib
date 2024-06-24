@@ -15,7 +15,7 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 	t.Parallel()
 	// Test with a single management group and policy set definition.
 	d := Hierarchy{
-		mgs: map[string]*ManagementGroup{
+		mgs: map[string]*HierarchyManagementGroup{
 			"mg1": {
 				policySetDefinitions: map[string]*assets.PolicySetDefinition{
 					"psd1": {},
@@ -30,7 +30,7 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 
 	// Test with multiple management groups and policy set definitions.
 	d = Hierarchy{
-		mgs: map[string]*ManagementGroup{
+		mgs: map[string]*HierarchyManagementGroup{
 			"mg1": {
 				policySetDefinitions: map[string]*assets.PolicySetDefinition{
 					"psd1": {},
@@ -61,7 +61,7 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 	t.Parallel()
 	// Test with a single management group and policy definition.
 	d := Hierarchy{
-		mgs: map[string]*ManagementGroup{
+		mgs: map[string]*HierarchyManagementGroup{
 			"mg1": {
 				policyDefinitions: map[string]*assets.PolicyDefinition{
 					"pd1": {},
@@ -76,7 +76,7 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 
 	// Test with multiple management groups and policy definitions.
 	d = Hierarchy{
-		mgs: map[string]*ManagementGroup{
+		mgs: map[string]*HierarchyManagementGroup{
 			"mg1": {
 				policyDefinitions: map[string]*assets.PolicyDefinition{
 					"pd1": {},

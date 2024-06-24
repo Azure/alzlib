@@ -44,13 +44,13 @@ func (lao *LibArchetypeOverride) UnmarshalJSON(data []byte) error {
 	}
 	lao.Name = tmp.Name
 	lao.BaseArchetype = tmp.BaseArchetype
-	lao.PolicyAssignmentsToAdd = mapset.NewSet[string](tmp.PolicyAssignmentsToAdd...)
-	lao.PolicyAssignmentsToRemove = mapset.NewSet[string](tmp.PolicyAssignmentsToRemove...)
-	lao.PolicyDefinitionsToAdd = mapset.NewSet[string](tmp.PolicyDefinitionsToAdd...)
-	lao.PolicyDefinitionsToRemove = mapset.NewSet[string](tmp.PolicyDefinitionsToRemove...)
-	lao.PolicySetDefinitionsToAdd = mapset.NewSet[string](tmp.PolicySetDefinitionsToAdd...)
-	lao.PolicySetDefinitionsToRemove = mapset.NewSet[string](tmp.PolicySetDefinitionsToRemove...)
-	lao.RoleDefinitionsToAdd = mapset.NewSet[string](tmp.RoleDefinitionsToAdd...)
-	lao.RoleDefinitionsToRemove = mapset.NewSet[string](tmp.RoleDefinitionsToRemove...)
+	lao.PolicyAssignmentsToAdd = mapset.NewThreadUnsafeSet[string](tmp.PolicyAssignmentsToAdd...)
+	lao.PolicyAssignmentsToRemove = mapset.NewThreadUnsafeSet[string](tmp.PolicyAssignmentsToRemove...)
+	lao.PolicyDefinitionsToAdd = mapset.NewThreadUnsafeSet[string](tmp.PolicyDefinitionsToAdd...)
+	lao.PolicyDefinitionsToRemove = mapset.NewThreadUnsafeSet[string](tmp.PolicyDefinitionsToRemove...)
+	lao.PolicySetDefinitionsToAdd = mapset.NewThreadUnsafeSet[string](tmp.PolicySetDefinitionsToAdd...)
+	lao.PolicySetDefinitionsToRemove = mapset.NewThreadUnsafeSet[string](tmp.PolicySetDefinitionsToRemove...)
+	lao.RoleDefinitionsToAdd = mapset.NewThreadUnsafeSet[string](tmp.RoleDefinitionsToAdd...)
+	lao.RoleDefinitionsToRemove = mapset.NewThreadUnsafeSet[string](tmp.RoleDefinitionsToRemove...)
 	return nil
 }

@@ -31,16 +31,16 @@ type policyDefinitionRule struct {
 	} `json:"then"`
 }
 
-// GetRoleDefinitionResourceIds returns the role definition ids referenced in a policy definition
+// RoleDefinitionResourceIds returns the role definition ids referenced in a policy definition
 // if they exist.
 // We marshall the policyRule as JSON and then unmarshal into a custom type.
-func (pd *PolicyDefinition) GetRoleDefinitionResourceIds() ([]string, error) {
+func (pd *PolicyDefinition) RoleDefinitionResourceIds() ([]string, error) {
 	if pd == nil || pd.Properties == nil || pd.Properties.PolicyRule == nil {
-		return nil, errors.New("policy definition is nil, missing properties or policy rule")
+		return nil, errors.New("PolicyDefinition.RoleDefinitionResourceIds: policy definition is nil, missing properties or policy rule")
 	}
 	j, err := json.Marshal(pd.Properties.PolicyRule)
 	if err != nil {
-		return nil, fmt.Errorf("could not marshall policy rule: %w", err)
+		return nil, fmt.Errorf("PolicyDefinition.RoleDefinitionResourceIds: could not marshal policy rule: %w", err)
 	}
 	r := new(policyDefinitionRule)
 	if err := json.Unmarshal(j, r); err != nil {
@@ -53,7 +53,7 @@ func (pd *PolicyDefinition) GetRoleDefinitionResourceIds() ([]string, error) {
 				return []string{}, nil
 			}
 		}
-		return nil, fmt.Errorf("could not unmarshall policy rule: %w", err)
+		return nil, fmt.Errorf("PolicyDefinition.RoleDefinitionResourceIds: could not unmarshal policy rule: %w", err)
 	}
 	if r.Then.Details == nil || r.Then.Details.RoleDefinitionIds == nil || len(r.Then.Details.RoleDefinitionIds) == 0 {
 		return []string{}, nil
@@ -61,8 +61,8 @@ func (pd *PolicyDefinition) GetRoleDefinitionResourceIds() ([]string, error) {
 	return r.Then.Details.RoleDefinitionIds, nil
 }
 
-func (pd *PolicyDefinition) GetNormalizedRoleDefinitionResourceIds() ([]string, error) {
-	rdids, err := pd.GetRoleDefinitionResourceIds()
+func (pd *PolicyDefinition) NormalizedRoleDefinitionResourceIds() ([]string, error) {
+	rdids, err := pd.RoleDefinitionResourceIds()
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +77,9 @@ func (pd *PolicyDefinition) GetNormalizedRoleDefinitionResourceIds() ([]string, 
 	return normalized, nil
 }
 
-func (pd *PolicyDefinition) GetAssignPermissionsParameterNames() ([]string, error) {
+func (pd *PolicyDefinition) AssignPermissionsParameterNames() ([]string, error) {
 	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
-		return nil, errors.New("policy definition is nil, missing properties or parameters")
+		return nil, errors.New("PolicyDefinition.AssignPermissionsParameterNames: policy definition is nil, missing properties or parameters")
 	}
 	names := make([]string, 0)
 	for name, param := range pd.Properties.Parameters {
@@ -96,7 +96,7 @@ func (pd *PolicyDefinition) GetAssignPermissionsParameterNames() ([]string, erro
 func normalizeRoleDefinitionId(id string) (string, error) {
 	resId, err := arm.ParseResourceID(id)
 	if err != nil {
-		return "", fmt.Errorf("could not parse resource id: %w", err)
+		return "", fmt.Errorf("normalizeRoleDefinitionId: could not parse resource id: %w", err)
 	}
 	return fmt.Sprintf("/providers/Microsoft.Authorization/roleDefinitions/%s", resId.Name), nil
 }

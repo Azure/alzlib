@@ -24,6 +24,7 @@ func TestFullLibrary(t *testing.T) {
 	assert.Equal(t, res.LibArchetypes["root"].RoleDefinitions.Cardinality(), 5)
 	assert.Equal(t, len(res.LibArchetypeOverrides), 1)
 	assert.Equal(t, len(res.LibDefaultPolicyValues), 1)
+	assert.Equal(t, len(res.LibArchitectures["alz"].ManagementGroups), 9)
 }
 
 // TestProcessArchetypeOverrideValid tests the processing of a valid archetype override.
