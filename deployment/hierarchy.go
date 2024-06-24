@@ -90,16 +90,18 @@ func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId
 	return nil
 }
 
-func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) mapset.Set[PolicyRoleAssignment] {
+func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[PolicyRoleAssignment], error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	res := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
 	// Get the policy assignments for each management group.
 	for _, mg := range h.mgs {
-		mg.generatePolicyAssignmentAdditionalRoleAssignments()
+		if err := mg.generatePolicyAssignmentAdditionalRoleAssignments(); err != nil {
+			return nil, fmt.Errorf("Hierarchy.PolicyRoleAssignments: error generating additional role assignments for management group `%s`: %w", mg.id, err)
+		}
 		res = res.Union(mg.policyRoleAssignments)
 	}
-	return res
+	return res, nil
 }
 
 func recurseAddManagementGroup(ctx context.Context, h *Hierarchy, archMg *alzlib.ArchitectureManagementGroup, parent, location string, externalParent bool, level int) error {
