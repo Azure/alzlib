@@ -8,6 +8,8 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityType(t *testing.T) {
@@ -68,30 +70,19 @@ func TestGetParameterValueAsString(t *testing.T) {
 	paramName := "param1"
 	expectedValue := "value1"
 	paramValue, err := pa.ParameterValueAsString(paramName)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if paramValue != expectedValue {
-		t.Fatalf("got %v, want %v", paramValue, expectedValue)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, paramValue, expectedValue)
 
 	paramName = "param2"
 	_, err = pa.ParameterValueAsString(paramName)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
+	require.Error(t, err)
 	expectedError := fmt.Sprintf("parameter %s value in policy assignment %s is not a string", paramName, *pa.Name)
-	if err.Error() != expectedError {
-		t.Fatalf("got %v, want %v", err.Error(), expectedError)
-	}
+	assert.ErrorContains(t, err, expectedError)
 
 	paramName = "param3"
 	_, err = pa.ParameterValueAsString(paramName)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
+	require.Error(t, err)
+
 	expectedError = fmt.Sprintf("parameter %s not found in policy assignment %s", paramName, *pa.Name)
-	if err.Error() != expectedError {
-		t.Fatalf("got %v, want %v", err.Error(), expectedError)
-	}
+	assert.ErrorContains(t, err, expectedError)
 }
