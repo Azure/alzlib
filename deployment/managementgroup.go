@@ -113,6 +113,21 @@ func (mg *HierarchyManagementGroup) ParentIsExternal() bool {
 	return false
 }
 
+// Exists returns a bool value depending on whether the management group exists.
+func (mg *HierarchyManagementGroup) Exists() bool {
+	return mg.exists
+}
+
+// Level returns the level of the management group in the hierarchy.
+func (mg *HierarchyManagementGroup) Level() int {
+	return mg.level
+}
+
+// Location returns the default location to use for artifacts in the management group.
+func (mg *HierarchyManagementGroup) Location() string {
+	return mg.location
+}
+
 // ResourceId returns the resource ID of the management group.
 func (mg *HierarchyManagementGroup) ResourceId() string {
 	return fmt.Sprintf(ManagementGroupIdFmt, mg.id)
