@@ -51,9 +51,10 @@ type managementGroupAddRequest struct {
 // Since we could be using system assigned identities, we don't know the principal ID until after the deployment.
 // Therefore this data can be used to create the role assignments after the deployment.
 type PolicyRoleAssignment struct {
-	RoleDefinitionId string
-	Scope            string
-	AssignmentName   string
+	RoleDefinitionId  string
+	Scope             string
+	AssignmentName    string
+	ManagementGroupId string
 }
 
 // Children returns the children of the management group.
@@ -187,9 +188,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 			}
 			for _, rdid := range rdids {
 				mg.policyRoleAssignments.Add(PolicyRoleAssignment{
-					Scope:            mg.ResourceId(),
-					RoleDefinitionId: rdid,
-					AssignmentName:   paName,
+					Scope:             mg.ResourceId(),
+					RoleDefinitionId:  rdid,
+					AssignmentName:    paName,
+					ManagementGroupId: mg.id,
 				})
 			}
 
@@ -214,9 +216,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 				}
 				for _, rdid := range rdids {
 					mg.policyRoleAssignments.Add(PolicyRoleAssignment{
-						Scope:            resId.String(),
-						RoleDefinitionId: rdid,
-						AssignmentName:   paName,
+						Scope:             resId.String(),
+						RoleDefinitionId:  rdid,
+						AssignmentName:    paName,
+						ManagementGroupId: mg.id,
 					})
 				}
 			}
@@ -248,9 +251,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 				}
 				for _, rdid := range rdids {
 					mg.policyRoleAssignments.Add(PolicyRoleAssignment{
-						Scope:            mg.ResourceId(),
-						RoleDefinitionId: rdid,
-						AssignmentName:   paName,
+						Scope:             mg.ResourceId(),
+						RoleDefinitionId:  rdid,
+						AssignmentName:    paName,
+						ManagementGroupId: mg.id,
 					})
 				}
 
@@ -287,9 +291,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 					}
 					for _, rdid := range rdids {
 						mg.policyRoleAssignments.Add(PolicyRoleAssignment{
-							Scope:            resid.String(),
-							RoleDefinitionId: rdid,
-							AssignmentName:   paName,
+							Scope:             resid.String(),
+							RoleDefinitionId:  rdid,
+							AssignmentName:    paName,
+							ManagementGroupId: mg.id,
 						})
 					}
 				}
