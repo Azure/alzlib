@@ -685,11 +685,11 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 // The destination directory will be appended to the .alzlib directory in the current working directory.
 // To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (e.g. 2024.03.03).
 func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dst string) (fs.FS, error) {
-	tag = fmt.Sprintf("platform/alz/%s", tag)
+	tag = fmt.Sprintf("%s/%s", member, tag)
 	q := url.Values{}
-	q.Add("depth", "1")
 	q.Add("ref", tag)
-	u := fmt.Sprintf("github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
+
+	u := fmt.Sprintf("git::github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
 	return FetchLibraryByGetterString(ctx, u, dst)
 }
 
