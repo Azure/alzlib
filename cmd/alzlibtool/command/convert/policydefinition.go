@@ -6,7 +6,7 @@ package convert
 import (
 	"os"
 
-	"github.com/Azure/alzlib/tools/alzlibtool/validation"
+	"github.com/Azure/alzlib/tools/checker"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +20,7 @@ var policydefinitionCmd = cobra.Command{
 		cobra.ExactArgs(2),
 	),
 	Run: func(cmd *cobra.Command, args []string) {
-		valid := validation.NewValidator(validation.CheckResourceType)
+		valid := checker.NewValidator(checker.CheckResourceType)
 		err := convertFiles[armpolicy.Definition](args[0], args[1], cmd, valid)
 		if err != nil {
 			cmd.PrintErrf("%s policy definintion conversion error: %v\n", cmd.ErrPrefix(), err)

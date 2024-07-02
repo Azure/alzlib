@@ -1,4 +1,4 @@
-package validation
+package checker
 
 type Validator struct {
 	funcs []ValidateFunc
@@ -13,7 +13,7 @@ func NewValidator(funcs ...ValidateFunc) Validator {
 }
 
 func (v *Validator) Validate(resource any) error {
-	errs := newValidateError()
+	errs := newCheckerError()
 	for _, f := range v.funcs {
 		if err := f(resource); err != nil {
 			errs.add(err)

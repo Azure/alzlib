@@ -1,4 +1,4 @@
-package validation
+package checker
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ func TestValidateError_Error(t *testing.T) {
 	err2 := errors.New("error 2")
 	err3 := errors.New("error 3")
 
-	validateErr := newValidateError()
+	validateErr := newCheckerError()
 	validateErr.add(err1)
 	validateErr.add(err2)
 	validateErr.add(err3)
@@ -25,7 +25,7 @@ func TestValidateError_Error(t *testing.T) {
 }
 
 func TestValidateError_ErrorPanic(t *testing.T) {
-	validateErr := newValidateError()
+	validateErr := newCheckerError()
 
 	defer func() {
 		if r := recover(); r != nil {

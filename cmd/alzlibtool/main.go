@@ -3,8 +3,8 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 */
 package main
 
-import "github.com/Azure/alzlib/tools/alzlibtool/cmd"
+import "github.com/Azure/alzlib/cmd/alzlibtool/command"
 
 func main() {
-	cmd.Execute()
+	command.Execute()
 }

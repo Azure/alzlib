@@ -164,6 +164,50 @@ func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
 	return nil
 }
 
+// PolicyAssignments returns a slice of all the policy assignment names in the library
+func (az *AlzLib) PolicyAssignments() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.policyAssignments))
+	for k := range az.policyAssignments {
+		result = append(result, k)
+	}
+	return result
+}
+
+// PolicyDefinitions returns a slice of all the policy definition names in the library
+func (az *AlzLib) PolicyDefinitions() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.policyDefinitions))
+	for k := range az.policyDefinitions {
+		result = append(result, k)
+	}
+	return result
+}
+
+// PolicySetDefinitions returns a slice of all the policy set definition names in the library
+func (az *AlzLib) PolicySetDefinitions() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.policySetDefinitions))
+	for k := range az.policySetDefinitions {
+		result = append(result, k)
+	}
+	return result
+}
+
+// RoleDefinitions returns a slice of all the role definition names in the library
+func (az *AlzLib) RoleDefinitions() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.roleDefinitions))
+	for k := range az.roleDefinitions {
+		result = append(result, k)
+	}
+	return result
+}
+
 // Archetypes returns a list of the archetypes in the AlzLib struct.
 func (az *AlzLib) Archetypes() []string {
 	az.mu.RLock()

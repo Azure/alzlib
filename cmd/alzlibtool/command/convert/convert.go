@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Azure/alzlib/tools/alzlibtool/validation"
+	"github.com/Azure/alzlib/tools/checker"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +43,7 @@ func init() {
 	ConvertBaseCmd.AddCommand(&policysetdefinitionCmd)
 }
 
-func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid validation.Validator) error {
+func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid checker.Validator) error {
 	if _, err := os.ReadDir(dst); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			if err := os.MkdirAll(dst, 0755); err != nil {
