@@ -24,7 +24,7 @@ type convertible interface {
 		armpolicy.SetDefinition
 }
 
-// ConvertBaseCmd represents the base process command
+// ConvertBaseCmd represents the base process command.
 var ConvertBaseCmd = cobra.Command{
 	Use:   "convert",
 	Short: "Converts policy definitions or policy set definitions (depending on child command) from the source directory and writes them to the destination directory.",
@@ -32,7 +32,7 @@ var ConvertBaseCmd = cobra.Command{
 Reequired child arguments are the chiuld comment, and the source and destination directories.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.PrintErrf("%s process command: missing required child command\n", cmd.ErrPrefix())
-		cmd.Usage()
+		cmd.Usage() // nolint: errcheck
 		os.Exit(1)
 	},
 }

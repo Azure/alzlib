@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// policydefinitionCmd represents the policydefinition command
+// policydefinitionCmd represents the policydefinition command.
 var policydefinitionCmd = cobra.Command{
 	Use:   "policydefinition [flags] sourceDir destDir",
 	Short: "Convert policy definitions to the format required by alzlib.",
@@ -23,7 +23,7 @@ var policydefinitionCmd = cobra.Command{
 		valid := validation.NewValidator(validation.CheckResourceType)
 		err := convertFiles[armpolicy.Definition](args[0], args[1], cmd, valid)
 		if err != nil {
-			cmd.PrintErrf("%s policy definintion converstion error: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf("%s policy definintion conversion error: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
 	},
@@ -34,9 +34,9 @@ func init() {
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// policydefinitionCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// policydefinitionCmd.PersistentFlags().String("foo", "", "A help for foo").
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// policydefinitionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// policydefinitionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle").
 }

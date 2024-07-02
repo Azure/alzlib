@@ -16,7 +16,7 @@ func TestValidateError_Error(t *testing.T) {
 	validateErr.add(err2)
 	validateErr.add(err3)
 
-	expected := "The following errors occured: [error 1 error 2 error 3]"
+	expected := "The following errors occurred: [error 1 error 2 error 3]"
 	actual := validateErr.Error()
 
 	if actual != expected {

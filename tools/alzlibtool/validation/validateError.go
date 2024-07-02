@@ -29,5 +29,5 @@ func (v *ValidateError) Error() string {
 	if len(v.errs) == 0 {
 		panic("no errors")
 	}
-	return fmt.Sprintf("The following errors occured: %v", v.errs)
+	return fmt.Sprintf("The following errors occurred: %v", v.errs)
 }
