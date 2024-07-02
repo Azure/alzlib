@@ -17,3 +17,7 @@ test:
 testcover:
 	if [ -f "coverage.out" ]; then rm coverage.out; fi
 	go test -v -coverprofile=coverage.out -covermode=count $(TEST)
+
+.PHONY: tool
+tool:
+	go install ./tools/alzlibtool

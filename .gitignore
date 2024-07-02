@@ -29,3 +29,6 @@ coverage.html
 
 # alzlib go-getter directory
 .alzlib
+
+# compiled binary
+/alzlibtool
