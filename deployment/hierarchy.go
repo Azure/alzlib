@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/uuid"
 )
@@ -217,6 +218,23 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		newpolassign, err := h.alzlib.PolicyAssignment(name)
 		if err != nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy assignment `%s` in management group `%s` does not exist in the library", name, req.id)
+		}
+		refPdId, _ := newpolassign.ReferencedPolicyDefinitionResourceId()
+		if refPdId.ResourceType.Type == "policySetDefinitions" {
+			psd, _ := h.alzlib.PolicySetDefinition(refPdId.Name)
+			rfs, _ := psd.PolicyDefinitionReferences()
+			for _, rf := range rfs {
+				resId, _ := arm.ParseResourceID(*rf.PolicyDefinitionID)
+				pd, err := h.alzlib.PolicyDefinition(resId.Name)
+				if err != nil {
+					return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy definition `%s` in policy set definition `%s` in management group `%s` does not exist in the library", resId.Name, refPdId.Name, req.id)
+				}
+				for param := range rf.Parameters {
+					if pd.Parameter(param) == nil {
+						return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): parameter `%s` in policy set definition `%s` does not match a parameter in referenced definition `%s` in management group `%s` does not exist in the library", param, *psd.Name, *pd.Name, req.id)
+					}
+				}
+			}
 		}
 		mg.policyAssignments[name] = newpolassign
 	}

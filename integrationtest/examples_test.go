@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	alzLibraryTag    = "2024.03.03"
+	alzLibraryTag    = "2024.07.00"
 	alzLibraryMember = "platform/alz"
 )
 
@@ -49,6 +49,12 @@ func Example_deploymentNewHierarchy() {
 	err = h.FromArchitecture(ctx, "alz", "00000000-0000-0000-0000-000000000000", "testlocation")
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+	_, err = h.PolicyRoleAssignments(ctx)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 	mgs := h.ManagementGroupNames()
 	slices.Sort(mgs)
