@@ -1,4 +1,4 @@
-package checker
+package checks
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
-func CheckResourceType(anyType any) error {
+func CheckResourceTypeIsCorrect(anyType any) error {
 	switch anyType := anyType.(type) {
 	case *armpolicy.Definition:
 		if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policyDefinitions" {

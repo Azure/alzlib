@@ -70,11 +70,11 @@ func TestGenerateOverrideArchetypes(t *testing.T) {
 	az := NewAlzLib(nil)
 
 	// Create a base archetype
-	baseArchetype := &archetype{
-		policyDefinitions:    mapset.NewThreadUnsafeSet("policy1", "policy2"),
-		policySetDefinitions: mapset.NewThreadUnsafeSet("policySet1", "policySet2"),
-		policyAssignments:    mapset.NewThreadUnsafeSet("assignment1", "assignment2"),
-		roleDefinitions:      mapset.NewThreadUnsafeSet("role1", "role2"),
+	baseArchetype := &Archetype{
+		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1", "policy2"),
+		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1", "policySet2"),
+		PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1", "assignment2"),
+		RoleDefinitions:      mapset.NewThreadUnsafeSet("role1", "role2"),
 		name:                 "baseArchetype",
 	}
 	az.archetypes["baseArchetype"] = baseArchetype
@@ -113,10 +113,10 @@ func TestGenerateOverrideArchetypes(t *testing.T) {
 	// Check if the override archetype is created correctly
 	overrideArchetype, exists := az.archetypes["overrideArchetype"]
 	assert.True(t, exists)
-	assert.True(t, mapset.NewThreadUnsafeSet("policy2", "policy3").Equal(overrideArchetype.policyDefinitions))
-	assert.True(t, mapset.NewThreadUnsafeSet("policySet2", "policySet3").Equal(overrideArchetype.policySetDefinitions))
-	assert.True(t, mapset.NewThreadUnsafeSet("assignment2", "assignment3").Equal(overrideArchetype.policyAssignments))
-	assert.True(t, mapset.NewThreadUnsafeSet("role2", "role3").Equal(overrideArchetype.roleDefinitions))
+	assert.True(t, mapset.NewThreadUnsafeSet("policy2", "policy3").Equal(overrideArchetype.PolicyDefinitions))
+	assert.True(t, mapset.NewThreadUnsafeSet("policySet2", "policySet3").Equal(overrideArchetype.PolicySetDefinitions))
+	assert.True(t, mapset.NewThreadUnsafeSet("assignment2", "assignment3").Equal(overrideArchetype.PolicyAssignments))
+	assert.True(t, mapset.NewThreadUnsafeSet("role2", "role3").Equal(overrideArchetype.RoleDefinitions))
 	assert.Equal(t, "overrideArchetype", overrideArchetype.name)
 }
 
@@ -132,18 +132,18 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 		{
 			name: "single architecture with two management groups",
 			setupAlzLib: func(az *AlzLib) {
-				az.archetypes["archetype1"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
 					name:                 "archetype1",
 				}
-				az.archetypes["archetype2"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+				az.archetypes["archetype2"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
 					name:                 "archetype2",
 				}
 				az.architectures = make(map[string]*Architecture)
@@ -178,18 +178,18 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 		{
 			name: "single architecture with two management groups and incorrect parent",
 			setupAlzLib: func(az *AlzLib) {
-				az.archetypes["archetype1"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
 					name:                 "archetype1",
 				}
-				az.archetypes["archetype2"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+				az.archetypes["archetype2"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
 					name:                 "archetype2",
 				}
 				az.architectures = make(map[string]*Architecture)
@@ -224,11 +224,11 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 		{
 			name: "single architecture with no management groups",
 			setupAlzLib: func(az *AlzLib) {
-				az.archetypes["archetype1"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
 					name:                 "archetype1",
 				}
 				az.architectures = make(map[string]*Architecture)
@@ -248,18 +248,18 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 		{
 			name: "multiple architectures with management groups",
 			setupAlzLib: func(az *AlzLib) {
-				az.archetypes["archetype1"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
 					name:                 "archetype1",
 				}
-				az.archetypes["archetype2"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+				az.archetypes["archetype2"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment2"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
 					name:                 "archetype2",
 				}
 				az.architectures = make(map[string]*Architecture)
@@ -306,11 +306,11 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 		{
 			name: "management group hierarchy too deep",
 			setupAlzLib: func(az *AlzLib) {
-				az.archetypes["archetype1"] = &archetype{
-					policyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
-					policyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
-					policySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
-					roleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
 					name:                 "archetype1",
 				}
 			},

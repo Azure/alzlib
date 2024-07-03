@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib/to"
+	"github.com/Azure/alzlib/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
 func TestValidator_Validate(t *testing.T) {
 	validator := NewValidator(
-		CheckResourceType,
+		checks.CheckResourceTypeIsCorrect,
 		// Add other validation functions here if needed
 	)
 

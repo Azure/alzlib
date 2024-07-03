@@ -47,7 +47,7 @@ type ArchitectureManagementGroup struct {
 	children     mapset.Set[*ArchitectureManagementGroup]
 	parent       *ArchitectureManagementGroup
 	exists       bool
-	archetypes   mapset.Set[*archetype]
+	archetypes   mapset.Set[*Archetype]
 	architecture *Architecture
 }
 
@@ -57,7 +57,7 @@ func newArchitectureManagementGroup(id, displayName string, exists bool, arch *A
 		displayName:  displayName,
 		children:     mapset.NewThreadUnsafeSet[*ArchitectureManagementGroup](),
 		exists:       exists,
-		archetypes:   mapset.NewThreadUnsafeSet[*archetype](),
+		archetypes:   mapset.NewThreadUnsafeSet[*Archetype](),
 		architecture: arch,
 	}
 }
@@ -98,7 +98,7 @@ func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagem
 		mg.parent = parent
 		mg.parent.children.Add(mg)
 	}
-	mg.archetypes = mapset.NewThreadUnsafeSet[*archetype]()
+	mg.archetypes = mapset.NewThreadUnsafeSet[*Archetype]()
 	for archName := range libMg.Archetypes.Iter() {
 		arch, ok := az.archetypes[archName]
 		if !ok {

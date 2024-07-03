@@ -1,4 +1,4 @@
-package checker
+package checks
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ func TestCheckResourceType(t *testing.T) {
 	definition := &armpolicy.Definition{
 		Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
 	}
-	err := CheckResourceType(definition)
+	err := CheckResourceTypeIsCorrect(definition)
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
 	}
@@ -19,7 +19,7 @@ func TestCheckResourceType(t *testing.T) {
 	setDefinition := &armpolicy.SetDefinition{
 		Type: to.Ptr("Microsoft.Authorization/policySetDefinitions"),
 	}
-	err = CheckResourceType(setDefinition)
+	err = CheckResourceTypeIsCorrect(setDefinition)
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
 	}
@@ -27,7 +27,7 @@ func TestCheckResourceType(t *testing.T) {
 	invalidDefinition := &armpolicy.Definition{
 		Type: to.Ptr("InvalidType"),
 	}
-	err = CheckResourceType(invalidDefinition)
+	err = CheckResourceTypeIsCorrect(invalidDefinition)
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")
 	}
@@ -35,7 +35,7 @@ func TestCheckResourceType(t *testing.T) {
 	invalidSetDefinition := &armpolicy.SetDefinition{
 		Type: to.Ptr("InvalidType"),
 	}
-	err = CheckResourceType(invalidSetDefinition)
+	err = CheckResourceTypeIsCorrect(invalidSetDefinition)
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")
 	}
