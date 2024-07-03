@@ -20,4 +20,4 @@ testcover:
 
 .PHONY: tool
 tool:
-	go install ./tools/alzlibtool
+	go install ./cmd/alzlibtool

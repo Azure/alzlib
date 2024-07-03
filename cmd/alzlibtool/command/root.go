@@ -1,19 +1,21 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
-package cmd
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+package command
 
 import (
+	"context"
 	"os"
 
-	"github.com/Azure/alzlib/tools/alzlibtool/cmd/convert"
+	"github.com/Azure/alzlib/cmd/alzlibtool/command/check"
+	"github.com/Azure/alzlib/cmd/alzlibtool/command/convert"
 	"github.com/spf13/cobra"
 )
 
 var version = "dev"
 
-// RootCmd represents the base command when called without any subcommands.
-var RootCmd = &cobra.Command{
+// rootCmd represents the base command when called without any subcommands.
+var rootCmd = &cobra.Command{
 	Use:     "alzlibtool",
 	Version: version,
 	Short:   "A cli tool for working with alzlib libraries",
@@ -22,6 +24,7 @@ var RootCmd = &cobra.Command{
 This tool can:
 
 - Convert policy definitions or policy set definitions from the source directory and write them to the destination directory.
+- Perform operations and checks on an alzlib library member.
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -31,14 +34,17 @@ This tool can:
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := RootCmd.Execute()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err := rootCmd.ExecuteContext(ctx)
 	if err != nil {
 		os.Exit(1)
 	}
 }
 
 func init() {
-	RootCmd.AddCommand(&convert.ConvertBaseCmd)
+	rootCmd.AddCommand(&convert.ConvertBaseCmd)
+	rootCmd.AddCommand(&check.CheckCmd)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.

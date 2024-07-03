@@ -16,26 +16,6 @@ type Archetype struct {
 	name                 string
 }
 
-// archetype represents an archetype definition that hasn't been assigned to a management group
-// The contents of the sets represent the map keys of the corresponding AlzLib maps.
-type archetype struct {
-	policyDefinitions    mapset.Set[string]
-	policyAssignments    mapset.Set[string]
-	policySetDefinitions mapset.Set[string]
-	roleDefinitions      mapset.Set[string]
-	name                 string
-}
-
-func newArchitype(name string) *archetype {
-	return &archetype{
-		policyDefinitions:    mapset.NewThreadUnsafeSet[string](),
-		policyAssignments:    mapset.NewThreadUnsafeSet[string](),
-		policySetDefinitions: mapset.NewThreadUnsafeSet[string](),
-		roleDefinitions:      mapset.NewThreadUnsafeSet[string](),
-		name:                 name,
-	}
-}
-
 func NewArchetype(name string) *Archetype {
 	return &Archetype{
 		PolicyDefinitions:    mapset.NewThreadUnsafeSet[string](),
@@ -51,12 +31,12 @@ func (a *Archetype) Name() string {
 }
 
 // copy creates a deep copy of the archetype.
-func (a *archetype) copy() *Archetype {
+func (a *Archetype) copy() *Archetype {
 	return &Archetype{
-		PolicyDefinitions:    a.policyDefinitions.Clone(),
-		PolicyAssignments:    a.policyAssignments.Clone(),
-		PolicySetDefinitions: a.policySetDefinitions.Clone(),
-		RoleDefinitions:      a.roleDefinitions.Clone(),
+		PolicyDefinitions:    a.PolicyDefinitions.Clone(),
+		PolicyAssignments:    a.PolicyAssignments.Clone(),
+		PolicySetDefinitions: a.PolicySetDefinitions.Clone(),
+		RoleDefinitions:      a.RoleDefinitions.Clone(),
 		name:                 a.name,
 	}
 }

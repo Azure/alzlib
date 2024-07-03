@@ -35,7 +35,7 @@ const (
 type AlzLib struct {
 	Options *AlzLibOptions
 
-	archetypes           map[string]*archetype
+	archetypes           map[string]*Archetype
 	architectures        map[string]*Architecture
 	policyAssignments    map[string]*assets.PolicyAssignment
 	policyDefinitions    map[string]*assets.PolicyDefinition
@@ -64,7 +64,7 @@ func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 	}
 	az := &AlzLib{
 		Options:              opts,
-		archetypes:           make(map[string]*archetype),
+		archetypes:           make(map[string]*Archetype),
 		architectures:        make(map[string]*Architecture),
 		policyAssignments:    make(map[string]*assets.PolicyAssignment),
 		policyDefinitions:    make(map[string]*assets.PolicyDefinition),
@@ -164,6 +164,50 @@ func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
 	return nil
 }
 
+// PolicyAssignments returns a slice of all the policy assignment names in the library.
+func (az *AlzLib) PolicyAssignments() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.policyAssignments))
+	for k := range az.policyAssignments {
+		result = append(result, k)
+	}
+	return result
+}
+
+// PolicyDefinitions returns a slice of all the policy definition names in the library.
+func (az *AlzLib) PolicyDefinitions() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.policyDefinitions))
+	for k := range az.policyDefinitions {
+		result = append(result, k)
+	}
+	return result
+}
+
+// PolicySetDefinitions returns a slice of all the policy set definition names in the library.
+func (az *AlzLib) PolicySetDefinitions() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.policySetDefinitions))
+	for k := range az.policySetDefinitions {
+		result = append(result, k)
+	}
+	return result
+}
+
+// RoleDefinitions returns a slice of all the role definition names in the library.
+func (az *AlzLib) RoleDefinitions() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.roleDefinitions))
+	for k := range az.roleDefinitions {
+		result = append(result, k)
+	}
+	return result
+}
+
 // Archetypes returns a list of the archetypes in the AlzLib struct.
 func (az *AlzLib) Archetypes() []string {
 	az.mu.RLock()
@@ -184,6 +228,17 @@ func (az *AlzLib) Archetype(name string) (*Archetype, error) {
 		return arch.copy(), nil
 	}
 	return nil, fmt.Errorf("Alzlib.CopyArchetype: archetype %s not found", name)
+}
+
+// Architectures returns the requested architecture.
+func (az *AlzLib) Architectures() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.architectures))
+	for k := range az.architectures {
+		result = append(result, k)
+	}
+	return result
 }
 
 // Architecture returns the requested architecture.
@@ -533,30 +588,30 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 		if _, exists := az.archetypes[k]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.generateArchetypes: archetype %s already exists in the library", v.Name)
 		}
-		arch := newArchitype(v.Name)
+		arch := NewArchetype(v.Name)
 		for pd := range v.PolicyDefinitions.Iter() {
 			if _, ok := az.policyDefinitions[pd]; !ok {
 				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy definition %s does not exist in the library", k, pd)
 			}
-			arch.policyDefinitions.Add(pd)
+			arch.PolicyDefinitions.Add(pd)
 		}
 		for psd := range v.PolicySetDefinitions.Iter() {
 			if _, ok := az.policySetDefinitions[psd]; !ok {
 				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy set definition %s does not exist in the library", k, psd)
 			}
-			arch.policySetDefinitions.Add(psd)
+			arch.PolicySetDefinitions.Add(psd)
 		}
 		for pa := range v.PolicyAssignments.Iter() {
 			if _, ok := az.policyAssignments[pa]; !ok {
 				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy assignment %s does not exist in the library", k, pa)
 			}
-			arch.policyAssignments.Add(pa)
+			arch.PolicyAssignments.Add(pa)
 		}
 		for rd := range v.RoleDefinitions.Iter() {
 			if _, ok := az.roleDefinitions[rd]; !ok {
 				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, role definition %s does not exist in the library", k, rd)
 			}
-			arch.roleDefinitions.Add(rd)
+			arch.RoleDefinitions.Add(rd)
 		}
 		az.archetypes[v.Name] = arch
 	}
@@ -613,11 +668,11 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 			}
 		}
 
-		newArch := &archetype{
-			policyDefinitions:    base.policyDefinitions.Clone().Union(ovr.PolicyDefinitionsToAdd).Difference(ovr.PolicyDefinitionsToRemove),
-			policySetDefinitions: base.policySetDefinitions.Clone().Union(ovr.PolicySetDefinitionsToAdd).Difference(ovr.PolicySetDefinitionsToRemove),
-			policyAssignments:    base.policyAssignments.Clone().Union(ovr.PolicyAssignmentsToAdd).Difference(ovr.PolicyAssignmentsToRemove),
-			roleDefinitions:      base.roleDefinitions.Clone().Union(ovr.RoleDefinitionsToAdd).Difference(ovr.RoleDefinitionsToRemove),
+		newArch := &Archetype{
+			PolicyDefinitions:    base.PolicyDefinitions.Clone().Union(ovr.PolicyDefinitionsToAdd).Difference(ovr.PolicyDefinitionsToRemove),
+			PolicySetDefinitions: base.PolicySetDefinitions.Clone().Union(ovr.PolicySetDefinitionsToAdd).Difference(ovr.PolicySetDefinitionsToRemove),
+			PolicyAssignments:    base.PolicyAssignments.Clone().Union(ovr.PolicyAssignmentsToAdd).Difference(ovr.PolicyAssignmentsToRemove),
+			RoleDefinitions:      base.RoleDefinitions.Clone().Union(ovr.RoleDefinitionsToAdd).Difference(ovr.RoleDefinitionsToRemove),
 			name:                 name,
 		}
 		az.archetypes[name] = newArch
