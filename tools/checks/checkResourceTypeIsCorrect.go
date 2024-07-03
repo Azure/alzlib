@@ -3,10 +3,13 @@ package checks
 import (
 	"errors"
 
+	"github.com/Azure/alzlib/tools/checker"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
-func CheckResourceTypeIsCorrect(anyType any) error {
+var CheckResourceTypeIsCorrect = checker.NewValidatorCheck("Resource type is correct", checkResourceTypeIsCorrect)
+
+func checkResourceTypeIsCorrect(anyType any) error {
 	switch anyType := anyType.(type) {
 	case *armpolicy.Definition:
 		if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policyDefinitions" {

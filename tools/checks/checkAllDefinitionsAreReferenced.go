@@ -4,10 +4,13 @@ import (
 	"fmt"
 
 	"github.com/Azure/alzlib"
+	"github.com/Azure/alzlib/tools/checker"
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-func CheckAllDefinitionsAreReferenced(azany any) error {
+var CheckAllDefinitionsAreReferenced = checker.NewValidatorCheck("All definitions are referenced", checkAllDefinitionsAreReferenced)
+
+func checkAllDefinitionsAreReferenced(azany any) error {
 	az, ok := azany.(*alzlib.AlzLib)
 	if !ok {
 		return fmt.Errorf("checkAllDefinitionsAreReferenced: expected *alzlib.AlzLib, got %T", azany)

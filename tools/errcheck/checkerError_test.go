@@ -1,4 +1,4 @@
-package checker
+package errcheck
 
 import (
 	"errors"
@@ -11,10 +11,10 @@ func TestValidateError_Error(t *testing.T) {
 	err2 := errors.New("error 2")
 	err3 := errors.New("error 3")
 
-	validateErr := newCheckerError()
-	validateErr.add(err1)
-	validateErr.add(err2)
-	validateErr.add(err3)
+	validateErr := NewCheckerError()
+	validateErr.Add(err1)
+	validateErr.Add(err2)
+	validateErr.Add(err3)
 
 	expected := "The following errors occurred: [error 1 error 2 error 3]"
 	actual := validateErr.Error()
@@ -25,7 +25,7 @@ func TestValidateError_Error(t *testing.T) {
 }
 
 func TestValidateError_ErrorPanic(t *testing.T) {
-	validateErr := newCheckerError()
+	validateErr := NewCheckerError()
 
 	defer func() {
 		if r := recover(); r != nil {

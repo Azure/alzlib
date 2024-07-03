@@ -1,18 +1,16 @@
-package checker
+package checker_test
 
 import (
 	"testing"
 
 	"github.com/Azure/alzlib/to"
+	"github.com/Azure/alzlib/tools/checker"
 	"github.com/Azure/alzlib/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
 func TestValidator_Validate(t *testing.T) {
-	validator := NewValidator(
-		checks.CheckResourceTypeIsCorrect,
-		// Add other validation functions here if needed
-	)
+	validator := checker.NewValidator(checks.CheckResourceTypeIsCorrect)
 
 	// Test case 1: Valid resource
 	validResource := &armpolicy.Definition{

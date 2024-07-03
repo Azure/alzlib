@@ -1,4 +1,4 @@
-package checker
+package errcheck
 
 import "fmt"
 
@@ -8,13 +8,13 @@ type ChekerError struct {
 	errs []error
 }
 
-func newCheckerError() *ChekerError {
+func NewCheckerError() *ChekerError {
 	return &ChekerError{
 		errs: make([]error, 0),
 	}
 }
 
-func (v *ChekerError) add(err error) {
+func (v *ChekerError) Add(err error) {
 	if err == nil {
 		return
 	}

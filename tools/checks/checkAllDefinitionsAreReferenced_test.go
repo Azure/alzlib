@@ -3,72 +3,100 @@ package checks
 import (
 	"reflect"
 	"testing"
-	"unsafe"
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
-	azElem := reflect.ValueOf(az).Elem()
-	field := azElem.FieldByName("policyDefinitions")
-	fieldPtr := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
-	pd := fieldPtr.Interface().(map[string]*assets.PolicyDefinition)
-	pd["policy1"] = &assets.PolicyDefinition{}
-	pd["policy2"] = &assets.PolicyDefinition{}
 
-	field = azElem.FieldByName("policySetDefinitions")
-	fieldPtr = reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
-	psd := fieldPtr.Interface().(map[string]*assets.PolicySetDefinition)
-	psd["policySet1"] = &assets.PolicySetDefinition{}
-	psd["policySet2"] = &assets.PolicySetDefinition{}
+	az.AddPolicyDefinitions(
+		&assets.PolicyDefinition{
+			Definition: armpolicy.Definition{
+				Name: to.Ptr("policy1"),
+			},
+		},
+		&assets.PolicyDefinition{
+			Definition: armpolicy.Definition{
+				Name: to.Ptr("policy2"),
+			},
+		},
+	)
+	az.AddPolicySetDefinitions(
+		&assets.PolicySetDefinition{
+			SetDefinition: armpolicy.SetDefinition{
+				Name: to.Ptr("policySet1"),
+			},
+		},
+		&assets.PolicySetDefinition{
+			SetDefinition: armpolicy.SetDefinition{
+				Name: to.Ptr("policySet2"),
+			},
+		},
+	)
+	az.AddRoleDefinitions(
+		&assets.RoleDefinition{
+			RoleDefinition: armauthorization.RoleDefinition{
+				Name: to.Ptr("role1"),
+			},
+		},
+		&assets.RoleDefinition{
+			RoleDefinition: armauthorization.RoleDefinition{
+				Name: to.Ptr("role2"),
+			},
+		},
+	)
 
-	field = azElem.FieldByName("roleDefinitions")
-	fieldPtr = reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
-	rd := fieldPtr.Interface().(map[string]*assets.RoleDefinition)
-	rd["role1"] = &assets.RoleDefinition{}
-	rd["role2"] = &assets.RoleDefinition{}
+	// use reflection/unsafe to populate archetypes
+	archetypesNotSettable := reflect.ValueOf(az).Elem().FieldByName("archetypes")
+	archetypesPtr := reflect.NewAt(archetypesNotSettable.Type(), (archetypesNotSettable.Addr().UnsafePointer())).Elem()
+	archetypes := archetypesPtr.Interface().(map[string]*alzlib.Archetype)
 
-	// az = &alzlib.AlzLib{
-	// 	PolicyDefinitions:    []string{"policy1", "policy2"},
-	// 	PolicySetDefinitions: []string{"policySet1", "policySet2"},
-	// 	RoleDefinitions:      []string{"role1", "role2"},
-	// 	ArchetypesFunc: func() []string {
-	// 		return []string{"archetype1", "archetype2"}
-	// 	},
-	// 	ArchetypeFunc: func(name string) (*alzlib.Archetype, error) {
-	// 		switch name {
-	// 		case "archetype1":
-	// 			return &alzlib.Archetype{
-	// 				PolicyDefinitions:    []string{"policy1"},
-	// 				PolicySetDefinitions: []string{"policySet1"},
-	// 				RoleDefinitions:      []string{"role1"},
-	// 			}, nil
-	// 		case "archetype2":
-	// 			return &alzlib.Archetype{
-	// 				PolicyDefinitions:    []string{"policy2"},
-	// 				PolicySetDefinitions: []string{"policySet2"},
-	// 				RoleDefinitions:      []string{"role2"},
-	// 			}, nil
-	// 		default:
-	// 			return nil, fmt.Errorf("unknown archetype: %s", name)
-	// 		}
-	// 	},
-	// }
-
-	err := CheckAllDefinitionsAreReferenced(az)
-	if err != nil {
-		t.Errorf("Expected no error, but got %v", err)
+	archetypes["archetype1"] = &alzlib.Archetype{
+		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+		RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+		PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
 	}
+	archetypes["archetype2"] = &alzlib.Archetype{
+		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
+		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
+		RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),
+		PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
+	}
+
+	err := checkAllDefinitionsAreReferenced(az)
+	assert.NoError(t, err)
 
 	// Test case with unreferenced definitions
-	// az.PolicyDefinitions = []string{"policy1", "policy2", "policy3"}
-	// az.PolicySetDefinitions = []string{"policySet1", "policySet2", "policySet3"}
-	// az.RoleDefinitions = []string{"role1", "role2", "role3"}
+	az.AddPolicyDefinitions(
+		&assets.PolicyDefinition{
+			Definition: armpolicy.Definition{
+				Name: to.Ptr("policy3"),
+			},
+		},
+	)
+	az.AddPolicySetDefinitions(
+		&assets.PolicySetDefinition{
+			SetDefinition: armpolicy.SetDefinition{
+				Name: to.Ptr("policySet3"),
+			},
+		},
+	)
+	az.AddRoleDefinitions(
+		&assets.RoleDefinition{
+			RoleDefinition: armauthorization.RoleDefinition{
+				Name: to.Ptr("role3"),
+			},
+		},
+	)
 
-	err = CheckAllDefinitionsAreReferenced(az)
-	if err == nil {
-		t.Errorf("Expected an error, but got nil")
-	}
+	err = checkAllDefinitionsAreReferenced(az)
+	assert.ErrorContains(t, err, "found unreferenced definitions [policyDefinitions] [policySetDefinitions] [roleDefinitions]: [policy3], [policySet3], [role3]")
 }

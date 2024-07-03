@@ -230,6 +230,17 @@ func (az *AlzLib) Archetype(name string) (*Archetype, error) {
 	return nil, fmt.Errorf("Alzlib.CopyArchetype: archetype %s not found", name)
 }
 
+// Architectures returns the requested architecture.
+func (az *AlzLib) Architectures() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.architectures))
+	for k := range az.architectures {
+		result = append(result, k)
+	}
+	return result
+}
+
 // Architecture returns the requested architecture.
 func (az *AlzLib) Architecture(name string) (*Architecture, error) {
 	az.mu.RLock()
