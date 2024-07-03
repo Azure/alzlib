@@ -39,11 +39,11 @@ func (v Validator) AddChecks(c ...ValidatorCheck) Validator {
 func (v Validator) Validate(resource any) error {
 	errs := errcheck.NewCheckerError()
 	for _, c := range v.checks {
-		io.WriteString(os.Stdout, "==> Starting check: "+c.name+"\n")
+		io.WriteString(os.Stdout, "==> Starting check: "+c.name+"\n") // nolint: errcheck
 		if err := c.f(resource); err != nil {
 			errs.Add(err)
 		}
-		io.WriteString(os.Stdout, "==> Finished check: "+c.name+"\n")
+		io.WriteString(os.Stdout, "==> Finished check: "+c.name+"\n") // nolint: errcheck
 	}
 	if errs.HasErrors() {
 		return errs

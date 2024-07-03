@@ -164,7 +164,7 @@ func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
 	return nil
 }
 
-// PolicyAssignments returns a slice of all the policy assignment names in the library
+// PolicyAssignments returns a slice of all the policy assignment names in the library.
 func (az *AlzLib) PolicyAssignments() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -175,7 +175,7 @@ func (az *AlzLib) PolicyAssignments() []string {
 	return result
 }
 
-// PolicyDefinitions returns a slice of all the policy definition names in the library
+// PolicyDefinitions returns a slice of all the policy definition names in the library.
 func (az *AlzLib) PolicyDefinitions() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -186,7 +186,7 @@ func (az *AlzLib) PolicyDefinitions() []string {
 	return result
 }
 
-// PolicySetDefinitions returns a slice of all the policy set definition names in the library
+// PolicySetDefinitions returns a slice of all the policy set definition names in the library.
 func (az *AlzLib) PolicySetDefinitions() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -197,7 +197,7 @@ func (az *AlzLib) PolicySetDefinitions() []string {
 	return result
 }
 
-// RoleDefinitions returns a slice of all the role definition names in the library
+// RoleDefinitions returns a slice of all the role definition names in the library.
 func (az *AlzLib) RoleDefinitions() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()

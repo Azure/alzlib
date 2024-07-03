@@ -16,7 +16,7 @@ import (
 func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 
-	az.AddPolicyDefinitions(
+	az.AddPolicyDefinitions( // nolint: errcheck
 		&assets.PolicyDefinition{
 			Definition: armpolicy.Definition{
 				Name: to.Ptr("policy1"),
@@ -28,7 +28,7 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 			},
 		},
 	)
-	az.AddPolicySetDefinitions(
+	az.AddPolicySetDefinitions( // nolint: errcheck
 		&assets.PolicySetDefinition{
 			SetDefinition: armpolicy.SetDefinition{
 				Name: to.Ptr("policySet1"),
@@ -40,7 +40,7 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 			},
 		},
 	)
-	az.AddRoleDefinitions(
+	az.AddRoleDefinitions( // nolint: errcheck
 		&assets.RoleDefinition{
 			RoleDefinition: armauthorization.RoleDefinition{
 				Name: to.Ptr("role1"),
@@ -56,7 +56,7 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 	// use reflection/unsafe to populate archetypes
 	archetypesNotSettable := reflect.ValueOf(az).Elem().FieldByName("archetypes")
 	archetypesPtr := reflect.NewAt(archetypesNotSettable.Type(), (archetypesNotSettable.Addr().UnsafePointer())).Elem()
-	archetypes := archetypesPtr.Interface().(map[string]*alzlib.Archetype)
+	archetypes := archetypesPtr.Interface().(map[string]*alzlib.Archetype) //nolint:forcetypeassert
 
 	archetypes["archetype1"] = &alzlib.Archetype{
 		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
@@ -75,21 +75,21 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test case with unreferenced definitions
-	az.AddPolicyDefinitions(
+	az.AddPolicyDefinitions( // nolint: errcheck
 		&assets.PolicyDefinition{
 			Definition: armpolicy.Definition{
 				Name: to.Ptr("policy3"),
 			},
 		},
 	)
-	az.AddPolicySetDefinitions(
+	az.AddPolicySetDefinitions( // nolint: errcheck
 		&assets.PolicySetDefinition{
 			SetDefinition: armpolicy.SetDefinition{
 				Name: to.Ptr("policySet3"),
 			},
 		},
 	)
-	az.AddRoleDefinitions(
+	az.AddRoleDefinitions( // nolint: errcheck
 		&assets.RoleDefinition{
 			RoleDefinition: armauthorization.RoleDefinition{
 				Name: to.Ptr("role3"),
