@@ -514,7 +514,7 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 
 	// Get the policy definitions for newly added policy set definitions.
 	defnames := make([]string, 0)
-	for _, name := range names {
+	for _, name := range processedNames {
 		name := name
 		refs, err := az.policySetDefinitions[name].PolicyDefinitionReferences()
 		if err != nil {
@@ -534,7 +534,6 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	if err := az.getBuiltInPolicies(ctx, defnames); err != nil {
 		return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting new built-in policy definitions referenced by policy sets: %w", err)
 	}
-
 	return nil
 }
 

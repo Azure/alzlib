@@ -91,6 +91,17 @@ func (pd *PolicyDefinition) AssignPermissionsParameterNames() ([]string, error) 
 	return names, nil
 }
 
+func (pd *PolicyDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
+	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
+		return nil
+	}
+	ret, ok := pd.Properties.Parameters[name]
+	if !ok {
+		return nil
+	}
+	return ret
+}
+
 // normalizeRoleDefinitionId takes a Azure builtin role definition id and returns a normalized id.
 // This is one without the management group portion.
 func normalizeRoleDefinitionId(id string) (string, error) {
