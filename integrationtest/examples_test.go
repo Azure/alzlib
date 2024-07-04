@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	alzLibraryTag    = "2024.07.00"
+	alzLibraryTag    = "2024.07.01"
 	alzLibraryMember = "platform/alz"
 )
 
@@ -35,12 +35,13 @@ func Example_deploymentNewHierarchy() {
 		return
 	}
 	az.AddPolicyClient(cf)
-	dirfs, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, alzLibraryMember, alzLibraryTag, "alz")
+	//dirFs, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, alzLibraryMember, alzLibraryTag, "alz")
+	dirFs, err := alzlib.FetchLibraryByGetterString(ctx, "/Users/matt/code/Azure-Landing-Zones-Library/platform/alz", "alz")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = az.Init(ctx, dirfs)
+	err = az.Init(ctx, dirFs)
 	if err != nil {
 		fmt.Println(err)
 		return

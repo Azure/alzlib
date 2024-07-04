@@ -201,7 +201,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		}
 		mg.policyDefinitions[name] = newDef
 	}
-	// Copmbine all policy set definitions form all supplied archetypes into a single set
+	// Combine all policy set definitions form all supplied archetypes into a single set
 	allPolicySetDefinitions := mapset.NewThreadUnsafeSet[string]()
 	for _, archetype := range req.archetypes {
 		allPolicySetDefinitions = allPolicySetDefinitions.Union(archetype.PolicySetDefinitions)
@@ -219,6 +219,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		if err != nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy assignment `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
+		// Check if the referenced policy is a set and if its parameters match the parameters in the policy definitions
 		refPdId, _ := newpolassign.ReferencedPolicyDefinitionResourceId()
 		if refPdId.ResourceType.Type == "policySetDefinitions" {
 			psd, _ := h.alzlib.PolicySetDefinition(refPdId.Name)
@@ -231,7 +232,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 				}
 				for param := range rf.Parameters {
 					if pd.Parameter(param) == nil {
-						return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): parameter `%s` in policy set definition `%s` does not match a parameter in referenced definition `%s` in management group `%s` does not exist in the library", param, *psd.Name, *pd.Name, req.id)
+						return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): parameter `%s` in policy set definition `%s` does not match a parameter in referenced definition `%s` in management group `%s`", param, *psd.Name, *pd.Name, req.id)
 					}
 				}
 			}
