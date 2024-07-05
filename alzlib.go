@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -752,26 +751,23 @@ func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dst s
 // the .alzlib directory in the current working directory.
 // It returns an fs.FS interface to the fetched library to be used in the AlzLib.Init() method.
 func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
-	if !validDstDir(dstDir) {
-		return nil, errors.New("FetchLibraryByGetterString: invalid destination directory")
-	}
 	dst := filepath.Join(".alzlib", dstDir)
 	client := getter.Client{}
-	wd, _ := os.Getwd()
-	_ = os.RemoveAll(dst)
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("FetchLibraryByGetterString: error getting working directory: %w", err)
+	}
+	if err := os.RemoveAll(dst); err != nil {
+		return nil, fmt.Errorf("FetchLibraryByGetterString: error cleaning destination directory %s: %w", dst, err)
+	}
 	req := &getter.Request{
 		Src: getterString,
 		Dst: dst,
 		Pwd: wd,
 	}
-	_, err := client.Get(ctx, req)
+	_, err = client.Get(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("FetchLibraryByGetterString: error fetching library. source `%s`, destination `%s`, wd `%s`: %w", getterString, dst, wd, err)
 	}
 	return os.DirFS(dst), nil
-}
-
-func validDstDir(dst string) bool {
-	re := regexp.MustCompile(`^\w+$`)
-	return re.MatchString(dst)
 }
