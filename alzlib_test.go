@@ -395,23 +395,12 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 	}
 }
 
-func TestValidDstDir(t *testing.T) {
-	tests := []struct {
-		dst    string
-		result bool
-	}{
-		{"validDir", true},
-		{"invalid dir", false},
-		{"123", true},
-		{"", false},
-		{"_underscore", true},
-	}
+func TestFetchLibraryByGetterString(t *testing.T) {
+	ctx := context.Background()
+	dstDir := "test-library"
+	defer os.RemoveAll(filepath.Join(".alzlib", dstDir))
 
-	for _, tt := range tests {
-		t.Run(tt.dst, func(t *testing.T) {
-			if validDstDir(tt.dst) != tt.result {
-				t.Errorf("validDstDir(%s) = %v, want %v", tt.dst, !tt.result, tt.result)
-			}
-		})
-	}
+	fs, err := FetchLibraryByGetterString(ctx, "./testdata/simple", dstDir)
+	assert.NoError(t, err)
+	assert.NotNil(t, fs)
 }
