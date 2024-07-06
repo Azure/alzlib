@@ -17,15 +17,17 @@ import (
 
 // These are the file prefixes for the resource types.
 const (
-	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.(?:json|yaml|yml)"
-	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition\\.(?:json|yaml|yml)"
-	archetypeOverrideSuffix      = ".+\\.alz_archetype_override\\.(?:json|yaml|yml)"
-	policyAssignmentSuffix       = ".+\\.alz_policy_assignment\\.(?:json|yaml|yml)"
-	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?:json|yaml|yml)"
-	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?:json|yaml|yml)"
-	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?:json|yaml|yml)"
-	policyDefaultValuesSuffix    = ".+\\.alz_policy_default_values\\.(?:json|yaml|yml)"
+	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.(?i:json|yaml|yml)$"
+	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition\\.(?i:json|yaml|yml)$"
+	archetypeOverrideSuffix      = ".+\\.alz_archetype_override\\.(?i:json|yaml|yml)$"
+	policyAssignmentSuffix       = ".+\\.alz_policy_assignment\\.(?i:json|yaml|yml)$"
+	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?i:json|yaml|yml)$"
+	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?i:json|yaml|yml)$"
+	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?i:json|yaml|yml)$"
+	policyDefaultValuesSuffix    = ".+\\.alz_policy_default_values\\.(?i:json|yaml|yml)$"
 )
+
+var supportedFileTypes = []string{".json", ".yaml", ".yml"}
 
 var architectureDefinitionRegex = regexp.MustCompile(architectureDefinitionSuffix)
 var archetypeDefinitionRegex = regexp.MustCompile(archetypeDefinitionSuffix)
@@ -82,7 +84,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 			return nil
 		}
 		// Skip files that are not json or yaml
-		if !slices.Contains([]string{".json", ".yaml", ".yml"}, strings.ToLower(filepath.Ext(path))) {
+		if !slices.Contains(supportedFileTypes, strings.ToLower(filepath.Ext(path))) {
 			return nil
 		}
 		file, err := client.fs.Open(path)
