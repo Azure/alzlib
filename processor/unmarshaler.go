@@ -24,7 +24,7 @@ func newUnmarshaler(data []byte, ext string) unmarshaler {
 }
 
 func (u unmarshaler) unmarshal(dst any) error {
-	switch u.ext {
+	switch strings.ToLower(u.ext) {
 	case ".json":
 		return unmarshalJSON(u.d, dst)
 	case ".yaml":

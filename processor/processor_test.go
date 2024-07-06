@@ -4,8 +4,11 @@
 package processor
 
 import (
+	"bytes"
 	"os"
+	"regexp"
 	"testing"
+	"text/template"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
@@ -949,4 +952,53 @@ func getSampleArchetypeOverride_invalid() []byte {
 		"test"
 	]
 }`)
+}
+
+func TestProcessorRegex(t *testing.T) {
+	fileTypes2Regex := map[string]*regexp.Regexp{
+		"alz_architecture_definition": architectureDefinitionRegex,
+		"alz_archetype_definition":    archetypeDefinitionRegex,
+		"alz_archetype_override":      archetypeOverrideRegex,
+		"alz_policy_definition":       policyDefinitionRegex,
+		"alz_policy_assignment":       policyAssignmentRegex,
+		"alz_policy_set_definition":   policySetDefinitionRegex,
+		"alz_role_definition":         roleDefinitionRegex,
+		"alz_policy_default_values":   policyDefaultValuesRegex,
+	}
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{input: "example.{{ .Type }}.json", expected: true},
+		{input: "example.{{ .Type }}.yaml", expected: true},
+		{input: "example.{{ .Type }}.yml", expected: true},
+		{input: "example.{{ .Type }}.JSON", expected: true},
+		{input: "example.{{ .Type }}.YAML", expected: true},
+		{input: "example.{{ .Type }}.YML", expected: true},
+		{input: "example.{{ .Type }}.txt", expected: false},
+		{input: "example.{{ .Type }}", expected: false},
+		{input: "example.{{ .Type }}.json.txt", expected: false},
+		{input: "example.{{ .Type }}.yaml.txt", expected: false},
+		{input: "example.{{ .Type }}.yml.txt", expected: false},
+		{input: "example.{{ .Type }}", expected: false},
+		{input: "example.{{ .Type }}", expected: false},
+		{input: "example.{{ .Type }}", expected: false},
+		{input: "example.{{ .Type }}.json.txt", expected: false},
+		{input: "example.{{ .Type }}.yaml.txt", expected: false},
+		{input: "example.{{ .Type }}.yml.txt", expected: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			tmpl, _ := template.New("test").Parse(test.input)
+			for ty, rex := range fileTypes2Regex {
+				var buf bytes.Buffer
+				tmpl.Execute(&buf, struct{ Type string }{Type: ty})
+				t.Run(buf.String(), func(t *testing.T) {
+					match := rex.MatchString(buf.String())
+					assert.Equal(t, test.expected, match)
+				})
+			}
+		})
+	}
 }
