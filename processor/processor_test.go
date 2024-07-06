@@ -990,10 +990,10 @@ func TestProcessorRegex(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
-			tmpl, _ := template.New("test").Parse(test.input)
+			tmpl, _ := template.New("test").Parse(test.input) // nolint:errcheck
 			for ty, rex := range fileTypes2Regex {
 				var buf bytes.Buffer
-				tmpl.Execute(&buf, struct{ Type string }{Type: ty})
+				tmpl.Execute(&buf, struct{ Type string }{Type: ty}) // nolint:errcheck
 				t.Run(buf.String(), func(t *testing.T) {
 					match := rex.MatchString(buf.String())
 					assert.Equal(t, test.expected, match)
