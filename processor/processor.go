@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
@@ -16,14 +17,14 @@ import (
 
 // These are the file prefixes for the resource types.
 const (
-	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.[json|yaml]"
-	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition.[json|yaml]"
-	archetypeOverrideSuffix      = ".+\\.alz_archetype_override.[json|yaml]"
-	policyAssignmentSuffix       = ".+\\.alz_policy_assignment.[json|yaml]"
-	policyDefinitionSuffix       = ".+\\.alz_policy_definition.[json|yaml]"
-	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition.[json|yaml]"
-	roleDefinitionSuffix         = ".+\\.alz_role_definition.[json|yaml]"
-	policyDefaultValuesSuffix    = ".+\\.alz_policy_default_values.[json|yaml]"
+	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.(?:json|yaml|yml)"
+	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition\\.(?:json|yaml|yml)"
+	archetypeOverrideSuffix      = ".+\\.alz_archetype_override\\.(?:json|yaml|yml)"
+	policyAssignmentSuffix       = ".+\\.alz_policy_assignment\\.(?:json|yaml|yml)"
+	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?:json|yaml|yml)"
+	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?:json|yaml|yml)"
+	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?:json|yaml|yml)"
+	policyDefaultValuesSuffix    = ".+\\.alz_policy_default_values\\.(?:json|yaml|yml)"
 )
 
 var architectureDefinitionRegex = regexp.MustCompile(architectureDefinitionSuffix)
@@ -80,7 +81,8 @@ func (client *ProcessorClient) Process(res *Result) error {
 		if d.IsDir() {
 			return nil
 		}
-		if strings.ToLower(filepath.Ext(path)) != ".json" {
+		// Skip files that are not json or yaml
+		if !slices.Contains([]string{".json", ".yaml", ".yml"}, strings.ToLower(filepath.Ext(path))) {
 			return nil
 		}
 		file, err := client.fs.Open(path)
