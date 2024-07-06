@@ -14,7 +14,7 @@ import (
 // LibArchetype represents an archetype definition file,
 // it used to construct the Archetype struct and is then added to the AlzLib struct.
 type LibArchetype struct {
-	Name                 string             `json:"name" yaml:"name`
+	Name                 string             `json:"name" yaml:"name"`
 	PolicyAssignments    mapset.Set[string] `json:"policy_assignments" yaml:"policy_assignments"`
 	PolicyDefinitions    mapset.Set[string] `json:"policy_definitions" yaml:"policy_definitions"`
 	PolicySetDefinitions mapset.Set[string] `json:"policy_set_definitions" yaml:"policy_set_definitions"`
