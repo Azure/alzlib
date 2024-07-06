@@ -27,6 +27,17 @@ func TestFullLibrary(t *testing.T) {
 	assert.Equal(t, len(res.LibArchitectures["alz"].ManagementGroups), 9)
 }
 
+func TestYamlDecode(t *testing.T) {
+	t.Parallel()
+	fs := os.DirFS("./yamllib")
+	pc := NewProcessorClient(fs)
+	res := new(Result)
+	assert.NoError(t, pc.Process(res))
+	assert.Len(t, res.PolicyAssignments, 1)
+	assert.Len(t, res.LibArchetypes, 1)
+	assert.Len(t, res.LibArchitectures, 1)
+}
+
 // TestProcessArchetypeOverrideValid tests the processing of a valid archetype override.
 func TestProcessArchetypeOverrideValid(t *testing.T) {
 	t.Parallel()
