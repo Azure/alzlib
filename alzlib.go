@@ -619,50 +619,50 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 	for name, ovr := range res.LibArchetypeOverrides {
 		if _, exists := az.archetypes[name]; exists {
-			return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s - it already exists in the library", name)
+			return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s` - it already exists in the library", name)
 		}
 		base, exists := az.archetypes[ovr.BaseArchetype]
 		if !exists {
-			return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s - base archetype %s does not exist in the library", name, ovr.BaseArchetype)
+			return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s` - base archetype `%s` does not exist in the library", name, ovr.BaseArchetype)
 		}
 		for pa := range ovr.PolicyAssignmentsToAdd.Iter() {
 			if _, ok := az.policyAssignments[pa]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, policy assignment %s does not exist in the library", name, pa)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, policy assignment `%s` does not exist in the library", name, pa)
 			}
 		}
 		for pa := range ovr.PolicyAssignmentsToRemove.Iter() {
 			if _, ok := az.policyAssignments[pa]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, policy assignment %s does not exist in the library", name, pa)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, policy assignment `%s` does not exist in the library", name, pa)
 			}
 		}
 		for pd := range ovr.PolicyDefinitionsToAdd.Iter() {
 			if _, ok := az.policyDefinitions[pd]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, policy definition %s does not exist in the library", name, pd)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, policy definition `%s` does not exist in the library", name, pd)
 			}
 		}
 		for pd := range ovr.PolicyDefinitionsToRemove.Iter() {
 			if _, ok := az.policyDefinitions[pd]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, policy definition %s does not exist in the library", name, pd)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, policy definition `%s` does not exist in the library", name, pd)
 			}
 		}
 		for psd := range ovr.PolicySetDefinitionsToAdd.Iter() {
 			if _, ok := az.policySetDefinitions[psd]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, policy set definition %s does not exist in the library", name, psd)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, policy set definition `%s` does not exist in the library", name, psd)
 			}
 		}
 		for psd := range ovr.PolicySetDefinitionsToRemove.Iter() {
 			if _, ok := az.policySetDefinitions[psd]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, policy set definition %s does not exist in the library", name, psd)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, policy set definition `%s` does not exist in the library", name, psd)
 			}
 		}
 		for rd := range ovr.RoleDefinitionsToAdd.Iter() {
 			if _, ok := az.roleDefinitions[rd]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, role definition %s does not exist in the library", name, rd)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, role definition `%s` does not exist in the library", name, rd)
 			}
 		}
 		for rd := range ovr.RoleDefinitionsToRemove.Iter() {
 			if _, ok := az.roleDefinitions[rd]; !ok {
-				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype %s, role definition %s does not exist in the library", name, rd)
+				return fmt.Errorf("Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, role definition `%s` does not exist in the library", name, rd)
 			}
 		}
 
