@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/uuid"
 )
@@ -108,6 +109,30 @@ func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[Polic
 		res = res.Union(mg.policyRoleAssignments)
 	}
 	return res, nil
+}
+
+// AddDefaultPolicyAssignmentValue adds a default policy assignment value to the hierarchy.
+func (h *Hierarchy) AddDefaultPolicyAssignmentValue(ctx context.Context, defaultName string, defaultValue *armpolicy.ParameterValuesValue) error {
+	defs := h.alzlib.DefaultPolicyAssignmentValues(defaultName)
+	if defs == nil {
+		return fmt.Errorf("Hierarchy.AddDefaultPolicyAssignmentValue: A default with name `%s` does not exist", defaultName)
+	}
+	// Get the policy assignments for each management group.
+	for _, mg := range h.mgs {
+		for assignment, params := range defs {
+			if _, ok := mg.policyAssignments[assignment]; !ok {
+				continue
+			}
+			newParams := make(map[string]*armpolicy.ParameterValuesValue)
+			for param := range params.Iter() {
+				newParams[param] = defaultValue
+			}
+			if err := mg.ModifyPolicyAssignment(assignment, newParams, nil, nil, nil, nil, nil); err != nil {
+				return fmt.Errorf("Hierarchy.AddDefaultPolicyAssignmentValue: error adding default `%s` policy assignment value to management group `%s` for policy assignment `%s`: %w", defaultName, mg.id, assignment, err)
+			}
+		}
+	}
+	return nil
 }
 
 func recurseAddManagementGroup(ctx context.Context, h *Hierarchy, archMg *alzlib.ArchitectureManagementGroup, parent, location string, externalParent bool, level int) error {

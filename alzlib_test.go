@@ -420,7 +420,7 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 		},
 	}
 
-	err := az.addDefaultPolicyValues(res)
+	err := az.addDefaultPolicyAssignmentValues(res)
 	assert.NoError(t, err)
 
 	// Check if the default policy values are added correctly
@@ -451,6 +451,6 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 		},
 	}
 	az = NewAlzLib(nil)
-	err = az.addDefaultPolicyValues(res)
+	err = az.addDefaultPolicyAssignmentValues(res)
 	assert.ErrorContains(t, err, "assignment `assignment1` and parameter `param1` already exists in defaults")
 }

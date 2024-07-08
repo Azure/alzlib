@@ -444,6 +444,39 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 	return nil
 }
 
+// DefaultPolicyAssignmentValues returns the DefaultPolicyAssignmentValuesValue associated with the given defaultName.
+// If the defaultName does not exist in the defaultPolicyAssignmentValues map, it returns nil.
+func (az *AlzLib) DefaultPolicyAssignmentValues(defaultName string) DefaultPolicyAssignmentValuesValue {
+	if _, ok := az.defaultPolicyAssignmentValues[defaultName]; !ok {
+		return nil
+	}
+	return az.defaultPolicyAssignmentValues[defaultName].copy()
+}
+
+// AssignmentReferencedDefinitionHasParameter checks if the referenced definition of an assignment has a specific parameter.
+// It takes a resource ID and a parameter name as input and returns a boolean indicating whether the parameter exists or not.
+func (az *AlzLib) AssignmentReferencedDefinitionHasParameter(res *arm.ResourceID, param string) bool {
+	switch strings.ToLower(res.ResourceType.Type) {
+	case "policydefinitions":
+		pd, err := az.PolicyDefinition(res.Name)
+		if err != nil {
+			return false
+		}
+		if pd.Parameter(param) != nil {
+			return true
+		}
+	case "policysetdefinitions":
+		psd, err := az.PolicySetDefinition(res.Name)
+		if err != nil {
+			return false
+		}
+		if psd.Parameter(param) != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // getBuiltInPolicies retrieves the built-in policy definitions with the given names
 // and adds them to the AlzLib struct.
 func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error {
@@ -569,7 +602,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 	return nil
 }
 
-func (az *AlzLib) addDefaultPolicyValues(res *processor.Result) error {
+func (az *AlzLib) addDefaultPolicyAssignmentValues(res *processor.Result) error {
 	for defName, def := range res.LibDefaultPolicyValues {
 		if _, exists := az.defaultPolicyAssignmentValues[defName]; exists {
 			if !az.Options.AllowOverwrite {

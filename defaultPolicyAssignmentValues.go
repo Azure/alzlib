@@ -39,3 +39,11 @@ func (d DefaultPolicyAssignmentValues) Add(defaultName, assignmentName string, p
 	}
 	d[defaultName][assignmentName].Append(parameterNames...)
 }
+
+func (d DefaultPolicyAssignmentValuesValue) copy() DefaultPolicyAssignmentValuesValue {
+	new := make(DefaultPolicyAssignmentValuesValue)
+	for k, v := range d {
+		new[k] = v.Clone()
+	}
+	return new
+}

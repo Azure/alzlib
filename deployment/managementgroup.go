@@ -355,6 +355,14 @@ func (alzmg *HierarchyManagementGroup) ModifyPolicyAssignment(
 	}
 
 	for k, v := range parameters {
+		// Only add parameter if it exists in the referenced policy definition.
+		ref, err := alzmg.policyAssignments[name].ReferencedPolicyDefinitionResourceId()
+		if err != nil {
+			return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: error getting referenced policy definition resource id for policy assignment %s: %w", name, err)
+		}
+		if !alzmg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, k) {
+			return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: parameter `%s` not found in referenced %s `%s` for policy assignment `%s`", k, ref.ResourceType.Type, ref.Name, name)
+		}
 		alzmg.policyAssignments[name].Properties.Parameters[k] = v
 	}
 
