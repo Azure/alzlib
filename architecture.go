@@ -8,12 +8,15 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
+// Architecture represents an Azure architecture that has not been deployed.
+// Do not create this struct directly, use NewArchitecture instead.
 type Architecture struct {
 	name   string
 	mgs    map[string]*ArchitectureManagementGroup
 	alzlib *AlzLib
 }
 
+// NewArchitecture creates a new Architecture with the given name and AlzLib.
 func NewArchitecture(name string, az *AlzLib) *Architecture {
 	return &Architecture{
 		name:   name,
@@ -22,6 +25,7 @@ func NewArchitecture(name string, az *AlzLib) *Architecture {
 	}
 }
 
+// RootMgs returns the top level management groups of the architecture.
 func (a *Architecture) RootMgs() (res []*ArchitectureManagementGroup) {
 	for _, mg := range a.mgs {
 		if mg.parent != nil {
@@ -41,6 +45,7 @@ func (a *Architecture) RootMgs() (res []*ArchitectureManagementGroup) {
 	return res
 }
 
+// ArchitectureManagementGroup represents a management group in an undeployed architecture.
 type ArchitectureManagementGroup struct {
 	id           string
 	displayName  string
@@ -62,6 +67,7 @@ func newArchitectureManagementGroup(id, displayName string, exists bool, arch *A
 	}
 }
 
+// Archetypes returns the archetypes assigned to the management group.
 func (mg *ArchitectureManagementGroup) Archetypes() (res []*Archetype) {
 	for arch := range mg.archetypes.Iter() {
 		res = append(res, arch.copy())
@@ -69,6 +75,7 @@ func (mg *ArchitectureManagementGroup) Archetypes() (res []*Archetype) {
 	return res
 }
 
+// Children returns the child management groups of the management group.
 func (mg *ArchitectureManagementGroup) Children() (res []*ArchitectureManagementGroup) {
 	for child := range mg.children.Iter() {
 		res = append(res, child)
@@ -76,10 +83,12 @@ func (mg *ArchitectureManagementGroup) Children() (res []*ArchitectureManagement
 	return res
 }
 
+// DisplayName returns the display name of the management group.
 func (mg *ArchitectureManagementGroup) DisplayName() string {
 	return mg.displayName
 }
 
+// Id returns the id of the management group.
 func (mg *ArchitectureManagementGroup) Id() string {
 	return mg.id
 }

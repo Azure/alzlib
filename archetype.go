@@ -6,8 +6,9 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-// Archetype represents the exported archetype definition that hasn't been assigned to a management group
+// Archetype represents an archetype definition that hasn't been assigned to a management group
 // The contents of the sets represent the map keys of the corresponding AlzLib maps.
+// Do not creaste this struct directly, use NewArchetype instead.
 type Archetype struct {
 	PolicyDefinitions    mapset.Set[string]
 	PolicyAssignments    mapset.Set[string]
@@ -16,6 +17,7 @@ type Archetype struct {
 	name                 string
 }
 
+// NewArchetype creates a new Archetype with the given name.
 func NewArchetype(name string) *Archetype {
 	return &Archetype{
 		PolicyDefinitions:    mapset.NewThreadUnsafeSet[string](),
@@ -26,6 +28,7 @@ func NewArchetype(name string) *Archetype {
 	}
 }
 
+// Name returns the name of the archetype.
 func (a *Archetype) Name() string {
 	return a.name
 }

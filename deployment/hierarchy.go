@@ -26,12 +26,14 @@ const (
 )
 
 // Hierarchy represents a deployment of Azure management group hierarchy.
+// Do not create this struct directly, use NewHierarchy instead.
 type Hierarchy struct {
 	mgs    map[string]*HierarchyManagementGroup
 	alzlib *alzlib.AlzLib
 	mu     *sync.RWMutex
 }
 
+// NewHierarchy creates a new Hierarchy with the given AlzLib.
 func NewHierarchy(alzlib *alzlib.AlzLib) *Hierarchy {
 	return &Hierarchy{
 		mgs:    make(map[string]*HierarchyManagementGroup),
@@ -64,6 +66,7 @@ func (h *Hierarchy) ManagementGroupNames() []string {
 	return res
 }
 
+// ManagementGroups returns the management groups from the given level as a map of string to *HierarchyManagementGroup.
 func (h *Hierarchy) ManagementGroupsAtLevel(level int) map[string]*HierarchyManagementGroup {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -77,6 +80,7 @@ func (h *Hierarchy) ManagementGroupsAtLevel(level int) map[string]*HierarchyMana
 	return h.mgs
 }
 
+// FromArchitecture creates a hierarchy from the given architecture.
 func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId, location string) error {
 	architecture, err := h.alzlib.Architecture(arch)
 	if err != nil {
@@ -91,6 +95,7 @@ func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId
 	return nil
 }
 
+// PolicyAssignments returns the policy assignments required for the hierarchy.
 func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[PolicyRoleAssignment], error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -240,7 +245,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		mg.policyAssignments[name] = newpolassign
 	}
 
-	// Copmbine all role definitions form all supplied archetypes into a single set
+	// Combine all role definitions form all supplied archetypes into a single set
 	allRoleDefinitions := mapset.NewThreadUnsafeSet[string]()
 	for _, archetype := range req.archetypes {
 		allRoleDefinitions = allRoleDefinitions.Union(archetype.RoleDefinitions)
@@ -260,7 +265,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 	h.mgs[req.id] = mg
 
 	// run Update to change all refs, etc.
-	if err := h.mgs[req.id].update(nil); err != nil {
+	if err := h.mgs[req.id].update(); err != nil {
 		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: adding `%s` error updating assets at scope %w", req.id, err)
 	}
 

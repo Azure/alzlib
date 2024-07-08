@@ -258,7 +258,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	}
 	psd2mg := map[string]string{}
 
-	err := updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
+	err := updatePolicyAsignments(mg, pd2mg, psd2mg)
 	require.NoError(t, err)
 	expected := fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
@@ -298,7 +298,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	psd2mg = map[string]string{
 		"psd1": "mg1",
 	}
-	err = updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
+	err = updatePolicyAsignments(mg, pd2mg, psd2mg)
 	require.NoError(t, err)
 	expected = fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
@@ -333,7 +333,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	}
 	pd2mg = map[string]string{}
 	psd2mg = map[string]string{}
-	err = updatePolicyAsignments(mg, pd2mg, psd2mg, nil)
+	err = updatePolicyAsignments(mg, pd2mg, psd2mg)
 	assert.Error(t, err)
 	expected = "resource id 'invalid' must start with '/'"
 	assert.ErrorContains(t, err, expected)
@@ -588,44 +588,6 @@ func TestModifyPolicyAssignment(t *testing.T) {
 
 	// Check if the policy assignment was modified correctly
 	assert.Equal(t, expected, alzmg.policyAssignments["test-policy-assignment"])
-}
-
-func TestUpdatePolicyAssignments(t *testing.T) {
-	mg := &HierarchyManagementGroup{
-		policyAssignments: make(map[string]*assets.PolicyAssignment),
-	}
-
-	// Create a sample policy assignment
-	pa := assets.NewPolicyAssignment(armpolicy.Assignment{
-		ID:   to.Ptr("/providers/Microsoft.Authorization/policyAssignments/sample-policy-assignment-id"),
-		Name: to.Ptr("sample-policy-assignment"),
-		Properties: &armpolicy.AssignmentProperties{
-			Scope:              to.Ptr("sample-scope"),
-			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/sample-policy-definition-id"),
-			Parameters: map[string]*armpolicy.ParameterValuesValue{
-				"param1": {Value: "changeme"},
-			},
-		},
-	})
-
-	// Add the sample policy assignment to the management group
-	mg.policyAssignments["sample-policy-assignment"] = pa
-
-	// Create a sample policy assignments parameter values
-	papv := PolicyAssignmentsParameterValues{
-		"sample-policy-assignment": {
-			"param1": &armpolicy.ParameterValuesValue{Value: "value1"},
-			"param2": &armpolicy.ParameterValuesValue{Value: "value2"},
-		},
-	}
-
-	// Call the updatePolicyAssignments function
-	err := updatePolicyAsignments(mg, map[string]string{}, map[string]string{}, papv)
-	assert.NoError(t, err)
-
-	// Assert that the policy assignment has been updated with the new parameters
-	assert.Equal(t, armpolicy.ParameterValuesValue{Value: "value1"}, *pa.Properties.Parameters["param1"])
-	assert.Equal(t, armpolicy.ParameterValuesValue{Value: "value2"}, *pa.Properties.Parameters["param2"])
 }
 
 func TestHasParent(t *testing.T) {

@@ -26,22 +26,24 @@ import (
 
 const (
 	defaultParallelism = 10 // default number of parallel requests to make to Azure APIs
+	defaultOverwrite   = false
 )
 
 // AlzLib is the structure that gets built from the the library files
 // do not create this directly, use NewAlzLib instead.
-// Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type AlzLib struct {
 	Options *AlzLibOptions
 
-	archetypes           map[string]*Archetype
-	architectures        map[string]*Architecture
-	policyAssignments    map[string]*assets.PolicyAssignment
-	policyDefinitions    map[string]*assets.PolicyDefinition
-	policySetDefinitions map[string]*assets.PolicySetDefinition
-	roleDefinitions      map[string]*assets.RoleDefinition
-	clients              *azureClients
-	mu                   sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
+	archetypes                    map[string]*Archetype
+	architectures                 map[string]*Architecture
+	policyAssignments             map[string]*assets.PolicyAssignment
+	policyDefinitions             map[string]*assets.PolicyDefinition
+	policySetDefinitions          map[string]*assets.PolicySetDefinition
+	roleDefinitions               map[string]*assets.RoleDefinition
+	defaultPolicyAssignmentValues DefaultPolicyAssignmentValues
+
+	clients *azureClients
+	mu      sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
 }
 
 type azureClients struct {
@@ -49,28 +51,29 @@ type azureClients struct {
 }
 
 // AlzLibOptions are options for the AlzLib.
-// This is created by NewAlzLib.
 type AlzLibOptions struct {
-	AllowOverwrite bool // AllowOverwrite allows overwriting of existing policy assignments when processing additional libraries with AlzLib.Init()
-	Parallelism    int  // Parallelism is the number of parallel requests to make to Azure APIs
+	AllowOverwrite bool // AllowOverwrite allows overwriting of existing policy assignments when processing additional libraries with AlzLib.Init().
+	Parallelism    int  // Parallelism is the number of parallel requests to make to Azure APIs when getting policy definitions and policy set definitions.
 }
 
 // NewAlzLib returns a new instance of the alzlib library, optionally using the supplied directory
 // for additional policy (set) definitions.
+// To customize the options for the AlzLib, pass in an AlzLibOptions struct, otherwise the default options will be used.
 func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 	if opts == nil {
 		opts = defaultAlzLibOptions()
 	}
 	az := &AlzLib{
-		Options:              opts,
-		archetypes:           make(map[string]*Archetype),
-		architectures:        make(map[string]*Architecture),
-		policyAssignments:    make(map[string]*assets.PolicyAssignment),
-		policyDefinitions:    make(map[string]*assets.PolicyDefinition),
-		policySetDefinitions: make(map[string]*assets.PolicySetDefinition),
-		roleDefinitions:      make(map[string]*assets.RoleDefinition),
-		clients:              new(azureClients),
-		mu:                   sync.RWMutex{},
+		Options:                       opts,
+		archetypes:                    make(map[string]*Archetype),
+		architectures:                 make(map[string]*Architecture),
+		policyAssignments:             make(map[string]*assets.PolicyAssignment),
+		policyDefinitions:             make(map[string]*assets.PolicyDefinition),
+		policySetDefinitions:          make(map[string]*assets.PolicySetDefinition),
+		roleDefinitions:               make(map[string]*assets.RoleDefinition),
+		defaultPolicyAssignmentValues: make(DefaultPolicyAssignmentValues),
+		clients:                       new(azureClients),
+		mu:                            sync.RWMutex{},
 	}
 	return az
 }
@@ -78,7 +81,7 @@ func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 func defaultAlzLibOptions() *AlzLibOptions {
 	return &AlzLibOptions{
 		Parallelism:    defaultParallelism,
-		AllowOverwrite: false,
+		AllowOverwrite: defaultOverwrite,
 	}
 }
 
@@ -219,7 +222,6 @@ func (az *AlzLib) Archetypes() []string {
 }
 
 // Archetype returns a copy of the requested archetype by name.
-// The returned struct can be used as a parameter to the Deployment.AddManagementGroup method.
 func (az *AlzLib) Archetype(name string) (*Archetype, error) {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -229,7 +231,7 @@ func (az *AlzLib) Archetype(name string) (*Archetype, error) {
 	return nil, fmt.Errorf("Alzlib.CopyArchetype: archetype %s not found", name)
 }
 
-// Architectures returns the requested architecture.
+// Architectures returns a list of the architecture names in the AlzLib struct.
 func (az *AlzLib) Architectures() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -250,7 +252,7 @@ func (az *AlzLib) Architecture(name string) (*Architecture, error) {
 	return nil, fmt.Errorf("Alzlib.Architecture: architecture %s not found", name)
 }
 
-// PolicyDefinitionExists returns true if the policy definition exists in the AlzLib struct.
+// PolicyDefinitionExists returns true if the policy definition name exists in the AlzLib struct.
 func (az *AlzLib) PolicyDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -258,7 +260,7 @@ func (az *AlzLib) PolicyDefinitionExists(name string) bool {
 	return exists
 }
 
-// PolicySetDefinitionExists returns true if the policy set definition exists in the AlzLib struct.
+// PolicySetDefinitionExists returns true if the policy set definition name exists in the AlzLib struct.
 func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -266,7 +268,7 @@ func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
 	return exists
 }
 
-// PolicyAssignmentExists returns true if the policy assignment exists in the AlzLib struct.
+// PolicyAssignmentExists returns true if the policy assignment exists name in the AlzLib struct.
 func (az *AlzLib) PolicyAssignmentExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -274,7 +276,7 @@ func (az *AlzLib) PolicyAssignmentExists(name string) bool {
 	return exists
 }
 
-// RoleDefinitionExists returns true if the role definition exists in the AlzLib struct.
+// RoleDefinitionExists returns true if the role definition name exists in the AlzLib struct.
 func (az *AlzLib) RoleDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -334,8 +336,8 @@ func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 	az.clients.policyClient = client
 }
 
-// Init processes ALZ libraries, supplied as fs.FS interfaces.
-// Use FetchAzureLandingZonesLibraryMember to get the library from GitHub.
+// Init processes ALZ libraries, supplied as `fs.FS` interfaces.
+// Use FetchAzureLandingZonesLibraryMember/FetchLibraryByGetterString to get the library from GitHub.
 // It populates the struct with the results of the processing.
 func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	az.mu.Lock()
@@ -374,12 +376,14 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		if err := az.generateArchitectures(res); err != nil {
 			return fmt.Errorf("Alzlib.Init: error generating architectures: %w", err)
 		}
+
+		// Add default policy values
 	}
 	return nil
 }
 
-// GetDefinitionsFromAzure takes a slice of strings containing Azure resource IDs of policy definitions and policy set definitions.
-// It then fetches them from Azure if needed and adds them to the AlzLib struct.
+// GetDefinitionsFromAzure takes a slice of strings of Azure resource IDs of policy definitions and policy set definitions.
+// It then fetches them from Azure if they don't already exist (determined by last segment tof resource id).
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
 	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
@@ -616,6 +620,8 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 	return nil
 }
 
+// generateOverrideArchetypes generates the override archetypes from the result of the processor.
+// THis must be run after generateArchetypes.
 func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 	for name, ovr := range res.LibArchetypeOverrides {
 		if _, exists := az.archetypes[name]; exists {
@@ -692,6 +698,7 @@ func (az *AlzLib) generateArchitectures(res *processor.Result) error {
 	return nil
 }
 
+// architectureRecursion is a recursive function to build the architecture from the definitions read by the processor.
 func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArchitecture, arch *Architecture, az *AlzLib, depth int) error {
 	if depth > 5 {
 		return errors.New("architectureRecursion: recursion depth exceeded")
