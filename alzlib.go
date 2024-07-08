@@ -571,6 +571,12 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 
 func (az *AlzLib) addDefaultPolicyValues(res *processor.Result) error {
 	for defName, def := range res.LibDefaultPolicyValues {
+		if _, exists := az.defaultPolicyAssignmentValues[defName]; exists {
+			if !az.Options.AllowOverwrite {
+				return fmt.Errorf("Alzlib.addDefaultPolicyValues: default name %s already exists in the defaults", defName)
+			}
+			delete(az.defaultPolicyAssignmentValues, defName)
+		}
 		for _, assignment := range def.PolicyAssignments {
 			for _, param := range assignment.ParameterNames {
 				if az.defaultPolicyAssignmentValues.AssignmentParameterComboExists(assignment.PolicyAssignmentName, param) {

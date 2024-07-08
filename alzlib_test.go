@@ -404,3 +404,53 @@ func TestFetchLibraryByGetterString(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, fs)
 }
+
+func TestAddDefaultPolicyValues(t *testing.T) {
+	az := NewAlzLib(nil)
+	res := &processor.Result{
+		LibDefaultPolicyValues: map[string]*processor.LibDefaultPolicyValue{
+			"default1": {
+				PolicyAssignments: []processor.LibDefaultPolicyValueAssignments{
+					{
+						PolicyAssignmentName: "assignment1",
+						ParameterNames:       []string{"param1", "param2"},
+					},
+				},
+			},
+		},
+	}
+
+	err := az.addDefaultPolicyValues(res)
+	assert.NoError(t, err)
+
+	// Check if the default policy values are added correctly
+	assert.Equal(t, 1, len(az.defaultPolicyAssignmentValues))
+	assert.Equal(t, 1, len(az.defaultPolicyAssignmentValues["default1"]))
+	assert.True(t, az.defaultPolicyAssignmentValues["default1"]["assignment1"].Contains("param1"))
+	assert.True(t, az.defaultPolicyAssignmentValues["default1"]["assignment1"].Contains("param2"))
+	assert.True(t, az.defaultPolicyAssignmentValues.AssignmentParameterComboExists("assignment1", "param2"))
+
+	res = &processor.Result{
+		LibDefaultPolicyValues: map[string]*processor.LibDefaultPolicyValue{
+			"default1": {
+				PolicyAssignments: []processor.LibDefaultPolicyValueAssignments{
+					{
+						PolicyAssignmentName: "assignment1",
+						ParameterNames:       []string{"param1", "param2"},
+					},
+				},
+			},
+			"default2": {
+				PolicyAssignments: []processor.LibDefaultPolicyValueAssignments{
+					{
+						PolicyAssignmentName: "assignment1",
+						ParameterNames:       []string{"param1", "param2"},
+					},
+				},
+			},
+		},
+	}
+	az = NewAlzLib(nil)
+	err = az.addDefaultPolicyValues(res)
+	assert.ErrorContains(t, err, "assignment `assignment1` and parameter `param1` already exists in defaults")
+}
