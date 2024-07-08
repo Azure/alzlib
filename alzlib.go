@@ -358,9 +358,11 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		}
 
 		// Put results into the AlzLib.
-		if err := az.addProcessedResult(res); err != nil {
+		if err := az.addPolicyAndRoleAssets(res); err != nil {
 			return fmt.Errorf("Alzlib.Init: error adding processed result to AlzLib: %w", err)
 		}
+
+		// Add default policy values
 
 		// Generate archetypes
 		if err := az.generateArchetypes(res); err != nil {
@@ -376,8 +378,6 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		if err := az.generateArchitectures(res); err != nil {
 			return fmt.Errorf("Alzlib.Init: error generating architectures: %w", err)
 		}
-
-		// Add default policy values
 	}
 	return nil
 }
@@ -540,8 +540,8 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	return nil
 }
 
-// addProcessedResult adds the results of a processed library to the AlzLib.
-func (az *AlzLib) addProcessedResult(res *processor.Result) error {
+// addPolicyAndRoleAssets adds the results of a processed library to the AlzLib.
+func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 	for k, v := range res.PolicyDefinitions {
 		if _, exists := az.policyDefinitions[k]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.addProcessedResult: policy definition %s already exists in the library", k)
@@ -565,6 +565,20 @@ func (az *AlzLib) addProcessedResult(res *processor.Result) error {
 			return fmt.Errorf("Alzlib.addProcessedResult: role definition %s already exists in the library", k)
 		}
 		az.roleDefinitions[k] = assets.NewRoleDefinition(*v)
+	}
+	return nil
+}
+
+func (az *AlzLib) addDefaultPolicyValues(res *processor.Result) error {
+	for defName, def := range res.LibDefaultPolicyValues {
+		for _, assignment := range def.PolicyAssignments {
+			for _, param := range assignment.ParameterNames {
+				if az.defaultPolicyAssignmentValues.AssignmentParameterComboExists(assignment.PolicyAssignmentName, param) {
+					return fmt.Errorf("Alzlib.addDefaultPolicyValues: error processing default policy values for default name: `%s`, assignment `%s` and parameter `%s` already exists in defaults", defName, assignment.PolicyAssignmentName, param)
+				}
+			}
+			az.defaultPolicyAssignmentValues.Add(defName, assignment.PolicyAssignmentName, assignment.ParameterNames...)
+		}
 	}
 	return nil
 }

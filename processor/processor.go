@@ -46,7 +46,7 @@ type Result struct {
 	RoleDefinitions        map[string]*armauthorization.RoleDefinition
 	LibArchetypes          map[string]*LibArchetype
 	LibArchetypeOverrides  map[string]*LibArchetypeOverride
-	LibDefaultPolicyValues map[string]*LibDefaultPolicyValues
+	LibDefaultPolicyValues map[string]*LibDefaultPolicyValue
 	LibArchitectures       map[string]*LibArchitecture
 }
 
@@ -71,7 +71,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 	res.PolicySetDefinitions = make(map[string]*armpolicy.SetDefinition)
 	res.RoleDefinitions = make(map[string]*armauthorization.RoleDefinition)
 	res.LibArchetypeOverrides = make(map[string]*LibArchetypeOverride)
-	res.LibDefaultPolicyValues = make(map[string]*LibDefaultPolicyValues)
+	res.LibDefaultPolicyValues = make(map[string]*LibDefaultPolicyValue)
 	res.LibArchitectures = make(map[string]*LibArchitecture)
 
 	// Walk the embedded lib FS and process files
@@ -130,7 +130,7 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 
 	// if the file is an policy default values file
 	case policyDefaultValuesRegex.MatchString(n):
-		err = readAndProcessFile(res, file, processDefaultPolicyValues)
+		err = readAndProcessFile(res, file, processDefaultPolicyValue)
 	}
 
 	// if the file is an architecture definition
@@ -162,19 +162,17 @@ func processArchitecture(res *Result, unmar unmarshaler) error {
 	return nil
 }
 
-// processDefaultPolicyValues is a processFunc that reads the default_policy_values
+// processDefaultPolicyValue is a processFunc that reads the default_policy_value
 // bytes, processes, then adds the created LibDefaultPolicyValues to the result.
-func processDefaultPolicyValues(res *Result, unmar unmarshaler) error {
-	lpv := new(LibDefaultPolicyValues)
+func processDefaultPolicyValue(res *Result, unmar unmarshaler) error {
+	lpv := new(LibDefaultPolicyValue)
 	if err := unmar.unmarshal(lpv); err != nil {
 		return fmt.Errorf("processDefaultPolicyValues: error unmarshaling: %w", err)
 	}
-	for _, d := range lpv.Defaults {
-		if _, exists := res.LibDefaultPolicyValues[d.DefaultName]; exists {
-			return fmt.Errorf("processDefaultPolicyValues: default policy values with name `%s` already exists", d.DefaultName)
-		}
-		res.LibDefaultPolicyValues[d.DefaultName] = lpv
+	if _, exists := res.LibDefaultPolicyValues[lpv.Name]; exists {
+		return fmt.Errorf("processDefaultPolicyValues: default policy values with name `%s` already exists", lpv.Name)
 	}
+	res.LibDefaultPolicyValues[lpv.Name] = lpv
 	return nil
 }
 

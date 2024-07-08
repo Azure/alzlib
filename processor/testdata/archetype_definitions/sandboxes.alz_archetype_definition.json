@@ -1,13 +1,7 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/feat/defaultpolicyvaluesschema/schemas/archetype_definition.json",
   "name": "sandboxes",
   "policy_assignments": [
     "Enforce-ALZ-Sandbox"
-  ],
-  "policy_definitions": [],
-  "policy_set_definitions": [],
-  "role_definitions": [],
-  "archetype_config": {
-    "parameters": {},
-    "access_control": {}
-  }
+  ]
 }

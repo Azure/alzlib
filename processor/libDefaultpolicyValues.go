@@ -3,15 +3,13 @@
 
 package processor
 
-// LibDefaultPolicyValues represents the default policy values that allow a single value to be mapped into different assignments.
-type LibDefaultPolicyValues struct {
-	Defaults []struct {
-		DefaultName       string                              `json:"default_name" yaml:"default_name"`
-		PolicyAssignments []LibDefaultPolicyValuesAssignments `json:"policy_assignments" yaml:"policy_assignments"`
-	} `json:"defaults" yaml:"defaults"`
+// LibDefaultPolicyValue represents the default policy values that allow a single value to be mapped into different assignments.
+type LibDefaultPolicyValue struct {
+	Name              string                             `json:"name" yaml:"name"`
+	PolicyAssignments []LibDefaultPolicyValueAssignments `json:"policy" yaml:"defaults"`
 }
 
-type LibDefaultPolicyValuesAssignments struct {
+type LibDefaultPolicyValueAssignments struct {
 	PolicyAssignmentName string   `json:"policy_assignment_name" yaml:"policy_assignment_name"`
 	ParameterNames       []string `json:"parameter_names" yaml:"parameter_names"`
 }
