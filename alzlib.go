@@ -21,7 +21,6 @@ import (
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/go-getter/v2"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -386,6 +385,8 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 // It then fetches them from Azure if they don't already exist (determined by last segment tof resource id).
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
+	az.mu.Lock()
+	defer az.mu.Unlock()
 	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	policySetDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	for _, pd := range pds {
@@ -483,27 +484,16 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error 
 	if az.clients.policyClient == nil {
 		return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
 	}
-	grp, ctx := errgroup.WithContext(ctx)
-	grp.SetLimit(az.Options.Parallelism)
 	pdclient := az.clients.policyClient.NewDefinitionsClient()
 	for _, name := range names {
-		name := name
-		grp.Go(func() error {
-			az.mu.Lock()
-			defer az.mu.Unlock()
-			if _, exists := az.policyDefinitions[name]; exists {
-				return nil
-			}
-			resp, err := pdclient.GetBuiltIn(ctx, name, nil)
-			if err != nil {
-				return fmt.Errorf("error getting built-in policy definition %s: %w", name, err)
-			}
-			az.policyDefinitions[name] = assets.NewPolicyDefinition(resp.Definition)
+		if _, exists := az.policyDefinitions[name]; exists {
 			return nil
-		})
-	}
-	if err := grp.Wait(); err != nil {
-		return fmt.Errorf("Alzlib.getBuiltInPolicies: error from errorgroup.Group: %w", err)
+		}
+		resp, err := pdclient.GetBuiltIn(ctx, name, nil)
+		if err != nil {
+			return fmt.Errorf("error getting built-in policy definition %s: %w", name, err)
+		}
+		az.policyDefinitions[name] = assets.NewPolicyDefinition(resp.Definition)
 	}
 	return nil
 }
@@ -514,38 +504,23 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	if az.clients.policyClient == nil {
 		return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
 	}
-	grp, ctxErrGroup := errgroup.WithContext(ctx)
-	grp.SetLimit(az.Options.Parallelism)
 
 	// We need to keep track of the names we've processed
 	// so that we can get the policy definitions referenced within them.
 	processedNames := make([]string, 0, len(names))
-	var mu sync.Mutex
 
 	psclient := az.clients.policyClient.NewSetDefinitionsClient()
 	for _, name := range names {
-		name := name
-		grp.Go(func() error {
-			az.mu.Lock()
-			defer az.mu.Unlock()
-			if _, exists := az.policySetDefinitions[name]; exists {
-				return nil
-			}
-			resp, err := psclient.GetBuiltIn(ctxErrGroup, name, nil)
-			if err != nil {
-				return fmt.Errorf("error getting built-in policy set definition %s: %w", name, err)
-			}
-			// Add set definition to the AlzLib.
-			az.policySetDefinitions[name] = assets.NewPolicySetDefinition(resp.SetDefinition)
-			// Add name to processedNames.
-			mu.Lock()
-			defer mu.Unlock()
-			processedNames = append(processedNames, name)
+		if _, exists := az.policySetDefinitions[name]; exists {
 			return nil
-		})
-	}
-	if err := grp.Wait(); err != nil {
-		return fmt.Errorf("Alzlib.getBuiltInPolicySets: error from errorgroup.Group: %w", err)
+		}
+		resp, err := psclient.GetBuiltIn(ctx, name, nil)
+		if err != nil {
+			return fmt.Errorf("error getting built-in policy set definition %s: %w", name, err)
+		}
+		// Add set definition to the AlzLib.
+		az.policySetDefinitions[name] = assets.NewPolicySetDefinition(resp.SetDefinition)
+		processedNames = append(processedNames, name)
 	}
 
 	// Get the policy definitions for newly added policy set definitions.
