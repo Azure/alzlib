@@ -533,6 +533,8 @@ func TestModifyPolicyAssignment(t *testing.T) {
 			},
 		},
 	})
+	// We need to add the definition too, as ModifyPolicyAssignment checks to see if any parameters are
+	// present in the referenced policy (set) definition.
 	pd := assets.NewPolicyDefinition(armpolicy.Definition{
 		Name: to.Ptr("test-policy-definition"),
 		Properties: &armpolicy.DefinitionProperties{
