@@ -519,6 +519,7 @@ func TestModifyPolicyAssignment(t *testing.T) {
 	// Create a new AlzManagementGroup instance
 	alzmg := &HierarchyManagementGroup{
 		policyAssignments: make(map[string]*assets.PolicyAssignment),
+		policyDefinitions: make(map[string]*assets.PolicyDefinition),
 	}
 
 	// Add a policy assignment to the management group
@@ -526,18 +527,40 @@ func TestModifyPolicyAssignment(t *testing.T) {
 		Name: to.Ptr("test-policy-assignment"),
 		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
 		Properties: &armpolicy.AssignmentProperties{
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition"),
 			Parameters: map[string]*armpolicy.ParameterValuesValue{
 				"parameter1": {Value: "value1"},
 			},
 		},
 	})
+	pd := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("test-policy-definition"),
+		Properties: &armpolicy.DefinitionProperties{
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"parameter1": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+				"parameter2": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+			},
+		},
+	})
+	az := alzlib.NewAlzLib(nil)
+	az.AddPolicyAssignments(pa) //nolint:errcheck
+	az.AddPolicyDefinitions(pd) //nolint:errcheck
+	h := NewHierarchy(az)
+	h.mgs["mg1"] = alzmg
+	alzmg.hierarchy = h
 	alzmg.policyAssignments["test-policy-assignment"] = pa
+	alzmg.policyDefinitions["test-policy-definition"] = pd
 
 	// Define the expected modified policy assignment
 	expected := assets.NewPolicyAssignment(armpolicy.Assignment{
 		Name: to.Ptr("test-policy-assignment"),
 		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
 		Properties: &armpolicy.AssignmentProperties{
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition"),
 			Parameters: map[string]*armpolicy.ParameterValuesValue{
 				"parameter1": {Value: "value1"},
 				"parameter2": {Value: "value2"},
