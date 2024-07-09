@@ -963,7 +963,7 @@ func TestProcessorRegex(t *testing.T) {
 		"alz_policy_assignment":       policyAssignmentRegex,
 		"alz_policy_set_definition":   policySetDefinitionRegex,
 		"alz_role_definition":         roleDefinitionRegex,
-		"alz_policy_default_values":   policyDefaultValuesRegex,
+		"alz_policy_default_value":    policyDefaultValueRegex,
 	}
 	tests := []struct {
 		input    string
@@ -972,9 +972,9 @@ func TestProcessorRegex(t *testing.T) {
 		{input: "example.{{ .Type }}.json", expected: true},
 		{input: "example.{{ .Type }}.yaml", expected: true},
 		{input: "example.{{ .Type }}.yml", expected: true},
-		{input: "example.{{ .Type }}.JSON", expected: true},
-		{input: "example.{{ .Type }}.YAML", expected: true},
-		{input: "example.{{ .Type }}.YML", expected: true},
+		{input: "example.{{ .Type }}.JSON", expected: false},
+		{input: "example.{{ .Type }}.YAML", expected: false},
+		{input: "example.{{ .Type }}.YML", expected: false},
 		{input: "example.{{ .Type }}.txt", expected: false},
 		{input: "example.{{ .Type }}", expected: false},
 		{input: "example.{{ .Type }}.json.txt", expected: false},

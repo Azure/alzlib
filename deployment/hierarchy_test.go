@@ -4,9 +4,15 @@
 package deployment
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -111,4 +117,66 @@ func TestNewUUID(t *testing.T) {
 	u := uuidV5("foo", "bar", "baz")
 
 	assert.Equal(t, ns.String(), u.String())
+}
+
+func TestAddDefaultPolicyAssignmentValue(t *testing.T) {
+	t.Parallel()
+
+	pa1 := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("pa1"),
+		Properties: &armpolicy.AssignmentProperties{
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/policy1"),
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"param1": {
+					Value: to.Ptr("changeme"),
+				},
+			},
+		},
+	})
+	policy1 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("policy1"),
+		Properties: &armpolicy.DefinitionProperties{
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"param1": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+			},
+		},
+	})
+	az := alzlib.NewAlzLib(nil)
+	az.AddPolicyDefinitions(policy1) //nolint:errcheck
+	az.AddPolicyAssignments(pa1)     //nolint:errcheck
+	h := NewHierarchy(az)
+	h.mgs["mg1"] = &HierarchyManagementGroup{
+		policyAssignments: make(map[string]*assets.PolicyAssignment),
+	}
+	h.mgs["mg1"].policyAssignments["pa1"] = pa1
+	h.mgs["mg1"].hierarchy = h
+
+	// reflect set default value in alzlib
+	defaultsNotSettable := reflect.ValueOf(az).Elem().FieldByName("defaultPolicyAssignmentValues")
+	defaultsPtr := reflect.NewAt(defaultsNotSettable.Type(), (defaultsNotSettable.Addr().UnsafePointer())).Elem()
+	defaults := defaultsPtr.Interface().(alzlib.DefaultPolicyAssignmentValues) //nolint:forcetypeassert
+
+	t.Run("Default param present in definition", func(t *testing.T) {
+		defaults["default"] = make(alzlib.DefaultPolicyAssignmentValuesValue)
+		defaults["default"]["pa1"] = mapset.NewThreadUnsafeSet("param1")
+		// Define the default policy assignment value.
+		defaultName := "default"
+		defaultValue := &armpolicy.ParameterValuesValue{Value: to.Ptr("value1")}
+		// Add the default policy assignment value to the hierarchy.
+		err := h.AddDefaultPolicyAssignmentValue(context.Background(), defaultName, defaultValue)
+		assert.NoError(t, err)
+		// Verify that the default policy assignment value is added to the management group.
+		assert.EqualValues(t, to.Ptr("value1"), h.mgs["mg1"].policyAssignments["pa1"].Properties.Parameters["param1"].Value)
+	})
+
+	t.Run("Default parameter not present in definition", func(t *testing.T) {
+		defaults["default"]["pa1"] = mapset.NewThreadUnsafeSet("param4")
+		defaultName := "default"
+		defaultValue := &armpolicy.ParameterValuesValue{Value: to.Ptr("value1")}
+		// Add the default policy assignment value to the hierarchy.
+		err := h.AddDefaultPolicyAssignmentValue(context.Background(), defaultName, defaultValue)
+		assert.Error(t, err)
+	})
 }

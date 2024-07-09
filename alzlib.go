@@ -21,27 +21,28 @@ import (
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/go-getter/v2"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
 	defaultParallelism = 10 // default number of parallel requests to make to Azure APIs
+	defaultOverwrite   = false
 )
 
 // AlzLib is the structure that gets built from the the library files
 // do not create this directly, use NewAlzLib instead.
-// Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type AlzLib struct {
 	Options *AlzLibOptions
 
-	archetypes           map[string]*Archetype
-	architectures        map[string]*Architecture
-	policyAssignments    map[string]*assets.PolicyAssignment
-	policyDefinitions    map[string]*assets.PolicyDefinition
-	policySetDefinitions map[string]*assets.PolicySetDefinition
-	roleDefinitions      map[string]*assets.RoleDefinition
-	clients              *azureClients
-	mu                   sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
+	archetypes                    map[string]*Archetype
+	architectures                 map[string]*Architecture
+	policyAssignments             map[string]*assets.PolicyAssignment
+	policyDefinitions             map[string]*assets.PolicyDefinition
+	policySetDefinitions          map[string]*assets.PolicySetDefinition
+	roleDefinitions               map[string]*assets.RoleDefinition
+	defaultPolicyAssignmentValues DefaultPolicyAssignmentValues
+
+	clients *azureClients
+	mu      sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
 }
 
 type azureClients struct {
@@ -49,28 +50,29 @@ type azureClients struct {
 }
 
 // AlzLibOptions are options for the AlzLib.
-// This is created by NewAlzLib.
 type AlzLibOptions struct {
-	AllowOverwrite bool // AllowOverwrite allows overwriting of existing policy assignments when processing additional libraries with AlzLib.Init()
-	Parallelism    int  // Parallelism is the number of parallel requests to make to Azure APIs
+	AllowOverwrite bool // AllowOverwrite allows overwriting of existing policy assignments when processing additional libraries with AlzLib.Init().
+	Parallelism    int  // Parallelism is the number of parallel requests to make to Azure APIs when getting policy definitions and policy set definitions.
 }
 
 // NewAlzLib returns a new instance of the alzlib library, optionally using the supplied directory
 // for additional policy (set) definitions.
+// To customize the options for the AlzLib, pass in an AlzLibOptions struct, otherwise the default options will be used.
 func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 	if opts == nil {
 		opts = defaultAlzLibOptions()
 	}
 	az := &AlzLib{
-		Options:              opts,
-		archetypes:           make(map[string]*Archetype),
-		architectures:        make(map[string]*Architecture),
-		policyAssignments:    make(map[string]*assets.PolicyAssignment),
-		policyDefinitions:    make(map[string]*assets.PolicyDefinition),
-		policySetDefinitions: make(map[string]*assets.PolicySetDefinition),
-		roleDefinitions:      make(map[string]*assets.RoleDefinition),
-		clients:              new(azureClients),
-		mu:                   sync.RWMutex{},
+		Options:                       opts,
+		archetypes:                    make(map[string]*Archetype),
+		architectures:                 make(map[string]*Architecture),
+		policyAssignments:             make(map[string]*assets.PolicyAssignment),
+		policyDefinitions:             make(map[string]*assets.PolicyDefinition),
+		policySetDefinitions:          make(map[string]*assets.PolicySetDefinition),
+		roleDefinitions:               make(map[string]*assets.RoleDefinition),
+		defaultPolicyAssignmentValues: make(DefaultPolicyAssignmentValues),
+		clients:                       new(azureClients),
+		mu:                            sync.RWMutex{},
 	}
 	return az
 }
@@ -78,7 +80,7 @@ func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 func defaultAlzLibOptions() *AlzLibOptions {
 	return &AlzLibOptions{
 		Parallelism:    defaultParallelism,
-		AllowOverwrite: false,
+		AllowOverwrite: defaultOverwrite,
 	}
 }
 
@@ -132,11 +134,11 @@ func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) e
 			continue
 		}
 		if _, exists := az.policyDefinitions[*psd.Name]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
+			return fmt.Errorf("Alzlib.AddPolicySetDefinitions: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
 		}
 		cpy, err := deep.Copy(psd)
 		if err != nil {
-			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy set definition %s: %w", *psd.Name, err)
+			return fmt.Errorf("Alzlib.AddPolicySetDefinitions: error making deep copy of policy set definition %s: %w", *psd.Name, err)
 		}
 		az.policySetDefinitions[*psd.Name] = cpy
 	}
@@ -219,7 +221,6 @@ func (az *AlzLib) Archetypes() []string {
 }
 
 // Archetype returns a copy of the requested archetype by name.
-// The returned struct can be used as a parameter to the Deployment.AddManagementGroup method.
 func (az *AlzLib) Archetype(name string) (*Archetype, error) {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -229,7 +230,7 @@ func (az *AlzLib) Archetype(name string) (*Archetype, error) {
 	return nil, fmt.Errorf("Alzlib.CopyArchetype: archetype %s not found", name)
 }
 
-// Architectures returns the requested architecture.
+// Architectures returns a list of the architecture names in the AlzLib struct.
 func (az *AlzLib) Architectures() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -250,7 +251,7 @@ func (az *AlzLib) Architecture(name string) (*Architecture, error) {
 	return nil, fmt.Errorf("Alzlib.Architecture: architecture %s not found", name)
 }
 
-// PolicyDefinitionExists returns true if the policy definition exists in the AlzLib struct.
+// PolicyDefinitionExists returns true if the policy definition name exists in the AlzLib struct.
 func (az *AlzLib) PolicyDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -258,7 +259,7 @@ func (az *AlzLib) PolicyDefinitionExists(name string) bool {
 	return exists
 }
 
-// PolicySetDefinitionExists returns true if the policy set definition exists in the AlzLib struct.
+// PolicySetDefinitionExists returns true if the policy set definition name exists in the AlzLib struct.
 func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -266,7 +267,7 @@ func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
 	return exists
 }
 
-// PolicyAssignmentExists returns true if the policy assignment exists in the AlzLib struct.
+// PolicyAssignmentExists returns true if the policy assignment exists name in the AlzLib struct.
 func (az *AlzLib) PolicyAssignmentExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -274,7 +275,7 @@ func (az *AlzLib) PolicyAssignmentExists(name string) bool {
 	return exists
 }
 
-// RoleDefinitionExists returns true if the role definition exists in the AlzLib struct.
+// RoleDefinitionExists returns true if the role definition name exists in the AlzLib struct.
 func (az *AlzLib) RoleDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
@@ -334,8 +335,8 @@ func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 	az.clients.policyClient = client
 }
 
-// Init processes ALZ libraries, supplied as fs.FS interfaces.
-// Use FetchAzureLandingZonesLibraryMember to get the library from GitHub.
+// Init processes ALZ libraries, supplied as `fs.FS` interfaces.
+// Use FetchAzureLandingZonesLibraryMember/FetchLibraryByGetterString to get the library from GitHub.
 // It populates the struct with the results of the processing.
 func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	az.mu.Lock()
@@ -356,9 +357,11 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		}
 
 		// Put results into the AlzLib.
-		if err := az.addProcessedResult(res); err != nil {
+		if err := az.addPolicyAndRoleAssets(res); err != nil {
 			return fmt.Errorf("Alzlib.Init: error adding processed result to AlzLib: %w", err)
 		}
+
+		// Add default policy values
 
 		// Generate archetypes
 		if err := az.generateArchetypes(res); err != nil {
@@ -378,8 +381,8 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	return nil
 }
 
-// GetDefinitionsFromAzure takes a slice of strings containing Azure resource IDs of policy definitions and policy set definitions.
-// It then fetches them from Azure if needed and adds them to the AlzLib struct.
+// GetDefinitionsFromAzure takes a slice of strings of Azure resource IDs of policy definitions and policy set definitions.
+// It then fetches them from Azure if they don't already exist (determined by last segment tof resource id).
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
 	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
@@ -440,33 +443,57 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 	return nil
 }
 
+// DefaultPolicyAssignmentValues returns the DefaultPolicyAssignmentValuesValue associated with the given defaultName.
+// If the defaultName does not exist in the defaultPolicyAssignmentValues map, it returns nil.
+func (az *AlzLib) DefaultPolicyAssignmentValues(defaultName string) DefaultPolicyAssignmentValuesValue {
+	if _, ok := az.defaultPolicyAssignmentValues[defaultName]; !ok {
+		return nil
+	}
+	return az.defaultPolicyAssignmentValues[defaultName].copy()
+}
+
+// AssignmentReferencedDefinitionHasParameter checks if the referenced definition of an assignment has a specific parameter.
+// It takes a resource ID and a parameter name as input and returns a boolean indicating whether the parameter exists or not.
+func (az *AlzLib) AssignmentReferencedDefinitionHasParameter(res *arm.ResourceID, param string) bool {
+	switch strings.ToLower(res.ResourceType.Type) {
+	case "policydefinitions":
+		pd, err := az.PolicyDefinition(res.Name)
+		if err != nil {
+			return false
+		}
+		if pd.Parameter(param) != nil {
+			return true
+		}
+	case "policysetdefinitions":
+		psd, err := az.PolicySetDefinition(res.Name)
+		if err != nil {
+			return false
+		}
+		if psd.Parameter(param) != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // getBuiltInPolicies retrieves the built-in policy definitions with the given names
 // and adds them to the AlzLib struct.
 func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error {
 	if az.clients.policyClient == nil {
 		return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
 	}
-	grp, ctx := errgroup.WithContext(ctx)
-	grp.SetLimit(az.Options.Parallelism)
 	pdclient := az.clients.policyClient.NewDefinitionsClient()
 	for _, name := range names {
-		name := name
-		grp.Go(func() error {
-			az.mu.Lock()
-			defer az.mu.Unlock()
-			if _, exists := az.policyDefinitions[name]; exists {
-				return nil
-			}
-			resp, err := pdclient.GetBuiltIn(ctx, name, nil)
-			if err != nil {
-				return fmt.Errorf("error getting built-in policy definition %s: %w", name, err)
-			}
-			az.policyDefinitions[name] = assets.NewPolicyDefinition(resp.Definition)
-			return nil
-		})
-	}
-	if err := grp.Wait(); err != nil {
-		return fmt.Errorf("Alzlib.getBuiltInPolicies: error from errorgroup.Group: %w", err)
+		if az.PolicyDefinitionExists(name) {
+			continue
+		}
+		resp, err := pdclient.GetBuiltIn(ctx, name, nil)
+		if err != nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicies: error getting built-in policy definition %s: %w", name, err)
+		}
+		if err := az.AddPolicyDefinitions(assets.NewPolicyDefinition(resp.Definition)); err != nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicies: error adding built-in policy definition %s: %w", name, err)
+		}
 	}
 	return nil
 }
@@ -477,45 +504,32 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	if az.clients.policyClient == nil {
 		return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
 	}
-	grp, ctxErrGroup := errgroup.WithContext(ctx)
-	grp.SetLimit(az.Options.Parallelism)
 
 	// We need to keep track of the names we've processed
 	// so that we can get the policy definitions referenced within them.
 	processedNames := make([]string, 0, len(names))
-	var mu sync.Mutex
 
 	psclient := az.clients.policyClient.NewSetDefinitionsClient()
 	for _, name := range names {
-		name := name
-		grp.Go(func() error {
-			az.mu.Lock()
-			defer az.mu.Unlock()
-			if _, exists := az.policySetDefinitions[name]; exists {
-				return nil
-			}
-			resp, err := psclient.GetBuiltIn(ctxErrGroup, name, nil)
-			if err != nil {
-				return fmt.Errorf("error getting built-in policy set definition %s: %w", name, err)
-			}
-			// Add set definition to the AlzLib.
-			az.policySetDefinitions[name] = assets.NewPolicySetDefinition(resp.SetDefinition)
-			// Add name to processedNames.
-			mu.Lock()
-			defer mu.Unlock()
-			processedNames = append(processedNames, name)
-			return nil
-		})
-	}
-	if err := grp.Wait(); err != nil {
-		return fmt.Errorf("Alzlib.getBuiltInPolicySets: error from errorgroup.Group: %w", err)
+		if az.PolicySetDefinitionExists(name) {
+			continue
+		}
+		resp, err := psclient.GetBuiltIn(ctx, name, nil)
+		if err != nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting built-in policy set definition %s: %w", name, err)
+		}
+		// Add set definition to the AlzLib.
+		if err := az.AddPolicySetDefinitions(assets.NewPolicySetDefinition(resp.SetDefinition)); err != nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error adding built-in policy set definition %s: %w", name, err)
+		}
+		processedNames = append(processedNames, name)
 	}
 
 	// Get the policy definitions for newly added policy set definitions.
 	defnames := make([]string, 0)
 	for _, name := range processedNames {
-		name := name
-		refs, err := az.policySetDefinitions[name].PolicyDefinitionReferences()
+		def, _ := az.PolicySetDefinition(name)
+		refs, err := def.PolicyDefinitionReferences()
 		if err != nil {
 			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition %s: %w", name, err)
 		}
@@ -536,8 +550,8 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	return nil
 }
 
-// addProcessedResult adds the results of a processed library to the AlzLib.
-func (az *AlzLib) addProcessedResult(res *processor.Result) error {
+// addPolicyAndRoleAssets adds the results of a processed library to the AlzLib.
+func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 	for k, v := range res.PolicyDefinitions {
 		if _, exists := az.policyDefinitions[k]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.addProcessedResult: policy definition %s already exists in the library", k)
@@ -561,6 +575,26 @@ func (az *AlzLib) addProcessedResult(res *processor.Result) error {
 			return fmt.Errorf("Alzlib.addProcessedResult: role definition %s already exists in the library", k)
 		}
 		az.roleDefinitions[k] = assets.NewRoleDefinition(*v)
+	}
+	return nil
+}
+
+func (az *AlzLib) addDefaultPolicyAssignmentValues(res *processor.Result) error {
+	for defName, def := range res.LibDefaultPolicyValues {
+		if _, exists := az.defaultPolicyAssignmentValues[defName]; exists {
+			if !az.Options.AllowOverwrite {
+				return fmt.Errorf("Alzlib.addDefaultPolicyValues: default name %s already exists in the defaults", defName)
+			}
+			delete(az.defaultPolicyAssignmentValues, defName)
+		}
+		for _, assignment := range def.PolicyAssignments {
+			for _, param := range assignment.ParameterNames {
+				if az.defaultPolicyAssignmentValues.AssignmentParameterComboExists(assignment.PolicyAssignmentName, param) {
+					return fmt.Errorf("Alzlib.addDefaultPolicyValues: error processing default policy values for default name: `%s`, assignment `%s` and parameter `%s` already exists in defaults", defName, assignment.PolicyAssignmentName, param)
+				}
+			}
+			az.defaultPolicyAssignmentValues.Add(defName, assignment.PolicyAssignmentName, assignment.ParameterNames...)
+		}
 	}
 	return nil
 }
@@ -616,6 +650,8 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 	return nil
 }
 
+// generateOverrideArchetypes generates the override archetypes from the result of the processor.
+// THis must be run after generateArchetypes.
 func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 	for name, ovr := range res.LibArchetypeOverrides {
 		if _, exists := az.archetypes[name]; exists {
@@ -692,6 +728,7 @@ func (az *AlzLib) generateArchitectures(res *processor.Result) error {
 	return nil
 }
 
+// architectureRecursion is a recursive function to build the architecture from the definitions read by the processor.
 func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArchitecture, arch *Architecture, az *AlzLib, depth int) error {
 	if depth > 5 {
 		return errors.New("architectureRecursion: recursion depth exceeded")

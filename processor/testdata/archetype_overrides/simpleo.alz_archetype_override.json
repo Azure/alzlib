@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/feat/defaultpolicyvaluesschema/schemas/archetype_override.json",
   "base_archetype": "root",
   "name": "simpleo",
   "policy_assignments_to_add": [

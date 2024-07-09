@@ -39,3 +39,14 @@ func (psd *PolicySetDefinition) PolicyDefinitionReferences() ([]*armpolicy.Defin
 	}
 	return psd.Properties.PolicyDefinitions, nil
 }
+
+func (psd *PolicySetDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
+	if psd == nil || psd.Properties == nil || psd.Properties.Parameters == nil {
+		return nil
+	}
+	ret, ok := psd.Properties.Parameters[name]
+	if !ok {
+		return nil
+	}
+	return ret
+}

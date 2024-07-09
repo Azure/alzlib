@@ -17,7 +17,6 @@ import (
 )
 
 // HierarchyManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
-// Note: this is not thread safe, and should not be used concurrently without an external mutex.
 type HierarchyManagementGroup struct {
 	children              mapset.Set[*HierarchyManagementGroup]  // The children of the management group.
 	displayName           string                                 // The display name of the management group.
@@ -310,7 +309,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 
 // update will update the AlzManagementGroup resources with the correct resource ids, references, etc.
 // Make sure to pass in any updates to the policy assignment parameter values.
-func (mg *HierarchyManagementGroup) update(papv PolicyAssignmentsParameterValues) error {
+func (mg *HierarchyManagementGroup) update() error {
 	pd2mg := mg.hierarchy.policyDefinitionToMg()
 	psd2mg := mg.hierarchy.policySetDefinitionToMg()
 
@@ -326,7 +325,7 @@ func (mg *HierarchyManagementGroup) update(papv PolicyAssignmentsParameterValues
 	// re-write the assignableScopes for the role definitions.
 	updateRoleDefinitions(mg)
 
-	if err := updatePolicyAsignments(mg, pd2mg, psd2mg, papv); err != nil {
+	if err := updatePolicyAsignments(mg, pd2mg, psd2mg); err != nil {
 		return fmt.Errorf("HierarchyManagementGroup.update: error updating policy assignments: %w", err)
 	}
 	return nil
@@ -356,6 +355,14 @@ func (alzmg *HierarchyManagementGroup) ModifyPolicyAssignment(
 	}
 
 	for k, v := range parameters {
+		// Only add parameter if it exists in the referenced policy definition.
+		ref, err := alzmg.policyAssignments[name].ReferencedPolicyDefinitionResourceId()
+		if err != nil {
+			return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: error getting referenced policy definition resource id for policy assignment %s: %w", name, err)
+		}
+		if !alzmg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, k) {
+			return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: parameter `%s` not found in referenced %s `%s` for policy assignment `%s`", k, ref.ResourceType.Type, ref.Name, name)
+		}
 		alzmg.policyAssignments[name].Properties.Parameters[k] = v
 	}
 
@@ -422,20 +429,7 @@ func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]s
 	return nil
 }
 
-func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[string]string, papv PolicyAssignmentsParameterValues) error {
-	for assignmentName, params := range papv {
-		pa, ok := mg.policyAssignments[assignmentName]
-		if !ok {
-			continue
-		}
-		if pa.Properties.Parameters == nil {
-			pa.Properties.Parameters = make(map[string]*armpolicy.ParameterValuesValue, 1)
-		}
-		for param, value := range params {
-			pa.Properties.Parameters[param] = value
-		}
-	}
-
+func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[string]string) error {
 	// Update resource ids and refs.
 	for assignmentName, assignment := range mg.policyAssignments {
 		assignment.ID = to.Ptr(fmt.Sprintf(PolicyAssignmentIdFmt, mg.id, assignmentName))

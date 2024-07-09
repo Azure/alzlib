@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/feat/defaultpolicyvaluesschema/schemas/architecture_definition.json",
   "management_groups": [
     {
       "archetypes": [
