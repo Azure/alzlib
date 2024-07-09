@@ -133,7 +133,7 @@ func TestAddDefaultPolicyAssignmentValue(t *testing.T) {
 		},
 	})
 	az := alzlib.NewAlzLib(nil)
-	az.AddPolicyAssignments(pa1)
+	az.AddPolicyAssignments(pa1) //nolint:errcheck
 	h := NewHierarchy(az)
 	h.mgs["mg1"] = &HierarchyManagementGroup{
 		policyAssignments: make(map[string]*assets.PolicyAssignment),

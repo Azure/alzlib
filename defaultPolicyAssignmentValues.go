@@ -41,9 +41,9 @@ func (d DefaultPolicyAssignmentValues) Add(defaultName, assignmentName string, p
 }
 
 func (d DefaultPolicyAssignmentValuesValue) copy() DefaultPolicyAssignmentValuesValue {
-	new := make(DefaultPolicyAssignmentValuesValue)
+	newVal := make(DefaultPolicyAssignmentValuesValue)
 	for k, v := range d {
-		new[k] = v.Clone()
+		newVal[k] = v.Clone()
 	}
-	return new
+	return newVal
 }
