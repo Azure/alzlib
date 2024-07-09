@@ -362,6 +362,9 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		}
 
 		// Add default policy values
+		if err := az.addDefaultPolicyAssignmentValues(res); err != nil {
+			return fmt.Errorf("Alzlib.Init: error adding default policy assignment values to AlzLib: %w", err)
+		}
 
 		// Generate archetypes
 		if err := az.generateArchetypes(res); err != nil {
