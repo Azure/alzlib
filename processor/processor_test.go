@@ -963,7 +963,7 @@ func TestProcessorRegex(t *testing.T) {
 		"alz_policy_assignment":       policyAssignmentRegex,
 		"alz_policy_set_definition":   policySetDefinitionRegex,
 		"alz_role_definition":         roleDefinitionRegex,
-		"alz_policy_default_values":   policyDefaultValuesRegex,
+		"alz_policy_default_values":   policyDefaultValueRegex,
 	}
 	tests := []struct {
 		input    string

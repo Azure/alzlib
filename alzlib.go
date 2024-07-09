@@ -134,11 +134,11 @@ func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) e
 			continue
 		}
 		if _, exists := az.policyDefinitions[*psd.Name]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("Alzlib.AddPolicyAssignments: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
+			return fmt.Errorf("Alzlib.AddPolicySetDefinitions: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
 		}
 		cpy, err := deep.Copy(psd)
 		if err != nil {
-			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of policy set definition %s: %w", *psd.Name, err)
+			return fmt.Errorf("Alzlib.AddPolicySetDefinitions: error making deep copy of policy set definition %s: %w", *psd.Name, err)
 		}
 		az.policySetDefinitions[*psd.Name] = cpy
 	}
@@ -385,8 +385,6 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 // It then fetches them from Azure if they don't already exist (determined by last segment tof resource id).
 // For set definitions we need to get all of them, even if they exist in AlzLib already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) error {
-	az.mu.Lock()
-	defer az.mu.Unlock()
 	policyDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	policySetDefsToGet := mapset.NewThreadUnsafeSet[string]()
 	for _, pd := range pds {
@@ -486,14 +484,16 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error 
 	}
 	pdclient := az.clients.policyClient.NewDefinitionsClient()
 	for _, name := range names {
-		if _, exists := az.policyDefinitions[name]; exists {
-			return nil
+		if az.PolicyDefinitionExists(name) {
+			continue
 		}
 		resp, err := pdclient.GetBuiltIn(ctx, name, nil)
 		if err != nil {
-			return fmt.Errorf("error getting built-in policy definition %s: %w", name, err)
+			return fmt.Errorf("Alzlib.getBuiltInPolicies: error getting built-in policy definition %s: %w", name, err)
 		}
-		az.policyDefinitions[name] = assets.NewPolicyDefinition(resp.Definition)
+		if err := az.AddPolicyDefinitions(assets.NewPolicyDefinition(resp.Definition)); err != nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicies: error adding built-in policy definition %s: %w", name, err)
+		}
 	}
 	return nil
 }
@@ -511,23 +511,25 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 
 	psclient := az.clients.policyClient.NewSetDefinitionsClient()
 	for _, name := range names {
-		if _, exists := az.policySetDefinitions[name]; exists {
-			return nil
+		if az.PolicySetDefinitionExists(name) {
+			continue
 		}
 		resp, err := psclient.GetBuiltIn(ctx, name, nil)
 		if err != nil {
-			return fmt.Errorf("error getting built-in policy set definition %s: %w", name, err)
+			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting built-in policy set definition %s: %w", name, err)
 		}
 		// Add set definition to the AlzLib.
-		az.policySetDefinitions[name] = assets.NewPolicySetDefinition(resp.SetDefinition)
+		if err := az.AddPolicySetDefinitions(assets.NewPolicySetDefinition(resp.SetDefinition)); err != nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error adding built-in policy set definition %s: %w", name, err)
+		}
 		processedNames = append(processedNames, name)
 	}
 
 	// Get the policy definitions for newly added policy set definitions.
 	defnames := make([]string, 0)
 	for _, name := range processedNames {
-		name := name
-		refs, err := az.policySetDefinitions[name].PolicyDefinitionReferences()
+		def, _ := az.PolicySetDefinition(name)
+		refs, err := def.PolicyDefinitionReferences()
 		if err != nil {
 			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition %s: %w", name, err)
 		}

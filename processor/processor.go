@@ -17,14 +17,14 @@ import (
 
 // These are the file prefixes for the resource types.
 const (
-	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.(?i:json|yaml|yml)$"
-	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition\\.(?i:json|yaml|yml)$"
-	archetypeOverrideSuffix      = ".+\\.alz_archetype_override\\.(?i:json|yaml|yml)$"
-	policyAssignmentSuffix       = ".+\\.alz_policy_assignment\\.(?i:json|yaml|yml)$"
-	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?i:json|yaml|yml)$"
-	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?i:json|yaml|yml)$"
-	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?i:json|yaml|yml)$"
-	policyDefaultValuesSuffix    = ".+\\.alz_policy_default_values\\.(?i:json|yaml|yml)$"
+	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.(?:json|yaml|yml)$"
+	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition\\.(?:json|yaml|yml)$"
+	archetypeOverrideSuffix      = ".+\\.alz_archetype_override\\.(?:json|yaml|yml)$"
+	policyAssignmentSuffix       = ".+\\.alz_policy_assignment\\.(?:json|yaml|yml)$"
+	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?:json|yaml|yml)$"
+	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?:json|yaml|yml)$"
+	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?:json|yaml|yml)$"
+	policyDefaultValueSuffix     = ".+\\.alz_policy_default_value\\.(?:json|yaml|yml)$"
 )
 
 var supportedFileTypes = []string{".json", ".yaml", ".yml"}
@@ -36,7 +36,7 @@ var policyAssignmentRegex = regexp.MustCompile(policyAssignmentSuffix)
 var policyDefinitionRegex = regexp.MustCompile(policyDefinitionSuffix)
 var policySetDefinitionRegex = regexp.MustCompile(policySetDefinitionSuffix)
 var roleDefinitionRegex = regexp.MustCompile(roleDefinitionSuffix)
-var policyDefaultValuesRegex = regexp.MustCompile(policyDefaultValuesSuffix)
+var policyDefaultValueRegex = regexp.MustCompile(policyDefaultValueSuffix)
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
@@ -129,7 +129,7 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 		err = readAndProcessFile(res, file, processArchetypeOverride)
 
 	// if the file is an policy default values file
-	case policyDefaultValuesRegex.MatchString(n):
+	case policyDefaultValueRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processDefaultPolicyValue)
 	}
 
