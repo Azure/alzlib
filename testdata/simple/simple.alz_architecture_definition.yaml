@@ -1,0 +1,14 @@
+management_groups:
+  - archetypes:
+      - simple
+    display_name: simple
+    exists: false
+    id: simple
+    parent_id: null
+  - archetypes:
+      - simpleoverride
+    display_name: simple overide
+    exists: false
+    id: simpleoverride
+    parent_id: null
+name: simple

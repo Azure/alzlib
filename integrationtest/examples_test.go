@@ -14,11 +14,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
-const (
-	alzLibraryTag    = "2024.07.01"
-	alzLibraryMember = "platform/alz"
-)
-
 // Example_deploymentNewHierarchy tests the ALZ reference architecture creation in full.
 func Example_deploymentNewHierarchy() {
 	az := alzlib.NewAlzLib(nil)

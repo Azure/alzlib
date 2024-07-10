@@ -1,6 +1,0 @@
-{
-  "base_archetype": "root",
-  "name": "simpleo",
-  "policy_assignments_to_add": ["override-policy-assignment"],
-  "policy_assignments_to_remove": ["test-policy-assignment"]
-}

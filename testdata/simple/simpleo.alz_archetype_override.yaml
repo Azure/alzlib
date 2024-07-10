@@ -1,0 +1,7 @@
+---
+base_archetype: simple
+name: simpleoverride
+policy_assignments_to_add:
+  - override-policy-assignment
+policy_assignments_to_remove:
+  - test-policy-assignment
