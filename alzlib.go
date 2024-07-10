@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -173,6 +174,7 @@ func (az *AlzLib) PolicyAssignments() []string {
 	for k := range az.policyAssignments {
 		result = append(result, k)
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -184,6 +186,7 @@ func (az *AlzLib) PolicyDefinitions() []string {
 	for k := range az.policyDefinitions {
 		result = append(result, k)
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -195,6 +198,7 @@ func (az *AlzLib) PolicySetDefinitions() []string {
 	for k := range az.policySetDefinitions {
 		result = append(result, k)
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -206,6 +210,7 @@ func (az *AlzLib) RoleDefinitions() []string {
 	for k := range az.roleDefinitions {
 		result = append(result, k)
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -217,6 +222,7 @@ func (az *AlzLib) Archetypes() []string {
 	for k := range az.archetypes {
 		result = append(result, k)
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -238,6 +244,17 @@ func (az *AlzLib) Architectures() []string {
 	for k := range az.architectures {
 		result = append(result, k)
 	}
+	return result
+}
+
+func (az *AlzLib) PolicyDefaultValues() []string {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	result := make([]string, 0, len(az.defaultPolicyAssignmentValues))
+	for k := range az.defaultPolicyAssignmentValues {
+		result = append(result, k)
+	}
+	slices.Sort(result)
 	return result
 }
 

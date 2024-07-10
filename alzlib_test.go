@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewAlzLibOptions(t *testing.T) {
@@ -453,4 +454,17 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 	az = NewAlzLib(nil)
 	err = az.addDefaultPolicyAssignmentValues(res)
 	assert.ErrorContains(t, err, "assignment `assignment1` and parameter `param1` already exists in defaults")
+}
+
+func TestInitSimple(t *testing.T) {
+	az := NewAlzLib(nil)
+	ctx := context.Background()
+	dirfs := os.DirFS("./testdata/simple")
+	require.NoError(t, az.Init(ctx, dirfs))
+	assert.Equal(t, []string{"empty", "simple", "simpleoverride"}, az.Archetypes())
+	assert.Equal(t, []string{"test-policy-definition"}, az.PolicyDefinitions())
+	assert.Equal(t, []string{"test-policy-set-definition"}, az.PolicySetDefinitions())
+	assert.Equal(t, []string{"test-role-definition"}, az.RoleDefinitions())
+	assert.Equal(t, []string{"override-policy-assignment", "test-policy-assignment"}, az.PolicyAssignments())
+	assert.Equal(t, []string{"test"}, az.PolicyDefaultValues())
 }

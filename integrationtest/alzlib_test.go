@@ -13,6 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	alzLibraryTag    = "2024.07.02"
+	alzLibraryMember = "platform/alz"
+)
+
 func TestNewAlzLibOptionsError(t *testing.T) {
 	az := new(alzlib.AlzLib)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -33,11 +38,12 @@ func TestInitMultiLib(t *testing.T) {
 	dirfs := os.DirFS("../testdata/simple")
 	err = az.Init(ctx, remoteLib, dirfs)
 	require.NoError(t, err)
-	assert.Equal(t, 12, len(az.Archetypes()))
+	assert.Equal(t, 13, len(az.Archetypes()))
 	// Test root archetype has been overridden
 	arch, _ := az.Archetype("root")
-	assert.Equal(t, 1, arch.PolicyDefinitions.Cardinality())
-	arch, _ = az.Archetype("simpleo")
+	assert.Equal(t, 158, arch.PolicyDefinitions.Cardinality())
+	arch, err = az.Archetype("simpleoverride")
+	require.NoError(t, err)
 	assert.Equal(t, 1, arch.PolicyDefinitions.Cardinality())
 	assert.Equal(t, 1, arch.PolicyAssignments.Cardinality())
 }

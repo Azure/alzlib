@@ -91,6 +91,20 @@ func (pd *PolicyDefinition) AssignPermissionsParameterNames() ([]string, error) 
 	return names, nil
 }
 
+func (pd *PolicyDefinition) ParameterIsOptional(name string) (bool, error) {
+	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
+		return false, errors.New("PolicyDefinition.ParameterIsOptional: policy definition is nil, missing properties or parameters")
+	}
+	param, ok := pd.Properties.Parameters[name]
+	if !ok {
+		return false, fmt.Errorf("PolicyDefinition.ParameterIsOptional: parameter %s not found in policy definition", name)
+	}
+	if param.DefaultValue == nil {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (pd *PolicyDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
 	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
 		return nil

@@ -201,10 +201,17 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting assign permissions parameter names for policy definition `%s`: %w", *pd.Name, err)
 			}
 			for _, paramName := range assignPermissionParams {
-
-				paParamVal, err := pa.ParameterValueAsString(paramName)
+				paramIsOptional, err := pd.ParameterIsOptional(paramName)
 				if err != nil {
+					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting parameter %s optional status for policy definition `%s`: %w", paramName, *pd.Name, err)
+				}
+				paParamVal, err := pa.ParameterValueAsString(paramName)
+				if err != nil && !paramIsOptional {
 					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error getting parameter value for parameter `%s` in policy assignment `%s`: %w", paramName, paName, err)
+				}
+				// We should assign permissions but the parameter os optional and doesn't have a value in the assignment, so skip.
+				if err != nil && paramIsOptional {
+					continue
 				}
 				if paParamVal == "" {
 					continue
