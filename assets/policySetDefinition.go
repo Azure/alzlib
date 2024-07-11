@@ -33,11 +33,11 @@ func (psd *PolicySetDefinition) ReferencedPolicyDefinitionNames() ([]string, err
 	return names, nil
 }
 
-func (psd *PolicySetDefinition) PolicyDefinitionReferences() ([]*armpolicy.DefinitionReference, error) {
+func (psd *PolicySetDefinition) PolicyDefinitionReferences() []*armpolicy.DefinitionReference {
 	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
-		return nil, errors.New("policy set definition is nil, missing properties or policy definitions")
+		return nil
 	}
-	return psd.Properties.PolicyDefinitions, nil
+	return psd.Properties.PolicyDefinitions
 }
 
 func (psd *PolicySetDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {

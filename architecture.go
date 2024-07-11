@@ -25,6 +25,11 @@ func NewArchitecture(name string, az *AlzLib) *Architecture {
 	}
 }
 
+// Name returns the name of the architecture.
+func (a *Architecture) Name() string {
+	return a.name
+}
+
 // RootMgs returns the top level management groups of the architecture.
 func (a *Architecture) RootMgs() (res []*ArchitectureManagementGroup) {
 	for _, mg := range a.mgs {

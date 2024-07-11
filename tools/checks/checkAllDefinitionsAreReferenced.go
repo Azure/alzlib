@@ -20,7 +20,7 @@ func checkAllDefinitionsAreReferenced(azany any) error {
 	referencedPsds := mapset.NewThreadUnsafeSet[string]()
 	referencedRds := mapset.NewThreadUnsafeSet[string]()
 	for _, archetypeName := range az.Archetypes() {
-		archetype, _ := az.Archetype(archetypeName) // nolint: errcheck
+		archetype := az.Archetype(archetypeName) // nolint: errcheck
 		referencedPds = referencedPds.Union(archetype.PolicyDefinitions)
 		referencedPsds = referencedPsds.Union(archetype.PolicySetDefinitions)
 		referencedRds = referencedRds.Union(archetype.RoleDefinitions)

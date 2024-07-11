@@ -5,6 +5,7 @@ package processor
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"path/filepath"
 	"regexp"
@@ -25,6 +26,10 @@ const (
 	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?:json|yaml|yml)$"
 	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?:json|yaml|yml)$"
 	policyDefaultValueSuffix     = ".+\\.alz_policy_default_value\\.(?:json|yaml|yml)$"
+)
+
+const (
+	alzLibraryMetadataFile = "alz_library_metadata.json"
 )
 
 var supportedFileTypes = []string{".json", ".yaml", ".yml"}
@@ -48,6 +53,7 @@ type Result struct {
 	LibArchetypeOverrides  map[string]*LibArchetypeOverride
 	LibDefaultPolicyValues map[string]*LibDefaultPolicyValue
 	LibArchitectures       map[string]*LibArchitecture
+	Metadata               *LibMetadata
 }
 
 // processFunc is the function signature that is used to process different types of lib file.
@@ -73,6 +79,32 @@ func (client *ProcessorClient) Process(res *Result) error {
 	res.LibArchetypeOverrides = make(map[string]*LibArchetypeOverride)
 	res.LibDefaultPolicyValues = make(map[string]*LibDefaultPolicyValue)
 	res.LibArchitectures = make(map[string]*LibArchitecture)
+	res.Metadata = nil
+
+	// Open the metadata file and store contents in the result
+	metadataFile, err := client.fs.Open(alzLibraryMetadataFile)
+	if err == nil {
+		defer metadataFile.Close() // nolint: errcheck
+		data, err := io.ReadAll(metadataFile)
+		if err != nil {
+			return fmt.Errorf("ProcessorClient.Process: error reading metadata file: %w", err)
+		}
+		unmar := newUnmarshaler(data, ".json")
+		res.Metadata = new(LibMetadata)
+		err = unmar.unmarshal(res.Metadata)
+		if err != nil {
+			return fmt.Errorf("ProcessorClient.Process: error unmarshaling metadata: %w", err)
+		}
+	}
+	if res.Metadata == nil {
+		res.Metadata = &LibMetadata{
+			Name:         "Unknown name",
+			DisplayName:  "Unknown display name",
+			Description:  "Unknown description",
+			Dependencies: nil,
+			Path:         "Unknown path",
+		}
+	}
 
 	// Walk the embedded lib FS and process files
 	if err := fs.WalkDir(client.fs, ".", func(path string, d fs.DirEntry, err error) error {

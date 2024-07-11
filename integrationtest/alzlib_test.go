@@ -40,10 +40,9 @@ func TestInitMultiLib(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 13, len(az.Archetypes()))
 	// Test root archetype has been overridden
-	arch, _ := az.Archetype("root")
+	arch := az.Archetype("root")
 	assert.Equal(t, 158, arch.PolicyDefinitions.Cardinality())
-	arch, err = az.Archetype("simpleoverride")
-	require.NoError(t, err)
+	arch = az.Archetype("simpleoverride")
 	assert.Equal(t, 1, arch.PolicyDefinitions.Cardinality())
 	assert.Equal(t, 1, arch.PolicyAssignments.Cardinality())
 }

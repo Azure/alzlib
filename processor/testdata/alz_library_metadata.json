@@ -1,0 +1,9 @@
+{
+  "name": "test",
+  "display_name": "test display name.",
+  "description": "test description",
+  "dependencies": [
+    "dependency1",
+    "dependency2"
+  ]
+}
