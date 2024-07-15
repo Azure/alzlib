@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/alzlib/cmd/alzlibtool/command/check"
 	"github.com/Azure/alzlib/cmd/alzlibtool/command/convert"
+	"github.com/Azure/alzlib/cmd/alzlibtool/command/document"
 	"github.com/spf13/cobra"
 )
 
@@ -45,6 +46,7 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(&convert.ConvertBaseCmd)
 	rootCmd.AddCommand(&check.CheckCmd)
+	rootCmd.AddCommand(&document.DocumentBaseCmd)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.

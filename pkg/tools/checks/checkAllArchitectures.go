@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/deployment"
-	"github.com/Azure/alzlib/tools/checker"
-	"github.com/Azure/alzlib/tools/errcheck"
+	"github.com/Azure/alzlib/pkg/deployment"
+	"github.com/Azure/alzlib/pkg/tools/checker"
+	"github.com/Azure/alzlib/pkg/tools/errcheck"
 )
 
 var CheckAllArchitectures = checker.NewValidatorCheck("All architectures are deployable", checkAllArchitectures)

@@ -15,8 +15,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/alzlib/assets"
-	"github.com/Azure/alzlib/processor"
+	"github.com/Azure/alzlib/pkg/assets"
+	"github.com/Azure/alzlib/pkg/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
@@ -383,7 +383,7 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 		if lib == nil {
 			return errors.New("Alzlib.Init: library is nil")
 		}
-		res := new(processor.Result)
+		res := processor.NewResult()
 		pc := processor.NewProcessorClient(lib)
 		if err := pc.Process(res); err != nil {
 			return fmt.Errorf("Alzlib.Init: error processing library %v: %w", lib, err)

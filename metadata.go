@@ -3,7 +3,7 @@ package alzlib
 import (
 	"strings"
 
-	"github.com/Azure/alzlib/processor"
+	"github.com/Azure/alzlib/pkg/processor"
 )
 
 type Metadata struct {

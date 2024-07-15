@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/tools/checker"
+	"github.com/Azure/alzlib/pkg/tools/checker"
 )
 
 const (

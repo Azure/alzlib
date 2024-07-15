@@ -31,6 +31,7 @@ func AlzlibReadmeMd(ctx context.Context, w io.Writer, fs ...fs.FS) error {
 	md = alzlibReadmeMdUsage(md, metad.Dependencies(), path)
 	md = alzlibReadmeMdArchitectures(md, az)
 	md = alzlibReadmeMdArchetypes(md, az)
+	md = md.HorizontalRule()
 	md = alzlibReadmeMdContents(md, az)
 
 	return md.Build()
@@ -55,12 +56,12 @@ func alzlibReadmeMdDependencies(md *markdown.Markdown, deps []*alzlib.MetadataDe
 func alzlibReadmeMdUsage(md *markdown.Markdown, deps []*alzlib.MetadataDependency, path string) *markdown.Markdown {
 	return md.H2("Usage").LF().
 		CodeBlocks(markdown.SyntaxHighlight("terraform"), fmt.Sprintf(`provider "alz" {
-library_references = [%s
-  {
-    path = "%s"
-    tag  = "0000.00.0" # Replace with the desired version
-  }
-]
+  library_references = [%s
+    {
+      path = "%s"
+      tag  = "0000.00.0" # Replace with the desired version
+    }
+  ]
 }`, metadataDependenciesToAlzlibProviderLibRefs(deps), path)).LF()
 }
 
@@ -69,7 +70,8 @@ func alzlibReadmeMdArchitectures(md *markdown.Markdown, az *alzlib.AlzLib) *mark
 	if len(archs) == 0 {
 		return md
 	}
-	md = md.H2("Architectures").LF()
+	md = md.H2("Architectures").LF().
+		PlainText("The following architectures are available in this library:").LF()
 	for _, a := range archs {
 		md = alzlibReadmeMdArchitecture(md, az.Architecture(a))
 	}
@@ -138,6 +140,7 @@ func alzlibReadmeMdContents(md *markdown.Markdown, az *alzlib.AlzLib) *markdown.
 
 func alzlibReadmeMdArchitecture(md *markdown.Markdown, a *alzlib.Architecture) *markdown.Markdown {
 	return md.H3("`"+a.Name()+"`").LF().
+		Note("This hierarchy will be deployed as a child of the user-supplied root management group.").LF().
 		CodeBlocks("mermaid", mermaidFromArchitecture(a)).LF()
 }
 

@@ -4,6 +4,7 @@
 package processor
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -56,6 +57,20 @@ type Result struct {
 	Metadata               *LibMetadata
 }
 
+func NewResult() *Result {
+	return &Result{
+		PolicyDefinitions:      make(map[string]*armpolicy.Definition),
+		PolicySetDefinitions:   make(map[string]*armpolicy.SetDefinition),
+		PolicyAssignments:      make(map[string]*armpolicy.Assignment),
+		RoleDefinitions:        make(map[string]*armauthorization.RoleDefinition),
+		LibArchetypes:          make(map[string]*LibArchetype),
+		LibArchetypeOverrides:  make(map[string]*LibArchetypeOverride),
+		LibDefaultPolicyValues: make(map[string]*LibDefaultPolicyValue),
+		LibArchitectures:       make(map[string]*LibArchitecture),
+		Metadata:               nil,
+	}
+}
+
 // processFunc is the function signature that is used to process different types of lib file.
 type processFunc func(result *Result, data unmarshaler) error
 
@@ -70,41 +85,58 @@ func NewProcessorClient(fs fs.FS) *ProcessorClient {
 	}
 }
 
-func (client *ProcessorClient) Process(res *Result) error {
-	res.LibArchetypes = make(map[string]*LibArchetype)
-	res.PolicyAssignments = make(map[string]*armpolicy.Assignment)
-	res.PolicyDefinitions = make(map[string]*armpolicy.Definition)
-	res.PolicySetDefinitions = make(map[string]*armpolicy.SetDefinition)
-	res.RoleDefinitions = make(map[string]*armauthorization.RoleDefinition)
-	res.LibArchetypeOverrides = make(map[string]*LibArchetypeOverride)
-	res.LibDefaultPolicyValues = make(map[string]*LibDefaultPolicyValue)
-	res.LibArchitectures = make(map[string]*LibArchitecture)
-	res.Metadata = nil
-
-	// Open the metadata file and store contents in the result
+// Metadata returns the metadata of the library.
+func (client *ProcessorClient) Metadata() (*LibMetadata, error) {
 	metadataFile, err := client.fs.Open(alzLibraryMetadataFile)
-	if err == nil {
-		defer metadataFile.Close() // nolint: errcheck
-		data, err := io.ReadAll(metadataFile)
-		if err != nil {
-			return fmt.Errorf("ProcessorClient.Process: error reading metadata file: %w", err)
-		}
-		unmar := newUnmarshaler(data, ".json")
-		res.Metadata = new(LibMetadata)
-		err = unmar.unmarshal(res.Metadata)
-		if err != nil {
-			return fmt.Errorf("ProcessorClient.Process: error unmarshaling metadata: %w", err)
-		}
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		return &LibMetadata{
+			Name:         "No name provided",
+			DisplayName:  "No display name provided",
+			Description:  "No description provided",
+			Path:         "No path provided",
+			Dependencies: make([]string, 0),
+		}, nil
 	}
-	if res.Metadata == nil {
-		res.Metadata = &LibMetadata{
-			Name:         "Unknown name",
-			DisplayName:  "Unknown display name",
-			Description:  "Unknown description",
-			Dependencies: nil,
-			Path:         "Unknown path",
-		}
+	if err != nil {
+		return nil, fmt.Errorf("ProcessorClient.Metadata: error opening metadata file: %w", err)
 	}
+	defer metadataFile.Close() // nolint: errcheck
+	data, err := io.ReadAll(metadataFile)
+	if err != nil {
+		return nil, fmt.Errorf("ProcessorClient.Metadata: error reading metadata file: %w", err)
+	}
+	unmar := newUnmarshaler(data, ".json")
+	metadata := new(LibMetadata)
+	err = unmar.unmarshal(metadata)
+	if err != nil {
+		return nil, fmt.Errorf("ProcessorClient.Metadata: error unmarshaling metadata: %w", err)
+	}
+	if metadata.Description == "" {
+		metadata.Description = "No description provided"
+	}
+	if metadata.DisplayName == "" {
+		metadata.DisplayName = "No display name provided"
+	}
+	if metadata.Path == "" {
+		metadata.Path = "No path provided"
+	}
+	if metadata.Name == "" {
+		metadata.Name = "No name provided"
+	}
+	return metadata, nil
+}
+
+// Process reads the library files and processes them into a Result.
+// Pass in a pointer to a Result struct to store the processed data,
+// create a new *Result with NewResult().
+func (client *ProcessorClient) Process(res *Result) error {
+	// Open the metadata file and store contents in the result
+	metad, err := client.Metadata()
+	if err != nil {
+		return fmt.Errorf("ProcessorClient.Process: error getting metadata: %w", err)
+	}
+	res.Metadata = metad
 
 	// Walk the embedded lib FS and process files
 	if err := fs.WalkDir(client.fs, ".", func(path string, d fs.DirEntry, err error) error {

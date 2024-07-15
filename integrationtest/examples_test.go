@@ -9,7 +9,7 @@ import (
 	"slices"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/deployment"
+	"github.com/Azure/alzlib/pkg/deployment"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )

@@ -6,8 +6,8 @@ package convert
 import (
 	"os"
 
-	"github.com/Azure/alzlib/tools/checker"
-	"github.com/Azure/alzlib/tools/checks"
+	"github.com/Azure/alzlib/pkg/tools/checker"
+	"github.com/Azure/alzlib/pkg/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )

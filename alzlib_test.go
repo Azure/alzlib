@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Azure/alzlib/processor"
-	"github.com/Azure/alzlib/to"
+	"github.com/Azure/alzlib/pkg/processor"
+	"github.com/Azure/alzlib/pkg/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
