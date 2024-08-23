@@ -269,6 +269,16 @@ func (az *AlzLib) PolicyDefaultValues() []string {
 	return result
 }
 
+func (az *AlzLib) PolicyDefaultValue(name string) DefaultPolicyAssignmentValuesValue {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	val, ok := az.defaultPolicyAssignmentValues[name]
+	if !ok {
+		return nil
+	}
+	return val.copy()
+}
+
 // Architecture returns the requested architecture.
 func (az *AlzLib) Architecture(name string) *Architecture {
 	az.mu.RLock()

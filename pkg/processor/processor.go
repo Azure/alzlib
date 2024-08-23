@@ -26,7 +26,7 @@ const (
 	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?:json|yaml|yml)$"
 	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?:json|yaml|yml)$"
 	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?:json|yaml|yml)$"
-	policyDefaultValueSuffix     = ".+\\.alz_policy_default_value\\.(?:json|yaml|yml)$"
+	policyDefaultValueFileName   = "^alz_policy_default_values\\.(?:json|yaml|yml)$"
 )
 
 const (
@@ -42,32 +42,34 @@ var policyAssignmentRegex = regexp.MustCompile(policyAssignmentSuffix)
 var policyDefinitionRegex = regexp.MustCompile(policyDefinitionSuffix)
 var policySetDefinitionRegex = regexp.MustCompile(policySetDefinitionSuffix)
 var roleDefinitionRegex = regexp.MustCompile(roleDefinitionSuffix)
-var policyDefaultValueRegex = regexp.MustCompile(policyDefaultValueSuffix)
+var policyDefaultValueRegex = regexp.MustCompile(policyDefaultValueFileName)
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
-	PolicyDefinitions      map[string]*armpolicy.Definition
-	PolicySetDefinitions   map[string]*armpolicy.SetDefinition
-	PolicyAssignments      map[string]*armpolicy.Assignment
-	RoleDefinitions        map[string]*armauthorization.RoleDefinition
-	LibArchetypes          map[string]*LibArchetype
-	LibArchetypeOverrides  map[string]*LibArchetypeOverride
-	LibDefaultPolicyValues map[string]*LibDefaultPolicyValue
-	LibArchitectures       map[string]*LibArchitecture
-	Metadata               *LibMetadata
+	PolicyDefinitions                   map[string]*armpolicy.Definition
+	PolicySetDefinitions                map[string]*armpolicy.SetDefinition
+	PolicyAssignments                   map[string]*armpolicy.Assignment
+	RoleDefinitions                     map[string]*armauthorization.RoleDefinition
+	LibArchetypes                       map[string]*LibArchetype
+	LibArchetypeOverrides               map[string]*LibArchetypeOverride
+	LibDefaultPolicyValues              map[string]*LibDefaultPolicyValuesDefaults
+	LibArchitectures                    map[string]*LibArchitecture
+	Metadata                            *LibMetadata
+	libDefaultPolicyValuesFileProcessed bool
 }
 
 func NewResult() *Result {
 	return &Result{
-		PolicyDefinitions:      make(map[string]*armpolicy.Definition),
-		PolicySetDefinitions:   make(map[string]*armpolicy.SetDefinition),
-		PolicyAssignments:      make(map[string]*armpolicy.Assignment),
-		RoleDefinitions:        make(map[string]*armauthorization.RoleDefinition),
-		LibArchetypes:          make(map[string]*LibArchetype),
-		LibArchetypeOverrides:  make(map[string]*LibArchetypeOverride),
-		LibDefaultPolicyValues: make(map[string]*LibDefaultPolicyValue),
-		LibArchitectures:       make(map[string]*LibArchitecture),
-		Metadata:               nil,
+		PolicyDefinitions:                   make(map[string]*armpolicy.Definition),
+		PolicySetDefinitions:                make(map[string]*armpolicy.SetDefinition),
+		PolicyAssignments:                   make(map[string]*armpolicy.Assignment),
+		RoleDefinitions:                     make(map[string]*armauthorization.RoleDefinition),
+		LibArchetypes:                       make(map[string]*LibArchetype),
+		LibArchetypeOverrides:               make(map[string]*LibArchetypeOverride),
+		LibDefaultPolicyValues:              make(map[string]*LibDefaultPolicyValuesDefaults),
+		LibArchitectures:                    make(map[string]*LibArchitecture),
+		Metadata:                            nil,
+		libDefaultPolicyValuesFileProcessed: false,
 	}
 }
 
@@ -229,14 +231,19 @@ func processArchitecture(res *Result, unmar unmarshaler) error {
 // processDefaultPolicyValue is a processFunc that reads the default_policy_value
 // bytes, processes, then adds the created LibDefaultPolicyValues to the result.
 func processDefaultPolicyValue(res *Result, unmar unmarshaler) error {
-	lpv := new(LibDefaultPolicyValue)
+	if res.libDefaultPolicyValuesFileProcessed {
+		return fmt.Errorf("processDefaultPolicyValues: multiple default policy values files found, only one is allowed")
+	}
+	lpv := new(LibDefaultPolicyValues)
 	if err := unmar.unmarshal(lpv); err != nil {
 		return fmt.Errorf("processDefaultPolicyValues: error unmarshaling: %w", err)
 	}
-	if _, exists := res.LibDefaultPolicyValues[lpv.Name]; exists {
-		return fmt.Errorf("processDefaultPolicyValues: default policy values with name `%s` already exists", lpv.Name)
+	for _, def := range lpv.Defaults {
+		if _, exists := res.LibDefaultPolicyValues[def.DefaultName]; exists {
+			return fmt.Errorf("processDefaultPolicyValues: default policy values with name `%s` already exists", def.DefaultName)
+		}
+		res.LibDefaultPolicyValues[def.DefaultName] = &def
 	}
-	res.LibDefaultPolicyValues[lpv.Name] = lpv
 	return nil
 }
 

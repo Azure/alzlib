@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package processor
 
 import (
@@ -32,7 +35,7 @@ func (u unmarshaler) unmarshal(dst any) error {
 	case ".yml":
 		return unmarshalYAML(u.d, dst)
 	}
-	return fmt.Errorf("unmarshaler,unmarshal: unsupported extension: %s", u.ext)
+	return fmt.Errorf("unmarshaler.unmarshal: unsupported extension: %s", u.ext)
 }
 
 func unmarshalJSON(data []byte, dst any) error {

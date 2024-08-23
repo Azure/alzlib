@@ -31,6 +31,7 @@ func AlzlibReadmeMd(ctx context.Context, w io.Writer, fs ...fs.FS) error {
 	md = alzlibReadmeMdUsage(md, metad.Dependencies(), path)
 	md = alzlibReadmeMdArchitectures(md, az)
 	md = alzlibReadmeMdArchetypes(md, az)
+	md = alzlibReadmeMdPolicyDefaultValues(md, az)
 	md = md.HorizontalRule()
 	md = alzlibReadmeMdContents(md, az)
 
@@ -178,4 +179,20 @@ func metadataDependenciesToAlzlibProviderLibRefs(deps []*alzlib.MetadataDependen
 		sb.WriteString("    }\n")
 	}
 	return sb.String()
+}
+
+func alzlibReadmeMdPolicyDefaultValues(md *markdown.Markdown, az *alzlib.AlzLib) *markdown.Markdown {
+	pdvs := az.PolicyDefaultValues()
+	if len(pdvs) == 0 {
+		return md
+	}
+	md = md.H2("Policy Default Values").LF().PlainText("The following policy default values are available in this library:").LF()
+	for _, pdv := range pdvs {
+		md = md.H3(pdv).LF()
+		for assignment, params := range az.PolicyDefaultValue(pdv) {
+			md = md.H4(assignment).LF().
+				Details(fmt.Sprintf("%d parameter names", params.Cardinality()), "\n- "+strings.Join(params.ToSlice(), "\n- ")).LF()
+		}
+	}
+	return md
 }

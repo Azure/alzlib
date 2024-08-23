@@ -4,9 +4,11 @@
 package check
 
 import (
+	"io/fs"
 	"os"
 
 	"github.com/Azure/alzlib"
+	"github.com/Azure/alzlib/pkg/processor"
 	"github.com/Azure/alzlib/pkg/tools/checker"
 	"github.com/Azure/alzlib/pkg/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -31,7 +33,23 @@ var libraryCmd = cobra.Command{
 			cmd.PrintErrf("%s could not create Azure policy client factory: %v\n", cmd.ErrPrefix(), err)
 		}
 		az.AddPolicyClient(cf)
-		err = az.Init(cmd.Context(), dirFs)
+		prc := processor.NewProcessorClient(dirFs)
+		libs := make([]fs.FS, 1)
+		libs[0] = dirFs
+		meta, err := prc.Metadata()
+		if err != nil {
+			cmd.PrintErrf("%s could not get library metadata: %v\n", cmd.ErrPrefix(), err)
+		}
+		for _, dep := range meta.Dependencies {
+			d := alzlib.NewMetadataDependencyFromProcessor(dep)
+			if d == nil {
+				continue
+			}
+			// downlaod the dependencies
+			// ...
+			libs = append(libs, os.DirFS(d.Path))
+		}
+		err = az.Init(cmd.Context(), libs...)
 		if err != nil {
 			cmd.PrintErrf("%s library init error: %v\n", cmd.ErrPrefix(), err)
 		}

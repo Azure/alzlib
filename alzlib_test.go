@@ -409,7 +409,7 @@ func TestFetchLibraryByGetterString(t *testing.T) {
 func TestAddDefaultPolicyValues(t *testing.T) {
 	az := NewAlzLib(nil)
 	res := &processor.Result{
-		LibDefaultPolicyValues: map[string]*processor.LibDefaultPolicyValue{
+		LibDefaultPolicyValues: map[string]*processor.LibDefaultPolicyValuesDefaults{
 			"default1": {
 				PolicyAssignments: []processor.LibDefaultPolicyValueAssignments{
 					{
@@ -432,7 +432,7 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 	assert.True(t, az.defaultPolicyAssignmentValues.AssignmentParameterComboExists("assignment1", "param2"))
 
 	res = &processor.Result{
-		LibDefaultPolicyValues: map[string]*processor.LibDefaultPolicyValue{
+		LibDefaultPolicyValues: map[string]*processor.LibDefaultPolicyValuesDefaults{
 			"default1": {
 				PolicyAssignments: []processor.LibDefaultPolicyValueAssignments{
 					{
