@@ -6,6 +6,8 @@ package check
 import (
 	"io/fs"
 	"os"
+	"path/filepath"
+	"strconv"
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/pkg/processor"
@@ -16,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// libraryCmd represents the policydefinition command.
+// libraryCmd represents the library check command.
 var libraryCmd = cobra.Command{
 	Use:   "library [flags] dir",
 	Short: "Perform operations on an alzlib library member.",
@@ -34,21 +36,27 @@ var libraryCmd = cobra.Command{
 		}
 		az.AddPolicyClient(cf)
 		prc := processor.NewProcessorClient(dirFs)
-		libs := make([]fs.FS, 1)
-		libs[0] = dirFs
+		libs := make([]fs.FS, 0, 1)
 		meta, err := prc.Metadata()
 		if err != nil {
 			cmd.PrintErrf("%s could not get library metadata: %v\n", cmd.ErrPrefix(), err)
 		}
-		for _, dep := range meta.Dependencies {
+		if err := os.Mkdir(".alzlib", 0755); err != nil {
+			cmd.PrintErrf("%s could not create .alzlib directory: %v\n", cmd.ErrPrefix(), err)
+		}
+		for i, dep := range meta.Dependencies {
 			d := alzlib.NewMetadataDependencyFromProcessor(dep)
 			if d == nil {
 				continue
 			}
-			// downlaod the dependencies
-			// ...
-			libs = append(libs, os.DirFS(d.Path))
+			fspath := filepath.Join(".alzlib", strconv.Itoa(i))
+			fs, err := alzlib.FetchAzureLandingZonesLibraryMember(cmd.Context(), d.Path(), d.Tag(), fspath)
+			if err != nil {
+				cmd.PrintErrf("%s could not fetch library member: %v\n", cmd.ErrPrefix(), err)
+			}
+			libs = append(libs, fs)
 		}
+		libs = append(libs, dirFs)
 		err = az.Init(cmd.Context(), libs...)
 		if err != nil {
 			cmd.PrintErrf("%s library init error: %v\n", cmd.ErrPrefix(), err)

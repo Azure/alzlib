@@ -93,11 +93,11 @@ func (client *ProcessorClient) Metadata() (*LibMetadata, error) {
 	var pe *fs.PathError
 	if errors.As(err, &pe) {
 		return &LibMetadata{
-			Name:         "No name provided",
-			DisplayName:  "No display name provided",
-			Description:  "No description provided",
-			Path:         "No path provided",
-			Dependencies: make([]string, 0),
+			Name:         "No metadata file found",
+			DisplayName:  "No metadata file found",
+			Description:  "No metadata file found",
+			Path:         "No metadata file found",
+			Dependencies: make([]LibMetadataDependency, 0),
 		}, nil
 	}
 	if err != nil {
@@ -125,6 +125,16 @@ func (client *ProcessorClient) Metadata() (*LibMetadata, error) {
 	}
 	if metadata.Name == "" {
 		metadata.Name = "No name provided"
+	}
+	for _, dep := range metadata.Dependencies {
+		switch {
+		case dep.Path != "" && dep.Ref != "" && dep.CustomUrl == "":
+			continue
+		case dep.Path == "" && dep.Ref == "" && dep.CustomUrl != "":
+			continue
+		default:
+			return nil, fmt.Errorf("ProcessorClient.Metadata: invalid dependency, either path & ref should be set, or custom_url: %v", dep)
+		}
 	}
 	return metadata, nil
 }
@@ -244,6 +254,7 @@ func processDefaultPolicyValue(res *Result, unmar unmarshaler) error {
 		}
 		res.LibDefaultPolicyValues[def.DefaultName] = &def
 	}
+	res.libDefaultPolicyValuesFileProcessed = true
 	return nil
 }
 

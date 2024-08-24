@@ -17,13 +17,31 @@ func TestLibMetadataUnmarshal(t *testing.T) {
     "name": "test",
     "display_name": "Test",
     "description": "This is a test",
-    "dependencies": ["dep1", "dep2"]
+    "dependencies": [
+      {
+        "path": "dep1",
+        "ref": "2024.03.0"
+      },
+      {
+        "path": "dep2",
+        "ref": "2024.03.0"
+      }
+    ]
   }`
 	expected := LibMetadata{
-		Name:         "test",
-		DisplayName:  "Test",
-		Description:  "This is a test",
-		Dependencies: []string{"dep1", "dep2"},
+		Name:        "test",
+		DisplayName: "Test",
+		Description: "This is a test",
+		Dependencies: []LibMetadataDependency{
+			{
+				Path: "dep1",
+				Ref:  "2024.03.0",
+			},
+			{
+				Path: "dep2",
+				Ref:  "2024.03.0",
+			},
+		},
 	}
 
 	// Test unmarshaling valid input

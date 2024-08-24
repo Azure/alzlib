@@ -824,13 +824,13 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 // It calls FetchLibraryByGetterString with the appropriate URL.
 // The destination directory will be appended to the .alzlib directory in the current working directory.
 // To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (e.g. 2024.03.03).
-func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dst string) (fs.FS, error) {
+func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dstDir string) (fs.FS, error) {
 	tag = fmt.Sprintf("%s/%s", member, tag)
 	q := url.Values{}
 	q.Add("ref", tag)
 
 	u := fmt.Sprintf("git::github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
-	return FetchLibraryByGetterString(ctx, u, dst)
+	return FetchLibraryByGetterString(ctx, u, dstDir)
 }
 
 // FetchLibraryByGetterString fetches a library from a URL using the go-getter library.

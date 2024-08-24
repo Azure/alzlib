@@ -43,7 +43,7 @@ func alzlibReadmeMdTitle(md *markdown.Markdown, metad *alzlib.Metadata) *markdow
 		PlainText(metad.Description()).LF()
 }
 
-func alzlibReadmeMdDependencies(md *markdown.Markdown, deps []*alzlib.MetadataDependency) *markdown.Markdown {
+func alzlibReadmeMdDependencies(md *markdown.Markdown, deps []*alzlib.AlzLibraryReference) *markdown.Markdown {
 	if len(deps) == 0 {
 		return md
 	}
@@ -54,7 +54,7 @@ func alzlibReadmeMdDependencies(md *markdown.Markdown, deps []*alzlib.MetadataDe
 	return md.LF()
 }
 
-func alzlibReadmeMdUsage(md *markdown.Markdown, deps []*alzlib.MetadataDependency, path string) *markdown.Markdown {
+func alzlibReadmeMdUsage(md *markdown.Markdown, deps []*alzlib.AlzLibraryReference, path string) *markdown.Markdown {
 	return md.H2("Usage").LF().
 		CodeBlocks(markdown.SyntaxHighlight("terraform"), fmt.Sprintf(`provider "alz" {
   library_references = [%s
@@ -167,7 +167,7 @@ func mermaidFromArchitectureRecursion(sb *strings.Builder, mg *alzlib.Architectu
 	}
 }
 
-func metadataDependenciesToAlzlibProviderLibRefs(deps []*alzlib.MetadataDependency) string {
+func metadataDependenciesToAlzlibProviderLibRefs(deps []*alzlib.AlzLibraryReference) string {
 	sb := strings.Builder{}
 	if len(deps) == 0 {
 		return sb.String()
