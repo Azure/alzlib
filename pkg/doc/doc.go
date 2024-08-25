@@ -43,7 +43,7 @@ func alzlibReadmeMdTitle(md *markdown.Markdown, metad *alzlib.Metadata) *markdow
 		PlainText(metad.Description()).LF()
 }
 
-func alzlibReadmeMdDependencies(md *markdown.Markdown, deps []*alzlib.AlzLibraryReference) *markdown.Markdown {
+func alzlibReadmeMdDependencies(md *markdown.Markdown, deps alzlib.LibraryReferences) *markdown.Markdown {
 	if len(deps) == 0 {
 		return md
 	}
@@ -54,7 +54,7 @@ func alzlibReadmeMdDependencies(md *markdown.Markdown, deps []*alzlib.AlzLibrary
 	return md.LF()
 }
 
-func alzlibReadmeMdUsage(md *markdown.Markdown, deps []*alzlib.AlzLibraryReference, path string) *markdown.Markdown {
+func alzlibReadmeMdUsage(md *markdown.Markdown, deps alzlib.LibraryReferences, path string) *markdown.Markdown {
 	return md.H2("Usage").LF().
 		CodeBlocks(markdown.SyntaxHighlight("terraform"), fmt.Sprintf(`provider "alz" {
   library_references = [%s
@@ -167,16 +167,24 @@ func mermaidFromArchitectureRecursion(sb *strings.Builder, mg *alzlib.Architectu
 	}
 }
 
-func metadataDependenciesToAlzlibProviderLibRefs(deps []*alzlib.AlzLibraryReference) string {
+func metadataDependenciesToAlzlibProviderLibRefs(deps alzlib.LibraryReferences) string {
 	sb := strings.Builder{}
 	if len(deps) == 0 {
 		return sb.String()
 	}
 	for _, dep := range deps {
-		sb.WriteString("\n    {\n")
-		sb.WriteString(fmt.Sprintf("      path = \"%s\"\n", dep.Path()))
-		sb.WriteString(fmt.Sprintf("      tag  = \"%s\"\n", dep.Tag()))
-		sb.WriteString("    }\n")
+		switch d := dep.(type) {
+		case *alzlib.AlzLibraryReference:
+			sb.WriteString("\n    {\n")
+			sb.WriteString(fmt.Sprintf("      path = \"%s\"\n", d.Path()))
+			sb.WriteString(fmt.Sprintf("      ref  = \"%s\"\n", d.Ref()))
+			sb.WriteString("    }\n")
+		case *alzlib.CustomLibraryReference:
+			sb.WriteString("\n    {\n")
+			sb.WriteString(fmt.Sprintf("      custom_url = \"%s\"\n", d.String()))
+			sb.WriteString("    }\n")
+		}
+
 	}
 	return sb.String()
 }

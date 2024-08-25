@@ -4,13 +4,9 @@
 package check
 
 import (
-	"io/fs"
 	"os"
-	"path/filepath"
-	"strconv"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/pkg/processor"
 	"github.com/Azure/alzlib/pkg/tools/checker"
 	"github.com/Azure/alzlib/pkg/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -25,7 +21,6 @@ var libraryCmd = cobra.Command{
 	Long:  `Primarily used a a tool to check the validity of a library member.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		az := alzlib.NewAlzLib(nil)
-		dirFs := os.DirFS(args[0])
 		creds, err := azidentity.NewDefaultAzureCredential(nil)
 		if err != nil {
 			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
@@ -35,29 +30,12 @@ var libraryCmd = cobra.Command{
 			cmd.PrintErrf("%s could not create Azure policy client factory: %v\n", cmd.ErrPrefix(), err)
 		}
 		az.AddPolicyClient(cf)
-		prc := processor.NewProcessorClient(dirFs)
-		libs := make([]fs.FS, 0, 1)
-		meta, err := prc.Metadata()
+		thisRef := alzlib.NewCustomLibraryReference(args[0])
+		libs, err := alzlib.FetchAllLibrariesWithDependencies(cmd.Context(), ".alzlib", 0, thisRef, make(alzlib.LibraryReferences, 0, 5))
 		if err != nil {
-			cmd.PrintErrf("%s could not get library metadata: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
 		}
-		if err := os.Mkdir(".alzlib", 0755); err != nil {
-			cmd.PrintErrf("%s could not create .alzlib directory: %v\n", cmd.ErrPrefix(), err)
-		}
-		for i, dep := range meta.Dependencies {
-			d := alzlib.NewMetadataDependencyFromProcessor(dep)
-			if d == nil {
-				continue
-			}
-			fspath := filepath.Join(".alzlib", strconv.Itoa(i))
-			fs, err := alzlib.FetchAzureLandingZonesLibraryMember(cmd.Context(), d.Path(), d.Tag(), fspath)
-			if err != nil {
-				cmd.PrintErrf("%s could not fetch library member: %v\n", cmd.ErrPrefix(), err)
-			}
-			libs = append(libs, fs)
-		}
-		libs = append(libs, dirFs)
-		err = az.Init(cmd.Context(), libs...)
+		err = az.Init(cmd.Context(), libs.FSs()...)
 		if err != nil {
 			cmd.PrintErrf("%s library init error: %v\n", cmd.ErrPrefix(), err)
 		}
