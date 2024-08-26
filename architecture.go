@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Azure/alzlib/pkg/processor"
+	"github.com/Azure/alzlib/internal/processor"
 	mapset "github.com/deckarep/golang-set/v2"
 )
 

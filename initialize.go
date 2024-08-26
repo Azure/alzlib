@@ -10,14 +10,15 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/Azure/alzlib/pkg/processor"
+	"github.com/Azure/alzlib/internal/processor"
 	"github.com/hashicorp/go-getter/v2"
 )
 
 const (
-	// fetchDefaultBaseDir is the default base directory for fetching libraries.
-	fetchDefaultBaseDir    = ".alzlib"
-	fetchDefaultBaseDirEnv = "ALZLIB_DIR"
+	fetchDefaultBaseDir    = ".alzlib"                                      // fetchDefaultBaseDir is the default base directory for fetching libraries.
+	fetchDefaultBaseDirEnv = "ALZLIB_DIR"                                   // fetchDefaultBaseDirEnv is the environment variable to override the default base directory.
+	alzLibraryGitUrl       = "github.com/Azure/Azure-Landing-Zones-Library" // alzLibraryGitUrl is the URL of the Azure Landing Zones Library.
+	alzLibraryGitUrlEnv    = "ALZLIB_LIBRARY_GIT_URL"                       // alzLibraryGitUrlEnv is the environment variable to override the default git URL.
 )
 
 // FetchAllLibrariesWithDependencies takes a library reference, fetches it, and then fetches all of its dependencies.
@@ -70,7 +71,12 @@ func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dstDi
 	q := url.Values{}
 	q.Add("ref", tag)
 
-	u := fmt.Sprintf("git::github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
+	gitUrl := os.Getenv(alzLibraryGitUrlEnv)
+	if gitUrl == "" {
+		gitUrl = alzLibraryGitUrl
+	}
+
+	u := fmt.Sprintf("git::%s//%s?%s", gitUrl, member, q.Encode())
 	return FetchLibraryByGetterString(ctx, u, dstDir)
 }
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/alzlib/pkg/assets"
-	"github.com/Azure/alzlib/pkg/processor"
+	"github.com/Azure/alzlib/internal/assets"
+	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"

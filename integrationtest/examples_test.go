@@ -9,7 +9,7 @@ import (
 	"slices"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/pkg/deployment"
+	"github.com/Azure/alzlib/deployment"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
@@ -31,12 +31,13 @@ func Example_deploymentNewHierarchy() {
 	}
 	az.AddPolicyClient(cf)
 	//dirFs, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, alzLibraryMember, alzLibraryTag, "alz")
-	dirFs, err := alzlib.FetchLibraryByGetterString(ctx, "testdata/alzlib-2024-07-01", "alz")
+	lib := alzlib.NewCustomLibraryReference("testdata/alzlib-2024-07-01")
+	libs, err := alzlib.FetchAllLibrariesWithDependencies(ctx, 0, lib, make(alzlib.LibraryReferences, 0, 5))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = az.Init(ctx, dirFs)
+	err = az.Init(ctx, libs.FSs()...)
 	if err != nil {
 		fmt.Println(err)
 		return

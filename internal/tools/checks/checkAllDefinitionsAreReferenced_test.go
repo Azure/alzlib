@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/pkg/assets"
-	"github.com/Azure/alzlib/pkg/to"
+	"github.com/Azure/alzlib/internal/assets"
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"

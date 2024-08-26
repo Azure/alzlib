@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/Azure/alzlib/pkg/processor"
+	"github.com/Azure/alzlib/internal/processor"
 )
 
 // Metadata is a struct that represents the metadata of a library member.
@@ -15,14 +15,14 @@ type Metadata struct {
 	displayName  string            // display name of the library member
 	description  string            // description of the library member
 	dependencies LibraryReferences // dependencies of the library member in the form of []LibraryReference
-	path         string            // path of the library member
+	path         string            // path of the library member within the ALZ Library
 }
 
 // LibraryReferences is a slice of LibraryReference.
 // This type has methods for convenience.
 type LibraryReferences []LibraryReference
 
-// FSs returns the filesystems of the library references, to be used with Alzlib.Init()
+// FSs returns the filesystems of the library references, can be used with Alzlib.Init()
 func (lr LibraryReferences) FSs() []fs.FS {
 	fss := make([]fs.FS, len(lr))
 	for i, l := range lr {
@@ -35,8 +35,8 @@ func (lr LibraryReferences) FSs() []fs.FS {
 // It can be fetched form either a custom go-getter URL or from the ALZ Library.
 type LibraryReference interface {
 	fmt.Stringer
-	Fetch(ctx context.Context, desinationDirectory string) (fs.FS, error)
-	FS() fs.FS
+	Fetch(ctx context.Context, desinationDirectory string) (fs.FS, error) // Fetch fetches the library member to the `.alzlib/destinationDirectory`. Override the base dir using `ALZLIB_DIR` env var.
+	FS() fs.FS                                                            // FS returns the filesystem of the library member, can be used in Alzlib.Init()
 }
 
 var _ LibraryReference = (*AlzLibraryReference)(nil)

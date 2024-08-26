@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/pkg/doc"
+	"github.com/Azure/alzlib/internal/doc"
 	"github.com/spf13/cobra"
 )
 

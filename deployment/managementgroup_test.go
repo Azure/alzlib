@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/pkg/assets"
-	"github.com/Azure/alzlib/pkg/to"
+	"github.com/Azure/alzlib/internal/assets"
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
@@ -395,7 +395,8 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	pd2mg := map[string]string{
 		"pd1": "mg1",
 	}
-	_ = updatePolicySetDefinitions(alzmg, pd2mg)
+	err := updatePolicySetDefinitions(alzmg, pd2mg)
+	assert.NoError(t, err)
 	expected := fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
 	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")

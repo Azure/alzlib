@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/Azure/alzlib/pkg/tools/errcheck"
+	"github.com/Azure/alzlib/internal/tools/errcheck"
 )
 
 type Validator struct {

@@ -6,7 +6,7 @@ package checks
 import (
 	"errors"
 
-	"github.com/Azure/alzlib/pkg/tools/checker"
+	"github.com/Azure/alzlib/internal/tools/checker"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 

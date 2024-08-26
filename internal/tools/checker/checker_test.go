@@ -6,9 +6,9 @@ package checker_test
 import (
 	"testing"
 
-	"github.com/Azure/alzlib/pkg/to"
-	"github.com/Azure/alzlib/pkg/tools/checker"
-	"github.com/Azure/alzlib/pkg/tools/checks"
+	"github.com/Azure/alzlib/internal/tools/checker"
+	"github.com/Azure/alzlib/internal/tools/checks"
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 

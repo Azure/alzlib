@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/pkg/tools/checker"
+	"github.com/Azure/alzlib/internal/tools/checker"
 )
 
 const (
