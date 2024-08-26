@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"slices"
 	"strings"
 
@@ -23,12 +22,11 @@ func AlzlibReadmeMd(ctx context.Context, w io.Writer, fs ...fs.FS) error {
 	metadataS := az.Metadata()
 	metad := metadataS[len(metadataS)-1]
 
-	path := os.Getenv("ALZLIB_PATH")
 	md := markdown.NewMarkdown(w)
 
 	md = alzlibReadmeMdTitle(md, metad)
 	md = alzlibReadmeMdDependencies(md, metad.Dependencies())
-	md = alzlibReadmeMdUsage(md, metad.Dependencies(), path)
+	md = alzlibReadmeMdUsage(md, metad.Path())
 	md = alzlibReadmeMdArchitectures(md, az)
 	md = alzlibReadmeMdArchetypes(md, az)
 	md = alzlibReadmeMdPolicyDefaultValues(md, az)
@@ -54,16 +52,16 @@ func alzlibReadmeMdDependencies(md *markdown.Markdown, deps alzlib.LibraryRefere
 	return md.LF()
 }
 
-func alzlibReadmeMdUsage(md *markdown.Markdown, deps alzlib.LibraryReferences, path string) *markdown.Markdown {
+func alzlibReadmeMdUsage(md *markdown.Markdown, path string) *markdown.Markdown {
 	return md.H2("Usage").LF().
 		CodeBlocks(markdown.SyntaxHighlight("terraform"), fmt.Sprintf(`provider "alz" {
-  library_references = [%s
+  library_references = [
     {
       path = "%s"
       tag  = "0000.00.0" # Replace with the desired version
     }
   ]
-}`, metadataDependenciesToAlzlibProviderLibRefs(deps), path)).LF()
+}`, path)).LF()
 }
 
 func alzlibReadmeMdArchitectures(md *markdown.Markdown, az *alzlib.AlzLib) *markdown.Markdown {
@@ -167,27 +165,27 @@ func mermaidFromArchitectureRecursion(sb *strings.Builder, mg *alzlib.Architectu
 	}
 }
 
-func metadataDependenciesToAlzlibProviderLibRefs(deps alzlib.LibraryReferences) string {
-	sb := strings.Builder{}
-	if len(deps) == 0 {
-		return sb.String()
-	}
-	for _, dep := range deps {
-		switch d := dep.(type) {
-		case *alzlib.AlzLibraryReference:
-			sb.WriteString("\n    {\n")
-			sb.WriteString(fmt.Sprintf("      path = \"%s\"\n", d.Path()))
-			sb.WriteString(fmt.Sprintf("      ref  = \"%s\"\n", d.Ref()))
-			sb.WriteString("    }\n")
-		case *alzlib.CustomLibraryReference:
-			sb.WriteString("\n    {\n")
-			sb.WriteString(fmt.Sprintf("      custom_url = \"%s\"\n", d.String()))
-			sb.WriteString("    }\n")
-		}
+// func metadataDependenciesToAlzlibProviderLibRefs(deps alzlib.LibraryReferences) string {
+// 	sb := strings.Builder{}
+// 	if len(deps) == 0 {
+// 		return sb.String()
+// 	}
+// 	for _, dep := range deps {
+// 		switch d := dep.(type) {
+// 		case *alzlib.AlzLibraryReference:
+// 			sb.WriteString("\n    {\n")
+// 			sb.WriteString(fmt.Sprintf("      path = \"%s\"\n", d.Path()))
+// 			sb.WriteString(fmt.Sprintf("      ref  = \"%s\"\n", d.Ref()))
+// 			sb.WriteString("    }\n")
+// 		case *alzlib.CustomLibraryReference:
+// 			sb.WriteString("\n    {\n")
+// 			sb.WriteString(fmt.Sprintf("      custom_url = \"%s\"\n", d.String()))
+// 			sb.WriteString("    }\n")
+// 		}
 
-	}
-	return sb.String()
-}
+// 	}
+// 	return sb.String()
+// }
 
 func alzlibReadmeMdPolicyDefaultValues(md *markdown.Markdown, az *alzlib.AlzLib) *markdown.Markdown {
 	pdvs := az.PolicyDefaultValues()

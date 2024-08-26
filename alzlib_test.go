@@ -396,16 +396,6 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 	}
 }
 
-func TestFetchLibraryByGetterString(t *testing.T) {
-	ctx := context.Background()
-	dstDir := "test-library"
-	defer os.RemoveAll(filepath.Join(".alzlib", dstDir))
-
-	fs, err := FetchLibraryByGetterString(ctx, "./testdata/simple", dstDir)
-	assert.NoError(t, err)
-	assert.NotNil(t, fs)
-}
-
 func TestAddDefaultPolicyValues(t *testing.T) {
 	az := NewAlzLib(nil)
 	res := &processor.Result{

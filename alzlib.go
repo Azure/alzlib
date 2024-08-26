@@ -8,9 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net/url"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -21,7 +18,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/hashicorp/go-getter/v2"
 )
 
 const (
@@ -818,43 +814,4 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 		return architectureRecursion(newParents, libArch, arch, az, depth+1)
 	}
 	return nil
-}
-
-// FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member and tag.
-// It calls FetchLibraryByGetterString with the appropriate URL.
-// The destination directory will be appended to the .alzlib directory in the current working directory.
-// To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (e.g. 2024.03.03).
-func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dstDir string) (fs.FS, error) {
-	tag = fmt.Sprintf("%s/%s", member, tag)
-	q := url.Values{}
-	q.Add("ref", tag)
-
-	u := fmt.Sprintf("git::github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
-	return FetchLibraryByGetterString(ctx, u, dstDir)
-}
-
-// FetchLibraryByGetterString fetches a library from a URL using the go-getter library.
-// The caller must supply a valid go-getter URL and a destination directory, which will be appended to
-// the .alzlib directory in the current working directory.
-// It returns an fs.FS interface to the fetched library to be used in the AlzLib.Init() method.
-func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
-	dst := filepath.Join(".alzlib", dstDir)
-	client := getter.Client{}
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("FetchLibraryByGetterString: error getting working directory: %w", err)
-	}
-	if err := os.RemoveAll(dst); err != nil {
-		return nil, fmt.Errorf("FetchLibraryByGetterString: error cleaning destination directory %s: %w", dst, err)
-	}
-	req := &getter.Request{
-		Src: getterString,
-		Dst: dst,
-		Pwd: wd,
-	}
-	_, err = client.Get(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("FetchLibraryByGetterString: error fetching library. source `%s`, destination `%s`, wd `%s`: %w", getterString, dst, wd, err)
-	}
-	return os.DirFS(dst), nil
 }
