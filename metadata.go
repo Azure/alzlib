@@ -23,7 +23,7 @@ type Metadata struct {
 // This type has methods for convenience.
 type LibraryReferences []LibraryReference
 
-// FSs returns the filesystems of the library references, can be used with Alzlib.Init()
+// FSs returns the filesystems of the library references, can be used with Alzlib.Init().
 func (lr LibraryReferences) FSs() []fs.FS {
 	fss := make([]fs.FS, len(lr))
 	for i, l := range lr {

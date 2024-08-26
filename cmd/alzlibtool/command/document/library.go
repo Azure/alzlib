@@ -19,6 +19,9 @@ var documentLibraryBaseCmd = cobra.Command{
 		if err != nil {
 			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
 		}
-		doc.AlzlibReadmeMd(cmd.Context(), os.Stdout, alllibs...)
+		err = doc.AlzlibReadmeMd(cmd.Context(), os.Stdout, alllibs...)
+		if err != nil {
+			cmd.PrintErrf("%s library documentation error: %v\n", cmd.ErrPrefix(), err)
+		}
 	},
 }

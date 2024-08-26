@@ -35,9 +35,11 @@ const (
 // libs, err := FetchLibraryWithDependencies(ctx, ".alzlib", 0, thisLib, make(LibraryReferences, 0, 5))
 // // ... handle error
 //
-// err = az.Init(ctx, libs.FSs()...)
+// err = az.Init(ctx, libs...)
 // // ... handle error
 // ```
+//
+// The `LibraryReferences` slice can be used to initialize the AlzLib instance.
 func FetchLibraryWithDependencies(ctx context.Context, i int, lib LibraryReference, libs LibraryReferences) (LibraryReferences, error) {
 	f, err := lib.Fetch(ctx, strconv.Itoa(i))
 	if err != nil {

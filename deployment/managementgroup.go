@@ -478,7 +478,7 @@ func updateRoleDefinitions(alzmg *HierarchyManagementGroup) {
 	for _, roledef := range alzmg.roleDefinitions {
 		u := uuidV5(alzmg.id, *roledef.Name)
 		roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, u))
-		if roledef.Properties.AssignableScopes == nil || len(roledef.Properties.AssignableScopes) == 0 {
+		if len(roledef.Properties.AssignableScopes) == 0 {
 			roledef.Properties.AssignableScopes = make([]*string, 1)
 		}
 		roledef.Properties.AssignableScopes[0] = to.Ptr(alzmg.ResourceId())
