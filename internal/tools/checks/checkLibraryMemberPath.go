@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	alzLibPathEnvVar = "ALZLIB_PATH"
+	alzLibPathEnvVar = "LIBRARY_PATH"
 )
 
 var CheckLibraryMemberPath = checker.NewValidatorCheck("Library member path", checkLibraryMemberPath)

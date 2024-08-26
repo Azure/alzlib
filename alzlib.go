@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -374,10 +374,10 @@ func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 	az.clients.policyClient = client
 }
 
-// Init processes ALZ libraries, supplied as `fs.FS` interfaces.
+// Init processes ALZ libraries, supplied as `LibraryReference` interfaces.
 // Use FetchAzureLandingZonesLibraryMember/FetchLibraryByGetterString to get the library from GitHub.
 // It populates the struct with the results of the processing.
-func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
+func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 	if az.Options == nil || az.Options.Parallelism == 0 {
@@ -385,18 +385,23 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	}
 
 	// Process the libraries
-	for _, lib := range libs {
-		if lib == nil {
+	for i, ref := range libs {
+		if ref == nil {
 			return errors.New("Alzlib.Init: library is nil")
 		}
+		if ref.FS() == nil {
+			if _, err := ref.Fetch(ctx, strconv.Itoa(i)); err != nil {
+				return fmt.Errorf("Alzlib.Init: error fetching library %s: %w", ref, err)
+			}
+		}
 		res := processor.NewResult()
-		pc := processor.NewProcessorClient(lib)
+		pc := processor.NewProcessorClient(ref.FS())
 		if err := pc.Process(res); err != nil {
-			return fmt.Errorf("Alzlib.Init: error processing library %v: %w", lib, err)
+			return fmt.Errorf("Alzlib.Init: error processing library %v: %w", ref, err)
 		}
 
 		if res.Metadata != nil {
-			az.metadata = append(az.metadata, NewMetadata(res.Metadata))
+			az.metadata = append(az.metadata, NewMetadata(res.Metadata, ref))
 		}
 
 		// Put results into the AlzLib.

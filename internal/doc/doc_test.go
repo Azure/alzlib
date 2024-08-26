@@ -11,10 +11,11 @@ import (
 
 func TestAlzlibReadmeMd(t *testing.T) {
 	ctx := context.Background()
-	fs, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, "platform/alz", "2024.07.02", "0")
+	lib := alzlib.NewAlzLibraryReference("platform/alz", "2024.07.02")
+	_, err := lib.Fetch(ctx, "0")
 	require.NoError(t, err)
 	var buf bytes.Buffer
-	err = AlzlibReadmeMd(ctx, &buf, fs)
+	err = AlzlibReadmeMd(ctx, &buf, lib)
 	t.Log(buf.String())
 	require.NoError(t, err)
 }

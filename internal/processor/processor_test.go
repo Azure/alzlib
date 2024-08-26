@@ -19,7 +19,7 @@ func TestFullLibrary(t *testing.T) {
 	t.Parallel()
 	fs := os.DirFS("./testdata")
 	pc := NewProcessorClient(fs)
-	res := new(Result)
+	res := NewResult()
 	assert.NoError(t, pc.Process(res))
 	assert.Equal(t, 13, res.LibArchetypes["root"].PolicyAssignments.Cardinality())
 	assert.Equal(t, 114, res.LibArchetypes["root"].PolicyDefinitions.Cardinality())
@@ -31,14 +31,22 @@ func TestFullLibrary(t *testing.T) {
 	assert.Equal(t, "test", res.Metadata.Name)
 	assert.Equal(t, "test display name.", res.Metadata.DisplayName)
 	assert.Equal(t, "test description", res.Metadata.Description)
-	assert.Equal(t, []string{"dependency1", "dependency2"}, res.Metadata.Dependencies)
+	assert.Equal(t, []LibMetadataDependency{
+		{
+			Path: "platform/test",
+			Ref:  "2024.08.0",
+		},
+		{
+			CustomUrl: "../testdir",
+		},
+	}, res.Metadata.Dependencies)
 }
 
 func TestYamlDecode(t *testing.T) {
 	t.Parallel()
 	fs := os.DirFS("./yamllib")
 	pc := NewProcessorClient(fs)
-	res := new(Result)
+	res := NewResult()
 	assert.NoError(t, pc.Process(res))
 	assert.Len(t, res.PolicyAssignments, 1)
 	assert.Len(t, res.LibArchetypes, 1)
@@ -967,7 +975,6 @@ func TestProcessorRegex(t *testing.T) {
 		"alz_policy_assignment":       policyAssignmentRegex,
 		"alz_policy_set_definition":   policySetDefinitionRegex,
 		"alz_role_definition":         roleDefinitionRegex,
-		"alz_policy_default_value":    policyDefaultValueRegex,
 	}
 	tests := []struct {
 		input    string
@@ -990,6 +997,48 @@ func TestProcessorRegex(t *testing.T) {
 		{input: "example.{{ .Type }}.json.txt", expected: false},
 		{input: "example.{{ .Type }}.yaml.txt", expected: false},
 		{input: "example.{{ .Type }}.yml.txt", expected: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			tmpl, _ := template.New("test").Parse(test.input) // nolint:errcheck
+			for ty, rex := range fileTypes2Regex {
+				var buf bytes.Buffer
+				tmpl.Execute(&buf, struct{ Type string }{Type: ty}) // nolint:errcheck
+				t.Run(buf.String(), func(t *testing.T) {
+					match := rex.MatchString(buf.String())
+					assert.Equal(t, test.expected, match)
+				})
+			}
+		})
+	}
+}
+
+func TestProcessorRegexPolicyDefaultValues(t *testing.T) {
+	fileTypes2Regex := map[string]*regexp.Regexp{
+		"alz_policy_default_values": policyDefaultValuesRegex,
+	}
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{input: "{{ .Type }}.json", expected: true},
+		{input: "{{ .Type }}.yaml", expected: true},
+		{input: "{{ .Type }}.yml", expected: true},
+		{input: "{{ .Type }}.JSON", expected: false},
+		{input: "{{ .Type }}.YAML", expected: false},
+		{input: "{{ .Type }}.YML", expected: false},
+		{input: "{{ .Type }}.txt", expected: false},
+		{input: "{{ .Type }}", expected: false},
+		{input: "{{ .Type }}.json.txt", expected: false},
+		{input: "{{ .Type }}.yaml.txt", expected: false},
+		{input: "{{ .Type }}.yml.txt", expected: false},
+		{input: "{{ .Type }}", expected: false},
+		{input: "{{ .Type }}", expected: false},
+		{input: "{{ .Type }}", expected: false},
+		{input: "{{ .Type }}.json.txt", expected: false},
+		{input: "{{ .Type }}.yaml.txt", expected: false},
+		{input: "{{ .Type }}.yml.txt", expected: false},
 	}
 
 	for _, test := range tests {

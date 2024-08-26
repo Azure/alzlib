@@ -3,7 +3,12 @@
   "display_name": "test display name.",
   "description": "test description",
   "dependencies": [
-    "dependency1",
-    "dependency2"
+    {
+      "path": "platform/test",
+      "ref": "2024.08.0"
+    },
+    {
+      "custom_url": "../testdir"
+    }
   ]
 }

@@ -16,6 +16,7 @@ type Metadata struct {
 	description  string            // description of the library member
 	dependencies LibraryReferences // dependencies of the library member in the form of []LibraryReference
 	path         string            // path of the library member within the ALZ Library
+	ref          LibraryReference  // reference used to instantiate the library member
 }
 
 // LibraryReferences is a slice of LibraryReference.
@@ -62,7 +63,7 @@ func (m *AlzLibraryReference) Fetch(ctx context.Context, destinationDirectory st
 	if m.filesystem != nil {
 		return m.filesystem, nil
 	}
-	f, err := FetchAzureLandingZonesLibraryMember(ctx, destinationDirectory, m.path, m.ref)
+	f, err := FetchAzureLandingZonesLibraryMember(ctx, m.path, m.ref, destinationDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("AlzLibraryReference.Fetch: could not fetch library member: %w", err)
 	}
@@ -124,7 +125,7 @@ func (m *CustomLibraryReference) String() string {
 	return m.url
 }
 
-func NewMetadata(in *processor.LibMetadata) *Metadata {
+func NewMetadata(in *processor.LibMetadata, ref LibraryReference) *Metadata {
 	dependencies := make([]LibraryReference, len(in.Dependencies))
 	for i, dep := range in.Dependencies {
 		dependencies[i] = NewMetadataDependencyFromProcessor(dep)
@@ -135,6 +136,7 @@ func NewMetadata(in *processor.LibMetadata) *Metadata {
 		description:  in.Description,
 		dependencies: dependencies,
 		path:         in.Path,
+		ref:          ref,
 	}
 }
 

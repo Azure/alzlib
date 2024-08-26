@@ -42,7 +42,7 @@ var policyAssignmentRegex = regexp.MustCompile(policyAssignmentSuffix)
 var policyDefinitionRegex = regexp.MustCompile(policyDefinitionSuffix)
 var policySetDefinitionRegex = regexp.MustCompile(policySetDefinitionSuffix)
 var roleDefinitionRegex = regexp.MustCompile(roleDefinitionSuffix)
-var policyDefaultValueRegex = regexp.MustCompile(policyDefaultValueFileName)
+var policyDefaultValuesRegex = regexp.MustCompile(policyDefaultValueFileName)
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
@@ -205,7 +205,7 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 		err = readAndProcessFile(res, file, processArchetypeOverride)
 
 	// if the file is an policy default values file
-	case policyDefaultValueRegex.MatchString(n):
+	case policyDefaultValuesRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processDefaultPolicyValue)
 	}
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
 	"slices"
 	"strings"
 
@@ -13,9 +12,9 @@ import (
 	"github.com/nao1215/markdown"
 )
 
-func AlzlibReadmeMd(ctx context.Context, w io.Writer, fs ...fs.FS) error {
+func AlzlibReadmeMd(ctx context.Context, w io.Writer, libs ...alzlib.LibraryReference) error {
 	az := alzlib.NewAlzLib(nil)
-	if err := az.Init(ctx, fs...); err != nil {
+	if err := az.Init(ctx, libs...); err != nil {
 		return fmt.Errorf("doc.AlzlibReadmeMd: failed to initialize alzlib: %w", err)
 	}
 

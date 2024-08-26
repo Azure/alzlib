@@ -21,7 +21,7 @@ const (
 	alzLibraryGitUrlEnv    = "ALZLIB_LIBRARY_GIT_URL"                       // alzLibraryGitUrlEnv is the environment variable to override the default git URL.
 )
 
-// FetchAllLibrariesWithDependencies takes a library reference, fetches it, and then fetches all of its dependencies.
+// FetchLibraryWithDependencies takes a library reference, fetches it, and then fetches all of its dependencies.
 // The destination directory is an integer that will be appended to the `.alzlib` directory in the current working directory.
 // This can be override by setting the `ALZLIB_DIR` environment variable.
 //
@@ -32,51 +32,51 @@ const (
 // // ... ensure that clients are created and initialized
 // // e.g. az.AddPolicyClient(myClientFactory)
 // thisLib := NewCustomLibraryReference("path/to/library")
-// libs, err := FetchAllLibrariesWithDependencies(ctx, ".alzlib", 0, thisLib, make(LibraryReferences, 0, 5))
+// libs, err := FetchLibraryWithDependencies(ctx, ".alzlib", 0, thisLib, make(LibraryReferences, 0, 5))
 // // ... handle error
 //
 // err = az.Init(ctx, libs.FSs()...)
 // // ... handle error
 // ```
-func FetchAllLibrariesWithDependencies(ctx context.Context, i int, lib LibraryReference, libs LibraryReferences) (LibraryReferences, error) {
+func FetchLibraryWithDependencies(ctx context.Context, i int, lib LibraryReference, libs LibraryReferences) (LibraryReferences, error) {
 	f, err := lib.Fetch(ctx, strconv.Itoa(i))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("FetchLibraryWithDependencies: error fetching library %s: %w", lib.String(), err)
 	}
 	pscl := processor.NewProcessorClient(f)
 	libmeta, err := pscl.Metadata()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("FetchLibraryWithDependencies: error getting metadata for library %s: %w", lib.String(), err)
 	}
-	meta := NewMetadata(libmeta)
+	meta := NewMetadata(libmeta, lib)
 	// for each dependency, recurse using this function
 	for _, dep := range meta.Dependencies() {
 		i++
-		libs, err = FetchAllLibrariesWithDependencies(ctx, i, dep, libs)
+		libs, err = FetchLibraryWithDependencies(ctx, i, dep, libs)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("FetchLibraryWithDependencies: error fetching dependencies for library %s: %w", lib.String(), err)
 		}
 	}
 	// add the current library reference to the list
 	return addLibraryReferenceToSlice(libs, lib), nil
 }
 
-// FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member and tag.
+// FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member path and tag (ref).
 // It calls FetchLibraryByGetterString with the appropriate URL.
 // The destination directory will be appended to the `.alzlib` directory in the current working directory.
 // This can be override by setting the `ALZLIB_DIR` environment variable.
 // To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (e.g. 2024.03.03).
-func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dstDir string) (fs.FS, error) {
-	tag = fmt.Sprintf("%s/%s", member, tag)
+func FetchAzureLandingZonesLibraryMember(ctx context.Context, path, ref, dstDir string) (fs.FS, error) {
+	ref = fmt.Sprintf("%s/%s", path, ref)
 	q := url.Values{}
-	q.Add("ref", tag)
+	q.Add("ref", ref)
 
 	gitUrl := os.Getenv(alzLibraryGitUrlEnv)
 	if gitUrl == "" {
 		gitUrl = alzLibraryGitUrl
 	}
 
-	u := fmt.Sprintf("git::%s//%s?%s", gitUrl, member, q.Encode())
+	u := fmt.Sprintf("git::%s//%s?%s", gitUrl, path, q.Encode())
 	return FetchLibraryByGetterString(ctx, u, dstDir)
 }
 

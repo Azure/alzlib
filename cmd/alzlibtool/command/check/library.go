@@ -19,6 +19,7 @@ var libraryCmd = cobra.Command{
 	Use:   "library [flags] dir",
 	Short: "Perform operations on an alzlib library member.",
 	Long:  `Primarily used a a tool to check the validity of a library member.`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		az := alzlib.NewAlzLib(nil)
 		creds, err := azidentity.NewDefaultAzureCredential(nil)
@@ -31,11 +32,11 @@ var libraryCmd = cobra.Command{
 		}
 		az.AddPolicyClient(cf)
 		thisRef := alzlib.NewCustomLibraryReference(args[0])
-		libs, err := alzlib.FetchAllLibrariesWithDependencies(cmd.Context(), 0, thisRef, make(alzlib.LibraryReferences, 0, 5))
+		libs, err := alzlib.FetchLibraryWithDependencies(cmd.Context(), 0, thisRef, make(alzlib.LibraryReferences, 0, 5))
 		if err != nil {
 			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
 		}
-		err = az.Init(cmd.Context(), libs.FSs()...)
+		err = az.Init(cmd.Context(), libs...)
 		if err != nil {
 			cmd.PrintErrf("%s library init error: %v\n", cmd.ErrPrefix(), err)
 		}

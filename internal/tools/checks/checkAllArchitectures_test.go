@@ -17,7 +17,8 @@ import (
 func TestCheckAllArchitectures(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	ctx := context.Background()
-	fs, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, "platform/alz", "2024.03.03", "0")
+	lib := alzlib.NewAlzLibraryReference("platform/alz", "2024.03.03")
+	_, err := lib.Fetch(ctx, "0")
 	require.NoError(t, err)
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	require.NoError(t, err)
@@ -25,6 +26,6 @@ func TestCheckAllArchitectures(t *testing.T) {
 	require.NoError(t, err)
 	az.AddPolicyClient(cf)
 	require.NoError(t, err)
-	require.NoError(t, az.Init(ctx, fs))
+	require.NoError(t, az.Init(ctx, lib))
 	assert.NoError(t, checkAllArchitectures(az))
 }

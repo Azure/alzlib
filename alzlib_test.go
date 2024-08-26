@@ -29,16 +29,16 @@ func TestNewAlzLibOptions(t *testing.T) {
 func TestNewAlzLibWithNoDir(t *testing.T) {
 	az := NewAlzLib(nil)
 	path := filepath.Join("testdata", "doesnotexist")
-	dir := os.DirFS(path)
-	err := az.Init(context.Background(), dir)
+	lib := NewCustomLibraryReference(path)
+	err := az.Init(context.Background(), lib)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
 // Test_NewAlzLibDuplicateArchetypeDefinition tests the creation of a new AlzLib from a invalid source directory.
 func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
 	az := NewAlzLib(nil)
-	dir := os.DirFS("./testdata/badlib-duplicatearchetypedef")
-	err := az.Init(context.Background(), dir)
+	lib := NewCustomLibraryReference("./testdata/badlib-duplicatearchetypedef")
+	err := az.Init(context.Background(), lib)
 	assert.ErrorContains(t, err, "archetype with name `duplicate` already exists")
 }
 
@@ -449,8 +449,8 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 func TestInitSimple(t *testing.T) {
 	az := NewAlzLib(nil)
 	ctx := context.Background()
-	dirfs := os.DirFS("./testdata/simple")
-	require.NoError(t, az.Init(ctx, dirfs))
+	lib := NewCustomLibraryReference("./testdata/simple")
+	require.NoError(t, az.Init(ctx, lib))
 	assert.Equal(t, []string{"empty", "simple", "simpleoverride"}, az.Archetypes())
 	assert.Equal(t, []string{"test-policy-definition"}, az.PolicyDefinitions())
 	assert.Equal(t, []string{"test-policy-set-definition"}, az.PolicySetDefinitions())
