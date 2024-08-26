@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/internal/assets"
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -420,7 +420,7 @@ func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]s
 	for psdName, psd := range mg.policySetDefinitions {
 		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.id, psdName))
 		refs := psd.PolicyDefinitionReferences()
-		if refs != nil {
+		if refs == nil {
 			return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition references for policy set definition %s", psdName)
 		}
 		for _, pdr := range refs {

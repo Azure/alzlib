@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/alzlib/internal/assets"
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"

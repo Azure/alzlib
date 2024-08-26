@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/alzlib/internal/assets"
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -283,7 +283,7 @@ func (az *AlzLib) Architecture(name string) *Architecture {
 	if !ok {
 		return nil
 	}
-	return deep.MustCopy(arch)
+	return arch
 }
 
 // PolicyDefinitionExists returns true if the policy definition name exists in the AlzLib struct.
