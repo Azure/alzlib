@@ -30,9 +30,9 @@ changelog:
       order: 999
   filters:
     include:
-      - "^feat:"
-      - "^fix:"
-      - "^docs:"
+      - "^feat"
+      - "^fix"
+      - "^docs"
 release:
   disable: false
 milestones:

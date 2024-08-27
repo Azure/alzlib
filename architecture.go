@@ -1,10 +1,13 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package alzlib
 
 import (
 	"fmt"
 	"slices"
 
-	"github.com/Azure/alzlib/processor"
+	"github.com/Azure/alzlib/internal/processor"
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
@@ -23,6 +26,11 @@ func NewArchitecture(name string, az *AlzLib) *Architecture {
 		mgs:    make(map[string]*ArchitectureManagementGroup),
 		alzlib: az,
 	}
+}
+
+// Name returns the name of the architecture.
+func (a *Architecture) Name() string {
+	return a.name
 }
 
 // RootMgs returns the top level management groups of the architecture.

@@ -16,6 +16,15 @@ go get -u github.com/Azure/alzlib
 
 See the examples in the `integrationtest/examples_test.go` file for usage examples.
 
+We recommend adding `.alzlib` to your `.gitignore` file to avoid committing the library to your repository.
+
+## Configuration
+
+The module uses the following environment variables:
+
+- `ALZLIB_DIR`: The local temporary directory where the libraries will be cloned. Default is `.alzlib`
+- `ALZLIB_LIBRARY_GIT_URL`: The URL of the Azure Landing Zones Library repository. Default is `github.com/Azure/Azure-Landing-Zones-Library`
+
 ## Contributing
 
 This project welcomes contributions and suggestions. Most contributions require you to agree to a

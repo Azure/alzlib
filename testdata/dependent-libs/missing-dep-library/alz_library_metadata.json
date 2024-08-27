@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/library_metadata.json",
+  "name": "missingdep",
+  "display_name": "missing dependency",
+  "description": "missing dependency description",
+  "dependencies": [
+    {
+      "path": "thisdoesnotexist",
+      "ref": "main"
+    }
+  ]
+}

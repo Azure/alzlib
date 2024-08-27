@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/default_policy_values.json",
+  "defaults": [
+    {
+      "default_name": "val",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "param1"
+          ],
+          "policy_assignment_name": "assignment1"
+        }
+      ]
+    }
+  ]
+}

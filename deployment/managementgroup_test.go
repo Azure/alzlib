@@ -395,7 +395,8 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	pd2mg := map[string]string{
 		"pd1": "mg1",
 	}
-	_ = updatePolicySetDefinitions(alzmg, pd2mg)
+	err := updatePolicySetDefinitions(alzmg, pd2mg)
+	require.NoError(t, err)
 	expected := fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
 	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")

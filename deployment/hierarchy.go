@@ -83,9 +83,9 @@ func (h *Hierarchy) ManagementGroupsAtLevel(level int) map[string]*HierarchyMana
 
 // FromArchitecture creates a hierarchy from the given architecture.
 func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId, location string) error {
-	architecture, err := h.alzlib.Architecture(arch)
-	if err != nil {
-		return fmt.Errorf("Hierarchy.FromArchitecture: error getting architecture `%s`: %w", arch, err)
+	architecture := h.alzlib.Architecture(arch)
+	if architecture == nil {
+		return fmt.Errorf("Hierarchy.FromArchitecture: error getting architecture `%s`", arch)
 	}
 	// Get the architecture root management groups.
 	for _, a := range architecture.RootMgs() {
@@ -201,8 +201,8 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		allPolicyAssignments = allPolicyAssignments.Union(archetype.PolicyAssignments)
 	}
 	for pa := range allPolicyAssignments.Iter() {
-		polAssign, err := h.alzlib.PolicyAssignment(pa)
-		if err != nil {
+		polAssign := h.alzlib.PolicyAssignment(pa)
+		if polAssign == nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy assignment `%s` referenced in management group `%s` does not exist in the library", pa, req.id)
 		}
 		referencedResourceId, err := polAssign.ReferencedPolicyDefinitionResourceId()
@@ -225,8 +225,8 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		allPolicyDefinitions = allPolicyDefinitions.Union(archetype.PolicyDefinitions)
 	}
 	for name := range allPolicyDefinitions.Iter() {
-		newDef, err := h.alzlib.PolicyDefinition(name)
-		if err != nil {
+		newDef := h.alzlib.PolicyDefinition(name)
+		if newDef == nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup: policy definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policyDefinitions[name] = newDef
@@ -237,27 +237,27 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		allPolicySetDefinitions = allPolicySetDefinitions.Union(archetype.PolicySetDefinitions)
 	}
 	for name := range allPolicySetDefinitions.Iter() {
-		newSetDef, err := h.alzlib.PolicySetDefinition(name)
-		if err != nil {
+		newSetDef := h.alzlib.PolicySetDefinition(name)
+		if newSetDef == nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy set definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.policySetDefinitions[name] = newSetDef
 	}
 	// Now that the policy definitions and policy set definitions have been copied, we can add the policy assignments
 	for name := range allPolicyAssignments.Iter() {
-		newpolassign, err := h.alzlib.PolicyAssignment(name)
-		if err != nil {
+		newpolassign := h.alzlib.PolicyAssignment(name)
+		if newpolassign == nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy assignment `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		// Check if the referenced policy is a set and if its parameters match the parameters in the policy definitions
 		refPdId, _ := newpolassign.ReferencedPolicyDefinitionResourceId()
 		if refPdId.ResourceType.Type == "policySetDefinitions" {
-			psd, _ := h.alzlib.PolicySetDefinition(refPdId.Name)
-			rfs, _ := psd.PolicyDefinitionReferences()
+			psd := h.alzlib.PolicySetDefinition(refPdId.Name)
+			rfs := psd.PolicyDefinitionReferences()
 			for _, rf := range rfs {
 				resId, _ := arm.ParseResourceID(*rf.PolicyDefinitionID)
-				pd, err := h.alzlib.PolicyDefinition(resId.Name)
-				if err != nil {
+				pd := h.alzlib.PolicyDefinition(resId.Name)
+				if pd == nil {
 					return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): policy definition `%s` in policy set definition `%s` in management group `%s` does not exist in the library", resId.Name, refPdId.Name, req.id)
 				}
 				for param := range rf.Parameters {
@@ -276,8 +276,8 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 		allRoleDefinitions = allRoleDefinitions.Union(archetype.RoleDefinitions)
 	}
 	for name := range allRoleDefinitions.Iter() {
-		newroledef, err := h.alzlib.RoleDefinition(name)
-		if err != nil {
+		newroledef := h.alzlib.RoleDefinition(name)
+		if newroledef == nil {
 			return nil, fmt.Errorf("Hierarchy.AddManagementGroup(): role definition `%s` in management group `%s` does not exist in the library", name, req.id)
 		}
 		mg.roleDefinitions[name] = newroledef

@@ -7,21 +7,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
-	"net/url"
-	"os"
-	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/Azure/alzlib/assets"
-	"github.com/Azure/alzlib/processor"
+	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/hashicorp/go-getter/v2"
 )
 
 const (
@@ -41,6 +37,7 @@ type AlzLib struct {
 	policySetDefinitions          map[string]*assets.PolicySetDefinition
 	roleDefinitions               map[string]*assets.RoleDefinition
 	defaultPolicyAssignmentValues DefaultPolicyAssignmentValues
+	metadata                      []*Metadata
 
 	clients *azureClients
 	mu      sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
@@ -71,6 +68,7 @@ func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 		policyDefinitions:             make(map[string]*assets.PolicyDefinition),
 		policySetDefinitions:          make(map[string]*assets.PolicySetDefinition),
 		roleDefinitions:               make(map[string]*assets.RoleDefinition),
+		metadata:                      make([]*Metadata, 0, 10),
 		defaultPolicyAssignmentValues: make(DefaultPolicyAssignmentValues),
 		clients:                       new(azureClients),
 		mu:                            sync.RWMutex{},
@@ -83,6 +81,13 @@ func defaultAlzLibOptions() *AlzLibOptions {
 		Parallelism:    defaultParallelism,
 		AllowOverwrite: defaultOverwrite,
 	}
+}
+
+// Metadata returns all the registered metadata in the AlzLib struct.
+func (az *AlzLib) Metadata() []*Metadata {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	return deep.MustCopy(az.metadata)
 }
 
 // AddPolicyAssignments adds policy assignments to the AlzLib struct.
@@ -227,13 +232,14 @@ func (az *AlzLib) Archetypes() []string {
 }
 
 // Archetype returns a copy of the requested archetype by name.
-func (az *AlzLib) Archetype(name string) (*Archetype, error) {
+func (az *AlzLib) Archetype(name string) *Archetype {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
-	if arch, ok := az.archetypes[name]; ok {
-		return arch.copy(), nil
+	arch, ok := az.archetypes[name]
+	if !ok {
+		return nil
 	}
-	return nil, fmt.Errorf("Alzlib.CopyArchetype: archetype %s not found", name)
+	return arch.copy()
 }
 
 // Architectures returns a list of the architecture names in the AlzLib struct.
@@ -244,6 +250,7 @@ func (az *AlzLib) Architectures() []string {
 	for k := range az.architectures {
 		result = append(result, k)
 	}
+	slices.Sort(result)
 	return result
 }
 
@@ -258,14 +265,25 @@ func (az *AlzLib) PolicyDefaultValues() []string {
 	return result
 }
 
-// Architecture returns the requested architecture.
-func (az *AlzLib) Architecture(name string) (*Architecture, error) {
+func (az *AlzLib) PolicyDefaultValue(name string) DefaultPolicyAssignmentValuesValue {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
-	if arch, ok := az.architectures[name]; ok {
-		return arch, nil
+	val, ok := az.defaultPolicyAssignmentValues[name]
+	if !ok {
+		return nil
 	}
-	return nil, fmt.Errorf("Alzlib.Architecture: architecture %s not found", name)
+	return val.copy()
+}
+
+// Architecture returns the requested architecture.
+func (az *AlzLib) Architecture(name string) *Architecture {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+	arch, ok := az.architectures[name]
+	if !ok {
+		return nil
+	}
+	return arch
 }
 
 // PolicyDefinitionExists returns true if the policy definition name exists in the AlzLib struct.
@@ -302,46 +320,50 @@ func (az *AlzLib) RoleDefinitionExists(name string) bool {
 
 // PolicyDefinition returns a deep copy of the requested policy definition.
 // This is safe to modify without affecting the original.
-func (az *AlzLib) PolicyDefinition(name string) (*assets.PolicyDefinition, error) {
+func (az *AlzLib) PolicyDefinition(name string) *assets.PolicyDefinition {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
-	if pd, exists := az.policyDefinitions[name]; exists {
-		return deep.Copy(pd)
+	pd, ok := az.policyDefinitions[name]
+	if !ok {
+		return nil
 	}
-	return nil, fmt.Errorf("Alzlib.GetPolicyDefinition: policy definition %s not found", name)
+	return deep.MustCopy(pd)
 }
 
 // GetPolicySetDefinition returns a deep copy of the requested policy set definition.
 // This is safe to modify without affecting the original.
-func (az *AlzLib) PolicyAssignment(name string) (*assets.PolicyAssignment, error) {
+func (az *AlzLib) PolicyAssignment(name string) *assets.PolicyAssignment {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
-	if pa, exists := az.policyAssignments[name]; exists {
-		return deep.Copy(pa)
+	pa, ok := az.policyAssignments[name]
+	if !ok {
+		return nil
 	}
-	return nil, fmt.Errorf("Alzlib.GetPolicyAssignment: policy assignment %s not found", name)
+	return deep.MustCopy(pa)
 }
 
 // PolicySetDefinition returns a deep copy of the requested policy set definition.
 // This is safe to modify without affecting the original.
-func (az *AlzLib) PolicySetDefinition(name string) (*assets.PolicySetDefinition, error) {
+func (az *AlzLib) PolicySetDefinition(name string) *assets.PolicySetDefinition {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
-	if psd, exists := az.policySetDefinitions[name]; exists {
-		return deep.Copy(psd)
+	psd, ok := az.policySetDefinitions[name]
+	if !ok {
+		return nil
 	}
-	return nil, fmt.Errorf("Alzlib.GetPolicySetDefinition: policy set definition %s not found", name)
+	return deep.MustCopy(psd)
 }
 
 // RoleDefinition returns a deep copy of the requested role definition.
 // This is safe to modify without affecting the original.
-func (az *AlzLib) RoleDefinition(name string) (*assets.RoleDefinition, error) {
+func (az *AlzLib) RoleDefinition(name string) *assets.RoleDefinition {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
-	if rd, exists := az.roleDefinitions[name]; exists {
-		return deep.Copy(rd)
+	rd, ok := az.roleDefinitions[name]
+	if !ok {
+		return nil
 	}
-	return nil, fmt.Errorf("Alzlib.GetRoleDefinition: role definition %s not found", name)
+	return deep.MustCopy(rd)
 }
 
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.
@@ -352,10 +374,10 @@ func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 	az.clients.policyClient = client
 }
 
-// Init processes ALZ libraries, supplied as `fs.FS` interfaces.
+// Init processes ALZ libraries, supplied as `LibraryReference` interfaces.
 // Use FetchAzureLandingZonesLibraryMember/FetchLibraryByGetterString to get the library from GitHub.
 // It populates the struct with the results of the processing.
-func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
+func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 	if az.Options == nil || az.Options.Parallelism == 0 {
@@ -363,14 +385,23 @@ func (az *AlzLib) Init(ctx context.Context, libs ...fs.FS) error {
 	}
 
 	// Process the libraries
-	for _, lib := range libs {
-		if lib == nil {
+	for i, ref := range libs {
+		if ref == nil {
 			return errors.New("Alzlib.Init: library is nil")
 		}
-		res := new(processor.Result)
-		pc := processor.NewProcessorClient(lib)
+		if ref.FS() == nil {
+			if _, err := ref.Fetch(ctx, strconv.Itoa(i)); err != nil {
+				return fmt.Errorf("Alzlib.Init: error fetching library %s: %w", ref, err)
+			}
+		}
+		res := processor.NewResult()
+		pc := processor.NewProcessorClient(ref.FS())
 		if err := pc.Process(res); err != nil {
-			return fmt.Errorf("Alzlib.Init: error processing library %v: %w", lib, err)
+			return fmt.Errorf("Alzlib.Init: error processing library %v: %w", ref, err)
+		}
+
+		if res.Metadata != nil {
+			az.metadata = append(az.metadata, NewMetadata(res.Metadata, ref))
 		}
 
 		// Put results into the AlzLib.
@@ -422,12 +453,12 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 			// add it to the list of set defs to get.
 			exists := az.PolicySetDefinitionExists(resId.Name)
 			if exists {
-				psd, err := az.PolicySetDefinition(resId.Name)
-				if err != nil {
+				psd := az.PolicySetDefinition(resId.Name)
+				if psd == nil {
 					return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting policy set definition %s: %w", pd, err)
 				}
-				pdrefs, err := psd.PolicyDefinitionReferences()
-				if err != nil {
+				pdrefs := psd.PolicyDefinitionReferences()
+				if pdrefs == nil {
 					return fmt.Errorf("Alzlib.GetDefinitionsFromAzure: error getting policy definition references for policy set definition %s: %w", pd, err)
 				}
 				for _, ref := range pdrefs {
@@ -477,16 +508,16 @@ func (az *AlzLib) DefaultPolicyAssignmentValues(defaultName string) DefaultPolic
 func (az *AlzLib) AssignmentReferencedDefinitionHasParameter(res *arm.ResourceID, param string) bool {
 	switch strings.ToLower(res.ResourceType.Type) {
 	case "policydefinitions":
-		pd, err := az.PolicyDefinition(res.Name)
-		if err != nil {
+		pd := az.PolicyDefinition(res.Name)
+		if pd == nil {
 			return false
 		}
 		if pd.Parameter(param) != nil {
 			return true
 		}
 	case "policysetdefinitions":
-		psd, err := az.PolicySetDefinition(res.Name)
-		if err != nil {
+		psd := az.PolicySetDefinition(res.Name)
+		if psd == nil {
 			return false
 		}
 		if psd.Parameter(param) != nil {
@@ -548,18 +579,18 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 	// Get the policy definitions for newly added policy set definitions.
 	defnames := make([]string, 0)
 	for _, name := range processedNames {
-		def, _ := az.PolicySetDefinition(name)
-		refs, err := def.PolicyDefinitionReferences()
-		if err != nil {
-			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition %s: %w", name, err)
+		def := az.PolicySetDefinition(name)
+		refs := def.PolicyDefinitionReferences()
+		if refs == nil {
+			return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition `%s`. Either the policy set definition does not exist or cannot get policy definition references", name)
 		}
 		for _, ref := range refs {
 			resId, err := arm.ParseResourceID(*ref.PolicyDefinitionID)
 			if err != nil {
 				if ref.PolicyDefinitionID == nil {
-					return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition %s: policy definition ID is nil", name)
+					return fmt.Errorf("Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition `%s`: policy definition ID is nil", name)
 				}
-				return fmt.Errorf("Alzlib.getBuiltInPolicySets: error parsing resource id %s referenced in policy set %s", *ref.PolicyDefinitionID, name)
+				return fmt.Errorf("Alzlib.getBuiltInPolicySets: error parsing resource id `%s` referenced in policy set `%s`", *ref.PolicyDefinitionID, name)
 			}
 			defnames = append(defnames, resId.Name)
 		}
@@ -788,43 +819,4 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 		return architectureRecursion(newParents, libArch, arch, az, depth+1)
 	}
 	return nil
-}
-
-// FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member and tag.
-// It calls FetchLibraryByGetterString with the appropriate URL.
-// The destination directory will be appended to the .alzlib directory in the current working directory.
-// To fetch the ALZ reference, supply "platform/alz" as the member, with the tag (e.g. 2024.03.03).
-func FetchAzureLandingZonesLibraryMember(ctx context.Context, member, tag, dst string) (fs.FS, error) {
-	tag = fmt.Sprintf("%s/%s", member, tag)
-	q := url.Values{}
-	q.Add("ref", tag)
-
-	u := fmt.Sprintf("git::github.com/Azure/Azure-Landing-Zones-Library//%s?%s", member, q.Encode())
-	return FetchLibraryByGetterString(ctx, u, dst)
-}
-
-// FetchLibraryByGetterString fetches a library from a URL using the go-getter library.
-// The caller must supply a valid go-getter URL and a destination directory, which will be appended to
-// the .alzlib directory in the current working directory.
-// It returns an fs.FS interface to the fetched library to be used in the AlzLib.Init() method.
-func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
-	dst := filepath.Join(".alzlib", dstDir)
-	client := getter.Client{}
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("FetchLibraryByGetterString: error getting working directory: %w", err)
-	}
-	if err := os.RemoveAll(dst); err != nil {
-		return nil, fmt.Errorf("FetchLibraryByGetterString: error cleaning destination directory %s: %w", dst, err)
-	}
-	req := &getter.Request{
-		Src: getterString,
-		Dst: dst,
-		Pwd: wd,
-	}
-	_, err = client.Get(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("FetchLibraryByGetterString: error fetching library. source `%s`, destination `%s`, wd `%s`: %w", getterString, dst, wd, err)
-	}
-	return os.DirFS(dst), nil
 }

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/library_metadata.json",
+  "name": "test",
+  "display_name": "test display name.",
+  "description": "test description",
+  "dependencies": [
+    {
+      "path": "platform/test",
+      "ref": "2024.08.0"
+    },
+    {
+      "custom_url": "../testdir"
+    }
+  ]
+}

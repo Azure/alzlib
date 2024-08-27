@@ -31,12 +31,13 @@ func Example_deploymentNewHierarchy() {
 	}
 	az.AddPolicyClient(cf)
 	//dirFs, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, alzLibraryMember, alzLibraryTag, "alz")
-	dirFs, err := alzlib.FetchLibraryByGetterString(ctx, "testdata/alzlib-2024-07-01", "alz")
+	lib := alzlib.NewCustomLibraryReference("testdata/alzlib-2024-07-01")
+	libs, err := alzlib.FetchLibraryWithDependencies(ctx, 0, lib, make(alzlib.LibraryReferences, 0, 5))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = az.Init(ctx, dirFs)
+	err = az.Init(ctx, libs...)
 	if err != nil {
 		fmt.Println(err)
 		return

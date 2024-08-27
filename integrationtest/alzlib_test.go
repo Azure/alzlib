@@ -5,7 +5,6 @@ package integrationtest
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/Azure/alzlib"
@@ -33,17 +32,19 @@ func TestInitMultiLib(t *testing.T) {
 	az.Options.AllowOverwrite = true
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	remoteLib, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, alzLibraryMember, alzLibraryTag, "alz")
+	remoteLib := alzlib.NewAlzLibraryReference(alzLibraryMember, alzLibraryTag)
+	_, err := remoteLib.Fetch(ctx, "alz")
 	require.NoError(t, err)
-	dirfs := os.DirFS("../testdata/simple")
-	err = az.Init(ctx, remoteLib, dirfs)
+	localLib := alzlib.NewCustomLibraryReference("../testdata/simple")
+	_, err = localLib.Fetch(ctx, "simple")
+	require.NoError(t, err)
+	err = az.Init(ctx, remoteLib, localLib)
 	require.NoError(t, err)
 	assert.Equal(t, 13, len(az.Archetypes()))
 	// Test root archetype has been overridden
-	arch, _ := az.Archetype("root")
+	arch := az.Archetype("root")
 	assert.Equal(t, 158, arch.PolicyDefinitions.Cardinality())
-	arch, err = az.Archetype("simpleoverride")
-	require.NoError(t, err)
+	arch = az.Archetype("simpleoverride")
 	assert.Equal(t, 1, arch.PolicyDefinitions.Cardinality())
 	assert.Equal(t, 1, arch.PolicyAssignments.Cardinality())
 }

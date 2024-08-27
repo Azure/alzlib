@@ -173,8 +173,8 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 		switch policyDefinitionRef.ResourceType.Type {
 		case "policyDefinitions":
 			// check the definition exists in the AlzLib
-			pd, err := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name)
-			if err != nil {
+			pd := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name)
+			if pd == nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
 			// get the role definition ids from the policy definition and add to the additional role assignment data
@@ -231,13 +231,13 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 			}
 
 		case "policySetDefinitions":
-			psd, err := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name)
-			if err != nil {
-				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments:  assignment `%s`, policy set `%s`, referenced by `%s` not found in AlzLib", paName, *psd.Name, paName)
+			psd := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name)
+			if psd == nil {
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments:  assignment `%s`, policy set `%s` not found in AlzLib", paName, policyDefinitionRef.Name)
 			}
-			pdRefs, err := psd.PolicyDefinitionReferences()
-			if err != nil {
-				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments:  assignment `%s`, error getting referenced policy definition names for policy set definition %s: %w", paName, *psd.Name, err)
+			pdRefs := psd.PolicyDefinitionReferences()
+			if pdRefs == nil {
+				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments:  assignment `%s`, error getting referenced policy definition names for policy set definition %s", paName, *psd.Name)
 			}
 			// for each policy definition in the policy set definition
 			for _, pdRef := range pdRefs {
@@ -245,8 +245,8 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 				if err != nil {
 					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments:  assignment `%s`, error getting policy definition name from policy set definition `%s`, with id `%s`: %w", paName, *psd.Name, *pdRef.PolicyDefinitionID, err)
 				}
-				pd, err := mg.hierarchy.alzlib.PolicyDefinition(pdName)
-				if err != nil {
+				pd := mg.hierarchy.alzlib.PolicyDefinition(pdName)
+				if pd == nil {
 					return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: assignment `%s`, policy definition `%s`, referenced by `%s` not found in AlzLib", paName, pdName, *psd.Name)
 				}
 
@@ -419,9 +419,9 @@ func updatePolicyDefinitions(mg *HierarchyManagementGroup) {
 func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]string) error {
 	for psdName, psd := range mg.policySetDefinitions {
 		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.id, psdName))
-		refs, err := psd.PolicyDefinitionReferences()
-		if err != nil {
-			return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition references for policy set definition %s: %w", psdName, err)
+		refs := psd.PolicyDefinitionReferences()
+		if refs == nil {
+			return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition references for policy set definition %s", psdName)
 		}
 		for _, pdr := range refs {
 			pdname, err := assets.NameFromResourceId(*pdr.PolicyDefinitionID)
@@ -478,7 +478,7 @@ func updateRoleDefinitions(alzmg *HierarchyManagementGroup) {
 	for _, roledef := range alzmg.roleDefinitions {
 		u := uuidV5(alzmg.id, *roledef.Name)
 		roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, u))
-		if roledef.Properties.AssignableScopes == nil || len(roledef.Properties.AssignableScopes) == 0 {
+		if len(roledef.Properties.AssignableScopes) == 0 {
 			roledef.Properties.AssignableScopes = make([]*string, 1)
 		}
 		roledef.Properties.AssignableScopes[0] = to.Ptr(alzmg.ResourceId())
