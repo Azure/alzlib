@@ -69,7 +69,7 @@ func alzlibReadmeMdArchitectures(md *markdown.Markdown, az *alzlib.AlzLib) *mark
 		return md
 	}
 	md = md.H2("Architectures").LF().
-		PlainText("The following architectures are available in this library:").LF()
+		PlainText("The following architectures are available in this library, please note that the diagrams denote the management group display name and, in brackets, the associated archetypes:").LF()
 	for _, a := range archs {
 		md = alzlibReadmeMdArchitecture(md, az.Architecture(a))
 	}
@@ -93,21 +93,21 @@ func alzlibReadmeMdArchetypes(md *markdown.Markdown, az *alzlib.AlzLib) *markdow
 		pas := archetype.PolicyAssignments.ToSlice()
 		slices.Sort(pas)
 		if len(pds) > 0 || len(psds) > 0 || len(pas) > 0 || len(rds) > 0 {
-			md = md.H3("`" + archetype.Name() + "`").LF()
+			md = md.H3("archetype `" + archetype.Name() + "`").LF()
 			if len(pds) > 0 {
-				md.H4("Policy Definitions").LF().
+				md.H4(a+" policy definitions").LF().
 					Details(fmt.Sprintf("%d policy definitions", archetype.PolicyDefinitions.Cardinality()), "\n- "+strings.Join(pds, "\n- ")).LF()
 			}
 			if len(psds) > 0 {
-				md = md.H4("Policy Set Definitions").LF().
+				md = md.H4(a+" policy set definitions").LF().
 					Details(fmt.Sprintf("%d policy set definitions", archetype.PolicySetDefinitions.Cardinality()), "\n- "+strings.Join(psds, "\n- ")).LF()
 			}
 			if len(pas) > 0 {
-				md = md.H4("Policy Assignments").LF().
+				md = md.H4(a+" policy assignments").LF().
 					Details(fmt.Sprintf("%d policy assignments", archetype.PolicyAssignments.Cardinality()), "\n- "+strings.Join(pas, "\n- ")).LF()
 			}
 			if len(rds) > 0 {
-				md = md.H4("Role Definitions").LF().
+				md = md.H4(a+" role definitions").LF().
 					Details(fmt.Sprintf("%d role definitions", archetype.RoleDefinitions.Cardinality()), "\n- "+strings.Join(rds, "\n- ")).LF()
 			}
 		}
@@ -118,26 +118,26 @@ func alzlibReadmeMdArchetypes(md *markdown.Markdown, az *alzlib.AlzLib) *markdow
 func alzlibReadmeMdContents(md *markdown.Markdown, az *alzlib.AlzLib) *markdown.Markdown {
 	md = md.H2("Contents").LF()
 	if len(az.PolicyDefinitions()) > 0 {
-		md = md.H3("Policy Definitions").LF().
+		md = md.H3("all policy definitions").LF().
 			Details(fmt.Sprintf("%d policy definitions", len(az.PolicyDefinitions())), "\n- "+strings.Join(az.PolicyDefinitions(), "\n- ")).LF()
 	}
 	if len(az.PolicySetDefinitions()) > 0 {
-		md = md.H3("Policy Set Definitions").LF().
+		md = md.H3("all policy set definitions").LF().
 			Details(fmt.Sprintf("%d policy set definitions", len(az.PolicySetDefinitions())), "\n- "+strings.Join(az.PolicySetDefinitions(), "\n- ")).LF()
 	}
 	if len(az.PolicyAssignments()) > 0 {
-		md = md.H3("Policy Assignments").LF().
+		md = md.H3("all policy assignments").LF().
 			Details(fmt.Sprintf("%d policy assignments", len(az.PolicyAssignments())), "\n- "+strings.Join(az.PolicyAssignments(), "\n- ")).LF()
 	}
 	if len(az.RoleDefinitions()) > 0 {
-		md = md.H3("Role Definitions").LF().
+		md = md.H3("all role definitions").LF().
 			Details(fmt.Sprintf("%d role definitions", len(az.RoleDefinitions())), "\n- "+strings.Join(az.RoleDefinitions(), "\n- ")).LF()
 	}
 	return md
 }
 
 func alzlibReadmeMdArchitecture(md *markdown.Markdown, a *alzlib.Architecture) *markdown.Markdown {
-	return md.H3("`"+a.Name()+"`").LF().
+	return md.H3("architecture `"+a.Name()+"`").LF().
 		Note("This hierarchy will be deployed as a child of the user-supplied root management group.").LF().
 		CodeBlocks("mermaid", mermaidFromArchitecture(a)).LF()
 }
@@ -145,23 +145,39 @@ func alzlibReadmeMdArchitecture(md *markdown.Markdown, a *alzlib.Architecture) *
 func mermaidFromArchitecture(a *alzlib.Architecture) string {
 	sb := strings.Builder{}
 	sb.WriteString("flowchart TD\n")
-	for _, mg := range a.RootMgs() {
+	rootMgs := a.RootMgs()
+	slices.SortFunc(rootMgs, sortFuncArchitectureManagementGroup)
+	for _, mg := range rootMgs {
 		mermaidFromArchitectureRecursion(&sb, mg)
 	}
 	return sb.String()
 }
 
 func mermaidFromArchitectureRecursion(sb *strings.Builder, mg *alzlib.ArchitectureManagementGroup) {
-	archetypes := make([]string, len(mg.Archetypes()))
-	for i, a := range mg.Archetypes() {
+	archs := mg.Archetypes()
+	archetypes := make([]string, len(archs))
+	for i, a := range archs {
 		archetypes[i] = a.Name()
 	}
 	archetypesStr := strings.Join(archetypes, ", ")
 	sb.WriteString(fmt.Sprintf("  %s[\"%s\\n(%s)\"]\n", mg.Id(), mg.DisplayName(), archetypesStr))
-	for _, child := range mg.Children() {
+	children := mg.Children()
+	slices.SortFunc(children, sortFuncArchitectureManagementGroup)
+	for _, child := range children {
 		sb.WriteString(fmt.Sprintf("  %s --> %s\n", mg.Id(), child.Id()))
 		mermaidFromArchitectureRecursion(sb, child)
 	}
+}
+
+// sortFuncArchitectureManagementGroup is a sort function for alzlib.ArchitectureManagementGroup for use in slices.SortFunc.
+func sortFuncArchitectureManagementGroup(a, b *alzlib.ArchitectureManagementGroup) int {
+	if a.Id() < b.Id() {
+		return -1
+	}
+	if a.Id() > b.Id() {
+		return 1
+	}
+	return 0
 }
 
 // func metadataDependenciesToAlzlibProviderLibRefs(deps alzlib.LibraryReferences) string {
@@ -193,9 +209,9 @@ func alzlibReadmeMdPolicyDefaultValues(md *markdown.Markdown, az *alzlib.AlzLib)
 	}
 	md = md.H2("Policy Default Values").LF().PlainText("The following policy default values are available in this library:").LF()
 	for _, pdv := range pdvs {
-		md = md.H3(pdv).LF()
+		md = md.H3("default name `" + pdv + "`").LF()
 		for assignment, params := range az.PolicyDefaultValue(pdv) {
-			md = md.H4(assignment).LF().
+			md = md.H4("assignment `"+assignment+"`").LF().
 				Details(fmt.Sprintf("%d parameter names", params.Cardinality()), "\n- "+strings.Join(params.ToSlice(), "\n- ")).LF()
 		}
 	}
