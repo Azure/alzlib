@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/library_metadata.json",
+  "name": "lib3",
+  "display_name": "library 3",
+  "description": "Like lib1, lib 3 is dependent on lib 2",
+  "dependencies": [
+    {
+      "custom_url": "testdata/dependent-libs/lib2"
+    }
+  ]
+}

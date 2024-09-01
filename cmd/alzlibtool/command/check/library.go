@@ -32,7 +32,7 @@ var libraryCmd = cobra.Command{
 		}
 		az.AddPolicyClient(cf)
 		thisRef := alzlib.NewCustomLibraryReference(args[0])
-		libs, err := alzlib.FetchLibraryWithDependencies(cmd.Context(), 0, thisRef, make(alzlib.LibraryReferences, 0, 5))
+		libs, err := thisRef.FetchWithDependencies(cmd.Context())
 		if err != nil {
 			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
 		}

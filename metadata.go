@@ -27,12 +27,26 @@ type Metadata struct {
 type LibraryReferences []LibraryReference
 
 // FSs returns the filesystems of the library references, can be used with Alzlib.Init().
-func (lr LibraryReferences) FSs() []fs.FS {
-	fss := make([]fs.FS, len(lr))
-	for i, l := range lr {
+func (m LibraryReferences) FSs() []fs.FS {
+	fss := make([]fs.FS, len(m))
+	for i, l := range m {
 		fss[i] = l.FS()
 	}
 	return fss
+}
+
+// FetchWithDependencies recursively fetches all the library references and their dependencies.
+// The destination directory a hash value that will be appended to the `.alzlib` directory in the current working directory unless overridden by the `ALZLIB_DIR` environment variable.
+func (m LibraryReferences) FetchWithDependencies(ctx context.Context) (LibraryReferences, error) {
+	processed := make(map[string]bool)
+	result := make(LibraryReferences, 0, 5)
+	for _, lib := range m {
+		err := fetchLibraryWithDependencies(ctx, processed, lib, &result)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 // LibraryReference is an interface that represents a dependency of a library member.
@@ -40,6 +54,7 @@ func (lr LibraryReferences) FSs() []fs.FS {
 type LibraryReference interface {
 	fmt.Stringer
 	Fetch(ctx context.Context, desinationDirectory string) (fs.FS, error) // Fetch fetches the library member to the `.alzlib/destinationDirectory`. Override the base dir using `ALZLIB_DIR` env var.
+	FetchWithDependencies(ctx context.Context) (LibraryReferences, error) // FetchWithDependencies fetches the library member and its dependencies.
 	FS() fs.FS                                                            // FS returns the filesystem of the library member, can be used in Alzlib.Init()
 }
 
@@ -92,6 +107,14 @@ func (m *AlzLibraryReference) Ref() string {
 	return m.ref
 }
 
+// FetchWithDependencies fetches the library member and its dependencies.
+// If you have more than one LibraryReference in a LibraryReferences slice, use LibraryReferences.FetchWithDependencies() instead.
+func (m *AlzLibraryReference) FetchWithDependencies(ctx context.Context) (LibraryReferences, error) {
+	processed := make(map[string]bool)
+	result := make(LibraryReferences, 0, 5)
+	return result, fetchLibraryWithDependencies(ctx, processed, m, &result)
+}
+
 // CustomLibraryReference is a struct that represents a dependency of a library member that is fetched from a custom go-getter URL.
 type CustomLibraryReference struct {
 	url        string
@@ -126,6 +149,14 @@ func (m *CustomLibraryReference) FS() fs.FS {
 // String returns the URL of the custom go-getter.
 func (m *CustomLibraryReference) String() string {
 	return m.url
+}
+
+// FetchWithDependencies fetches the library member and its dependencies.
+// If you have more than one LibraryReference in a LibraryReferences slice, use LibraryReferences.FetchWithDependencies() instead.
+func (m *CustomLibraryReference) FetchWithDependencies(ctx context.Context) (LibraryReferences, error) {
+	processed := make(map[string]bool)
+	result := make(LibraryReferences, 0, 5)
+	return result, fetchLibraryWithDependencies(ctx, processed, m, &result)
 }
 
 func NewMetadata(in *processor.LibMetadata, ref LibraryReference) *Metadata {
