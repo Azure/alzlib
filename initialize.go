@@ -56,7 +56,12 @@ func fetchLibraryWithDependencies(ctx context.Context, processed map[string]bool
 
 // hash returns the SHA224 hash of a fmt.Stringer, as a string.
 func hash(s fmt.Stringer) string {
-	return fmt.Sprintf("%x", sha256.Sum224([]byte(s.String())))
+	return hashStr(s.String())
+}
+
+// hash returns the SHA224 hash of a string, as a string.
+func hashStr(s string) string {
+	return fmt.Sprintf("%x", sha256.Sum224([]byte(s)))
 }
 
 // FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member path and tag (ref).
