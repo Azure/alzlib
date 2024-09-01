@@ -5,13 +5,12 @@ package alzlib
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
-	"strconv"
 
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/hashicorp/go-getter/v2"
@@ -24,46 +23,45 @@ const (
 	alzLibraryGitUrlEnv    = "ALZLIB_LIBRARY_GIT_URL"                       // alzLibraryGitUrlEnv is the environment variable to override the default git URL.
 )
 
-// FetchLibraryWithDependencies takes a library reference, fetches it, and then fetches all of its dependencies.
+// fetchLibraryWithDependencies takes a library reference, fetches it, and then fetches all of its dependencies.
 // The destination directory is an integer that will be appended to the `.alzlib` directory in the current working directory.
 // This can be override by setting the `ALZLIB_DIR` environment variable.
-//
-// Example usage:
-//
-// ```go
-// az := alzlib.NewAlzLib(nil)
-// // ... ensure that clients are created and initialized
-// // e.g. az.AddPolicyClient(myClientFactory)
-// thisLib := NewCustomLibraryReference("path/to/library")
-// libs, err := FetchLibraryWithDependencies(ctx, ".alzlib", 0, thisLib, make(LibraryReferences, 0, 5))
-// // ... handle error
-//
-// err = az.Init(ctx, libs...)
-// // ... handle error
-// ```
-//
 // The `LibraryReferences` slice can be used to initialize the AlzLib instance.
-func FetchLibraryWithDependencies(ctx context.Context, i int, lib LibraryReference, libs LibraryReferences) (LibraryReferences, error) {
-	f, err := lib.Fetch(ctx, strconv.Itoa(i))
+func fetchLibraryWithDependencies(ctx context.Context, processed map[string]bool, lib LibraryReference, result *LibraryReferences) error {
+	if processed[lib.String()] {
+		return nil
+	}
+	f, err := lib.Fetch(ctx, hash(lib))
 	if err != nil {
-		return nil, fmt.Errorf("FetchLibraryWithDependencies: error fetching library %s: %w", lib.String(), err)
+		return fmt.Errorf("FetchLibraryWithDependencies: error fetching library %s: %w", lib.String(), err)
 	}
 	pscl := processor.NewProcessorClient(f)
 	libmeta, err := pscl.Metadata()
 	if err != nil {
-		return nil, fmt.Errorf("FetchLibraryWithDependencies: error getting metadata for library %s: %w", lib.String(), err)
+		return fmt.Errorf("FetchLibraryWithDependencies: error getting metadata for library %s: %w", lib.String(), err)
 	}
 	meta := NewMetadata(libmeta, lib)
 	// for each dependency, recurse using this function
 	for _, dep := range meta.Dependencies() {
-		i++
-		libs, err = FetchLibraryWithDependencies(ctx, i, dep, libs)
+		err = fetchLibraryWithDependencies(ctx, processed, dep, result)
 		if err != nil {
-			return nil, fmt.Errorf("FetchLibraryWithDependencies: error fetching dependencies for library %s: %w", lib.String(), err)
+			return fmt.Errorf("FetchLibraryWithDependencies: error fetching dependencies for library %s: %w", lib.String(), err)
 		}
 	}
 	// add the current library reference to the list
-	return addLibraryReferenceToSlice(libs, lib), nil
+	*result = append(*result, lib)
+	processed[lib.String()] = true
+	return nil
+}
+
+// hash returns the SHA224 hash of a fmt.Stringer, as a string.
+func hash(s fmt.Stringer) string {
+	return hashStr(s.String())
+}
+
+// hash returns the SHA224 hash of a string, as a string.
+func hashStr(s string) string {
+	return fmt.Sprintf("%x", sha256.Sum224([]byte(s)))
 }
 
 // FetchAzureLandingZonesLibraryByTag is a convenience function to fetch the Azure Landing Zones library by member path and tag (ref).
@@ -114,15 +112,4 @@ func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string
 		return nil, fmt.Errorf("FetchLibraryByGetterString: error fetching library. source `%s`, destination `%s`, wd `%s`: %w", getterString, dst, wd, err)
 	}
 	return os.DirFS(dst), nil
-}
-
-// addLibraryReferenceToSlice adds a library reference to a slice if it does not already exist.
-func addLibraryReferenceToSlice(libs LibraryReferences, lib LibraryReference) LibraryReferences {
-	if exists := slices.ContainsFunc(libs, func(l LibraryReference) bool {
-		return l.String() == lib.String()
-	}); exists {
-		return libs
-	}
-
-	return append(libs, lib)
 }

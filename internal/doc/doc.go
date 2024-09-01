@@ -36,8 +36,20 @@ func AlzlibReadmeMd(ctx context.Context, w io.Writer, libs ...alzlib.LibraryRefe
 }
 
 func alzlibReadmeMdTitle(md *markdown.Markdown, metad *alzlib.Metadata) *markdown.Markdown {
-	return md.H1f("%s (%s)", metad.Name(), metad.DisplayName()).LF().
-		PlainText(metad.Description()).LF()
+	name := metad.Name()
+	if name == "" {
+		name = "No name in metadata"
+	}
+	displayName := metad.DisplayName()
+	if displayName == "" {
+		displayName = "No display name in metadata"
+	}
+	description := metad.Description()
+	if description == "" {
+		description = "No description in metadata"
+	}
+	return md.H1f("%s (%s)", name, displayName).LF().
+		PlainText(description).LF()
 }
 
 func alzlibReadmeMdDependencies(md *markdown.Markdown, deps alzlib.LibraryReferences) *markdown.Markdown {

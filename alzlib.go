@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -385,12 +384,12 @@ func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 	}
 
 	// Process the libraries
-	for i, ref := range libs {
+	for _, ref := range libs {
 		if ref == nil {
 			return errors.New("Alzlib.Init: library is nil")
 		}
 		if ref.FS() == nil {
-			if _, err := ref.Fetch(ctx, strconv.Itoa(i)); err != nil {
+			if _, err := ref.Fetch(ctx, hash(ref)); err != nil {
 				return fmt.Errorf("Alzlib.Init: error fetching library %s: %w", ref, err)
 			}
 		}

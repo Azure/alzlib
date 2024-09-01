@@ -28,7 +28,7 @@ func TestFetchLibraryWithDependencies(t *testing.T) {
 	require.NoError(t, os.RemoveAll(".alzlib"))
 	defer os.RemoveAll(".alzlib") // nolint: errcheck
 
-	libs, err := FetchLibraryWithDependencies(ctx, 0, NewCustomLibraryReference("./testdata/dependent-libs/lib1"), make(LibraryReferences, 0, 2))
+	libs, err := NewCustomLibraryReference("./testdata/dependent-libs/lib1").FetchWithDependencies(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, libs, 2)
 }
@@ -38,7 +38,7 @@ func TestFetchLibraryWithDependencies_MissingCustomDependency(t *testing.T) {
 	require.NoError(t, os.RemoveAll(".alzlib"))
 	defer os.RemoveAll(".alzlib") // nolint: errcheck
 
-	_, err := FetchLibraryWithDependencies(ctx, 0, NewCustomLibraryReference("./testdata/dependent-libs/missing-dep-custom"), make(LibraryReferences, 0, 2))
+	_, err := NewCustomLibraryReference("./testdata/dependent-libs/missing-dep-custom").FetchWithDependencies(ctx)
 	assert.ErrorContains(t, err, "could not fetch library member")
 }
 
@@ -47,6 +47,6 @@ func TestFetchLibraryWithDependencies_MissingLibraryDependency(t *testing.T) {
 	require.NoError(t, os.RemoveAll(".alzlib"))
 	defer os.RemoveAll(".alzlib") // nolint: errcheck
 
-	_, err := FetchLibraryWithDependencies(ctx, 0, NewCustomLibraryReference("./testdata/dependent-libs/missing-dep-library"), make(LibraryReferences, 0, 2))
+	_, err := NewCustomLibraryReference("./testdata/dependent-libs/missing-dep-library").FetchWithDependencies(ctx)
 	assert.ErrorContains(t, err, "could not fetch library member")
 }

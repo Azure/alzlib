@@ -93,10 +93,10 @@ func (client *ProcessorClient) Metadata() (*LibMetadata, error) {
 	var pe *fs.PathError
 	if errors.As(err, &pe) {
 		return &LibMetadata{
-			Name:         "No metadata file found",
-			DisplayName:  "No metadata file found",
-			Description:  "No metadata file found",
-			Path:         "No metadata file found",
+			Name:         "",
+			DisplayName:  "",
+			Description:  "",
+			Path:         "",
 			Dependencies: make([]LibMetadataDependency, 0),
 		}, nil
 	}
@@ -113,18 +113,6 @@ func (client *ProcessorClient) Metadata() (*LibMetadata, error) {
 	err = unmar.unmarshal(metadata)
 	if err != nil {
 		return nil, fmt.Errorf("ProcessorClient.Metadata: error unmarshaling metadata: %w", err)
-	}
-	if metadata.Description == "" {
-		metadata.Description = "No description provided"
-	}
-	if metadata.DisplayName == "" {
-		metadata.DisplayName = "No display name provided"
-	}
-	if metadata.Path == "" {
-		metadata.Path = "No path provided"
-	}
-	if metadata.Name == "" {
-		metadata.Name = "No name provided"
 	}
 	for _, dep := range metadata.Dependencies {
 		switch {
