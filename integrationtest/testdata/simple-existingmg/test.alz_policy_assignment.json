@@ -17,7 +17,7 @@
     ],
     "notScopes": [],
     "parameters": {},
-    "policyDefinitionId": "/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition",
+    "policyDefinitionId": "/providers/Microsoft.Authorization/policySetDefinitions/test-policy-set-definition",
     "scope": "/providers/Microsoft.Management/managementGroups/PLACEHOLDER"
   },
   "type": "Microsoft.Authorization/policyAssignments"

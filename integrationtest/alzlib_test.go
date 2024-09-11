@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib"
+	"github.com/Azure/alzlib/deployment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,4 +48,23 @@ func TestInitMultiLib(t *testing.T) {
 	arch = az.Archetype("simpleoverride")
 	assert.Equal(t, 1, arch.PolicyDefinitions.Cardinality())
 	assert.Equal(t, 1, arch.PolicyAssignments.Cardinality())
+}
+
+func TestInitSimpleExistingMg(t *testing.T) {
+	az := alzlib.NewAlzLib(nil)
+	lib := alzlib.NewCustomLibraryReference("./testdata/simple-existingmg")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, az.Init(ctx, lib))
+	assert.Equal(t, []string{"empty", "simple"}, az.Archetypes())
+	assert.Equal(t, []string{"test-policy-definition"}, az.PolicyDefinitions())
+	assert.Equal(t, []string{"test-policy-set-definition"}, az.PolicySetDefinitions())
+	assert.Equal(t, []string{"test-role-definition"}, az.RoleDefinitions())
+	assert.Equal(t, []string{"test-policy-assignment"}, az.PolicyAssignments())
+	assert.Equal(t, []string{"test"}, az.PolicyDefaultValues())
+	h := deployment.NewHierarchy(az)
+	err := h.FromArchitecture(ctx, "simple", "00000000-0000-0000-0000-000000000000", "testlocation")
+	require.NoError(t, err)
+	mg := h.ManagementGroup("simple")
+	assert.False(t, mg.Exists())
 }

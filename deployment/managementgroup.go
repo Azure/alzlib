@@ -4,6 +4,7 @@
 package deployment
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -50,10 +51,10 @@ type managementGroupAddRequest struct {
 // Since we could be using system assigned identities, we don't know the principal ID until after the deployment.
 // Therefore this data can be used to create the role assignments after the deployment.
 type PolicyRoleAssignment struct {
-	RoleDefinitionId  string
-	Scope             string
-	AssignmentName    string
-	ManagementGroupId string
+	RoleDefinitionId  string `json:"role_definition_id,omitempty"`
+	Scope             string `json:"scope,omitempty"`
+	AssignmentName    string `json:"assignment_name,omitempty"`
+	ManagementGroupId string `json:"management_group_id,omitempty"`
 }
 
 // Children returns the children of the management group.
@@ -502,4 +503,47 @@ func copyMap[E comparable, T any](m map[E]T) map[E]T {
 		m2[k] = deep.MustCopy(v)
 	}
 	return m2
+}
+
+func (mg HierarchyManagementGroup) MarshalJSON() ([]byte, error) {
+	type marshalHierarchyManagementGroup struct {
+		Children              []string                               `json:"children,omitempty"`                // The ids of the children of the management group.
+		DisplayName           string                                 `json:"display_name,omitempty"`            // The display name of the management group.
+		Exists                bool                                   `json:"exists,omitempty"`                  // Whether the management group already exists in the hierarchy.
+		Id                    string                                 `json:"id,omitempty"`                      // The name of the management group, forming the last part of the resource id.
+		Level                 int                                    `json:"level,omitempty"`                   // The level of the management group in the hierarchy.
+		Location              string                                 `json:"location,omitempty"`                // The default location to use for artifacts in the management group.
+		Parent                *string                                `json:"parent,omitempty"`                  // The id of the parent management group.
+		PolicyAssignments     map[string]*assets.PolicyAssignment    `json:"policy_assignments,omitempty"`      // The policy assignments in the management group.
+		PolicyDefinitions     map[string]*assets.PolicyDefinition    `json:"policy_definitions,omitempty"`      // The policy definitions in the management group.
+		PolicyRoleAssignments []PolicyRoleAssignment                 `json:"policy_role_assignments,omitempty"` // The additional role assignments needed for the policy assignments.
+		PolicySetDefinitions  map[string]*assets.PolicySetDefinition `json:"policy_set_definitions,omitempty"`  // The policy set definitions in the management group.
+		RoleDefinitions       map[string]*assets.RoleDefinition      `json:"role_definitions,omitempty"`        // The role definitions in the management group.
+	}
+	childrenIds := make([]string, mg.children.Cardinality())
+	for i, child := range mg.children.ToSlice() {
+		childrenIds[i] = child.id
+	}
+	var parentId *string
+	switch {
+	case mg.parentExternal != nil:
+		parentId = mg.parentExternal
+	case mg.parent != nil:
+		parentId = &mg.parent.id
+	}
+	tmp := marshalHierarchyManagementGroup{
+		Children:              childrenIds,
+		DisplayName:           mg.displayName,
+		Exists:                mg.exists,
+		Id:                    mg.id,
+		Level:                 mg.level,
+		Location:              mg.location,
+		Parent:                parentId,
+		PolicyAssignments:     mg.policyAssignments,
+		PolicyDefinitions:     mg.policyDefinitions,
+		PolicyRoleAssignments: mg.policyRoleAssignments.ToSlice(),
+		PolicySetDefinitions:  mg.policySetDefinitions,
+		RoleDefinitions:       mg.roleDefinitions,
+	}
+	return json.Marshal(tmp)
 }
