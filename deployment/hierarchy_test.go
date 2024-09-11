@@ -29,9 +29,8 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 			},
 		},
 	}
-	expected := map[string]string{
-		"psd1": "mg1",
-	}
+	expected := make(map[string]mapset.Set[string])
+	expected["psd1"] = mapset.NewThreadUnsafeSet("mg1")
 	assert.Equal(t, expected, d.policySetDefinitionToMg())
 
 	// Test with multiple management groups and policy set definitions.
@@ -50,16 +49,15 @@ func TestPolicySetDefinitionToMg(t *testing.T) {
 			},
 		},
 	}
-	expected = map[string]string{
-		"psd1": "mg1",
-		"psd2": "mg2",
-		"psd3": "mg2",
-	}
+	expected["psd1"] = mapset.NewThreadUnsafeSet("mg1")
+	expected["psd2"] = mapset.NewThreadUnsafeSet("mg2")
+	expected["psd3"] = mapset.NewThreadUnsafeSet("mg2")
+
 	assert.Equal(t, expected, d.policySetDefinitionToMg())
 
 	// Test with no management groups or policy set definitions.
 	d = Hierarchy{}
-	expected = map[string]string{}
+	expected = make(map[string]mapset.Set[string])
 	assert.Equal(t, expected, d.policySetDefinitionToMg())
 }
 
@@ -75,9 +73,8 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 			},
 		},
 	}
-	expected := map[string]string{
-		"pd1": "mg1",
-	}
+	expected := make(map[string]mapset.Set[string])
+	expected["pd1"] = mapset.NewThreadUnsafeSet("mg1")
 	assert.Equal(t, expected, d.policyDefinitionToMg())
 
 	// Test with multiple management groups and policy definitions.
@@ -96,16 +93,14 @@ func TestPolicyDefinitionToMg(t *testing.T) {
 			},
 		},
 	}
-	expected = map[string]string{
-		"pd1": "mg1",
-		"pd2": "mg2",
-		"pd3": "mg2",
-	}
+	expected["pd1"] = mapset.NewThreadUnsafeSet("mg1")
+	expected["pd2"] = mapset.NewThreadUnsafeSet("mg2")
+	expected["pd3"] = mapset.NewThreadUnsafeSet("mg2")
 	assert.Equal(t, expected, d.policyDefinitionToMg())
 
 	// Test with no management groups or policy definitions.
 	d = Hierarchy{}
-	expected = map[string]string{}
+	expected = make(map[string]mapset.Set[string])
 	assert.Equal(t, expected, d.policyDefinitionToMg())
 }
 
