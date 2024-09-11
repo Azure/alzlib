@@ -347,7 +347,7 @@ func TestManagementGroupUpdate(t *testing.T) {
 		hierarchy:         h,
 		policyAssignments: map[string]*assets.PolicyAssignment{},
 		policyDefinitions: map[string]*assets.PolicyDefinition{
-			"pdRoot-1": {
+			"pdRoot01": {
 				Definition: armpolicy.Definition{
 					Name: to.Ptr("pdRoot01"),
 				},
@@ -389,9 +389,22 @@ func TestManagementGroupUpdate(t *testing.T) {
 				},
 			},
 		},
-		policyDefinitions:    map[string]*assets.PolicyDefinition{},
-		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
-		roleDefinitions:      map[string]*assets.RoleDefinition{},
+		policyDefinitions: map[string]*assets.PolicyDefinition{},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{
+			"psdWithDefAtParent": {
+				SetDefinition: armpolicy.SetDefinition{
+					Name: to.Ptr("psdWithDefAtParent"),
+					Properties: &armpolicy.SetDefinitionProperties{
+						PolicyDefinitions: []*armpolicy.DefinitionReference{
+							{
+								PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdDeployedTwice")),
+							},
+						},
+					},
+				},
+			},
+		},
+		roleDefinitions: map[string]*assets.RoleDefinition{},
 	}
 	mg2 := &HierarchyManagementGroup{
 		id:        "mg2",
@@ -432,6 +445,9 @@ func TestManagementGroupUpdate(t *testing.T) {
 	// Check that the policy assignments reference the correct policy definitions.
 	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pdDeployedTwice"), *mg1a.policyAssignments["paAtMg1a"].Properties.PolicyDefinitionID)
 	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg2", "pdDeployedTwice"), *mg2.policyAssignments["paAtMg2"].Properties.PolicyDefinitionID)
+
+	// Check that the policy set definitions reference the correct policy definitions.
+	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pdDeployedTwice"), *mg1a.policySetDefinitions["psdWithDefAtParent"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
 
 	// add another root management group
 	mgOtherRoot := &HierarchyManagementGroup{
