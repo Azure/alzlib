@@ -417,7 +417,7 @@ func updatePolicyDefinitions(mg *HierarchyManagementGroup) {
 // It looks up the policy definition names that are in all archetypes in the Deployment.
 // If it is found, the definition reference id is re-written with the correct management group name.
 // If it is not found, we assume that it's built-in.
-func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]string) error {
+func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]mapset.Set[string]) error {
 	for psdName, psd := range mg.policySetDefinitions {
 		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.id, psdName))
 		refs := psd.PolicyDefinitionReferences()
@@ -429,15 +429,27 @@ func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]s
 			if err != nil {
 				return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition name from resource id %s: %w", *pdr.PolicyDefinitionID, err)
 			}
-			if mgname, ok := pd2mg[pdname]; ok {
-				pdr.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mgname, pdname))
+			// if the referenced policy definition is custom, we need to update the reference
+			if definitionMgs, ok := pd2mg[pdname]; ok {
+				updated := false
+				for definitionMg := range definitionMgs.Iter() {
+					if definitionMg != mg.id && !mg.HasParent(definitionMg) {
+						continue
+					}
+					pdr.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, definitionMg, pdname))
+					updated = true
+					break
+				}
+				if !updated {
+					return fmt.Errorf("updatePolicySetDefinitions: policy set definition %s has a policy definition %s that is not in the same hierarchy", psdName, pdname)
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[string]string) error {
+func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[string]mapset.Set[string]) error {
 	// Update resource ids and refs.
 	for assignmentName, assignment := range mg.policyAssignments {
 		assignment.ID = to.Ptr(fmt.Sprintf(PolicyAssignmentIdFmt, mg.id, assignmentName))
@@ -455,18 +467,34 @@ func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[stri
 
 		switch strings.ToLower(pdRes.ResourceType.Type) {
 		case "policydefinitions":
-			if mgname, ok := pd2mg[pdRes.Name]; ok {
-				if mgname != mg.id && !mg.HasParent(mgname) {
+			if deploymentMgs, ok := pd2mg[pdRes.Name]; ok {
+				updated := false
+				for deploymentMg := range deploymentMgs.Iter() {
+					if deploymentMg != mg.id && !mg.HasParent(deploymentMg) {
+						continue
+					}
+					assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, deploymentMg, pdRes.Name))
+					updated = true
+					break
+				}
+				if !updated {
 					return fmt.Errorf("updatePolicyAssignments: policy assignment %s has a policy definition %s that is not in the same hierarchy", assignmentName, pdRes.Name)
 				}
-				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mgname, pdRes.Name))
 			}
 		case "policysetdefinitions":
-			if mgname, ok := psd2mg[pdRes.Name]; ok {
-				if mgname != mg.id && !mg.HasParent(mgname) {
+			if deploymentMg, ok := psd2mg[pdRes.Name]; ok {
+				updated := false
+				for deploymentMg := range deploymentMg.Iter() {
+					if deploymentMg != mg.id && !mg.HasParent(deploymentMg) {
+						continue
+					}
+					assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, deploymentMg, pdRes.Name))
+					updated = true
+					break
+				}
+				if !updated {
 					return fmt.Errorf("updatePolicyAssignments: policy assignment %s has a policy set definition %s that is not in the same hierarchy", assignmentName, pdRes.Name)
 				}
-				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mgname, pdRes.Name))
 			}
 		default:
 			return fmt.Errorf("updatePolicyAssignments: policy assignment %s has invalid referenced definition/set resource type with id: %s", assignmentName, pdRes.Name)

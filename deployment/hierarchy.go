@@ -298,22 +298,28 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 }
 
 // policyDefinitionToMg returns a map of policy definition names to the deployed management group name.
-func (d *Hierarchy) policyDefinitionToMg() map[string]string {
-	res := make(map[string]string, 0)
+func (d *Hierarchy) policyDefinitionToMg() map[string]mapset.Set[string] {
+	res := make(map[string]mapset.Set[string], 0)
 	for mgname, mg := range d.mgs {
 		for pdname := range mg.policyDefinitions {
-			res[pdname] = mgname
+			if _, ok := res[pdname]; !ok {
+				res[pdname] = mapset.NewThreadUnsafeSet[string]()
+			}
+			res[pdname].Add(mgname)
 		}
 	}
 	return res
 }
 
 // policyDefinitionToMg returns a map of policy set definition names to the deployed management group name.
-func (d *Hierarchy) policySetDefinitionToMg() map[string]string {
-	res := make(map[string]string, 0)
+func (d *Hierarchy) policySetDefinitionToMg() map[string]mapset.Set[string] {
+	res := make(map[string]mapset.Set[string], 0)
 	for mgname, mg := range d.mgs {
 		for psdname := range mg.policySetDefinitions {
-			res[psdname] = mgname
+			if _, ok := res[psdname]; !ok {
+				res[psdname] = mapset.NewThreadUnsafeSet[string]()
+			}
+			res[psdname].Add(mgname)
 		}
 	}
 	return res

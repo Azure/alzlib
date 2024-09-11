@@ -1,6 +1,6 @@
 module github.com/Azure/alzlib
 
-go 1.23.0
+go 1.23.1
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0
