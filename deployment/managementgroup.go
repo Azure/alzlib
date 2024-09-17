@@ -4,6 +4,7 @@
 package deployment
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -50,10 +51,10 @@ type managementGroupAddRequest struct {
 // Since we could be using system assigned identities, we don't know the principal ID until after the deployment.
 // Therefore this data can be used to create the role assignments after the deployment.
 type PolicyRoleAssignment struct {
-	RoleDefinitionId  string
-	Scope             string
-	AssignmentName    string
-	ManagementGroupId string
+	RoleDefinitionId  string `json:"role_definition_id,omitempty"`
+	Scope             string `json:"scope,omitempty"`
+	AssignmentName    string `json:"assignment_name,omitempty"`
+	ManagementGroupId string `json:"management_group_id,omitempty"`
 }
 
 // Children returns the children of the management group.
@@ -416,7 +417,7 @@ func updatePolicyDefinitions(mg *HierarchyManagementGroup) {
 // It looks up the policy definition names that are in all archetypes in the Deployment.
 // If it is found, the definition reference id is re-written with the correct management group name.
 // If it is not found, we assume that it's built-in.
-func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]string) error {
+func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]mapset.Set[string]) error {
 	for psdName, psd := range mg.policySetDefinitions {
 		psd.ID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mg.id, psdName))
 		refs := psd.PolicyDefinitionReferences()
@@ -428,15 +429,27 @@ func updatePolicySetDefinitions(mg *HierarchyManagementGroup, pd2mg map[string]s
 			if err != nil {
 				return fmt.Errorf("updatePolicySetDefinitions: error getting policy definition name from resource id %s: %w", *pdr.PolicyDefinitionID, err)
 			}
-			if mgname, ok := pd2mg[pdname]; ok {
-				pdr.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mgname, pdname))
+			// if the referenced policy definition is custom, we need to update the reference
+			if definitionMgs, ok := pd2mg[pdname]; ok {
+				updated := false
+				for definitionMg := range definitionMgs.Iter() {
+					if definitionMg != mg.id && !mg.HasParent(definitionMg) {
+						continue
+					}
+					pdr.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, definitionMg, pdname))
+					updated = true
+					break
+				}
+				if !updated {
+					return fmt.Errorf("updatePolicySetDefinitions: policy set definition %s has a policy definition %s that is not in the same hierarchy", psdName, pdname)
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[string]string) error {
+func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[string]mapset.Set[string]) error {
 	// Update resource ids and refs.
 	for assignmentName, assignment := range mg.policyAssignments {
 		assignment.ID = to.Ptr(fmt.Sprintf(PolicyAssignmentIdFmt, mg.id, assignmentName))
@@ -454,18 +467,34 @@ func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[stri
 
 		switch strings.ToLower(pdRes.ResourceType.Type) {
 		case "policydefinitions":
-			if mgname, ok := pd2mg[pdRes.Name]; ok {
-				if mgname != mg.id && !mg.HasParent(mgname) {
+			if deploymentMgs, ok := pd2mg[pdRes.Name]; ok {
+				updated := false
+				for deploymentMg := range deploymentMgs.Iter() {
+					if deploymentMg != mg.id && !mg.HasParent(deploymentMg) {
+						continue
+					}
+					assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, deploymentMg, pdRes.Name))
+					updated = true
+					break
+				}
+				if !updated {
 					return fmt.Errorf("updatePolicyAssignments: policy assignment %s has a policy definition %s that is not in the same hierarchy", assignmentName, pdRes.Name)
 				}
-				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, mgname, pdRes.Name))
 			}
 		case "policysetdefinitions":
-			if mgname, ok := psd2mg[pdRes.Name]; ok {
-				if mgname != mg.id && !mg.HasParent(mgname) {
+			if deploymentMg, ok := psd2mg[pdRes.Name]; ok {
+				updated := false
+				for deploymentMg := range deploymentMg.Iter() {
+					if deploymentMg != mg.id && !mg.HasParent(deploymentMg) {
+						continue
+					}
+					assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, deploymentMg, pdRes.Name))
+					updated = true
+					break
+				}
+				if !updated {
 					return fmt.Errorf("updatePolicyAssignments: policy assignment %s has a policy set definition %s that is not in the same hierarchy", assignmentName, pdRes.Name)
 				}
-				assignment.Properties.PolicyDefinitionID = to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, mgname, pdRes.Name))
 			}
 		default:
 			return fmt.Errorf("updatePolicyAssignments: policy assignment %s has invalid referenced definition/set resource type with id: %s", assignmentName, pdRes.Name)
@@ -502,4 +531,47 @@ func copyMap[E comparable, T any](m map[E]T) map[E]T {
 		m2[k] = deep.MustCopy(v)
 	}
 	return m2
+}
+
+func (mg HierarchyManagementGroup) MarshalJSON() ([]byte, error) {
+	type marshalHierarchyManagementGroup struct {
+		Children              []string                               `json:"children,omitempty"`                // The ids of the children of the management group.
+		DisplayName           string                                 `json:"display_name,omitempty"`            // The display name of the management group.
+		Exists                bool                                   `json:"exists,omitempty"`                  // Whether the management group already exists in the hierarchy.
+		Id                    string                                 `json:"id,omitempty"`                      // The name of the management group, forming the last part of the resource id.
+		Level                 int                                    `json:"level,omitempty"`                   // The level of the management group in the hierarchy.
+		Location              string                                 `json:"location,omitempty"`                // The default location to use for artifacts in the management group.
+		Parent                *string                                `json:"parent,omitempty"`                  // The id of the parent management group.
+		PolicyAssignments     map[string]*assets.PolicyAssignment    `json:"policy_assignments,omitempty"`      // The policy assignments in the management group.
+		PolicyDefinitions     map[string]*assets.PolicyDefinition    `json:"policy_definitions,omitempty"`      // The policy definitions in the management group.
+		PolicyRoleAssignments []PolicyRoleAssignment                 `json:"policy_role_assignments,omitempty"` // The additional role assignments needed for the policy assignments.
+		PolicySetDefinitions  map[string]*assets.PolicySetDefinition `json:"policy_set_definitions,omitempty"`  // The policy set definitions in the management group.
+		RoleDefinitions       map[string]*assets.RoleDefinition      `json:"role_definitions,omitempty"`        // The role definitions in the management group.
+	}
+	childrenIds := make([]string, mg.children.Cardinality())
+	for i, child := range mg.children.ToSlice() {
+		childrenIds[i] = child.id
+	}
+	var parentId *string
+	switch {
+	case mg.parentExternal != nil:
+		parentId = mg.parentExternal
+	case mg.parent != nil:
+		parentId = &mg.parent.id
+	}
+	tmp := marshalHierarchyManagementGroup{
+		Children:              childrenIds,
+		DisplayName:           mg.displayName,
+		Exists:                mg.exists,
+		Id:                    mg.id,
+		Level:                 mg.level,
+		Location:              mg.location,
+		Parent:                parentId,
+		PolicyAssignments:     mg.policyAssignments,
+		PolicyDefinitions:     mg.policyDefinitions,
+		PolicyRoleAssignments: mg.policyRoleAssignments.ToSlice(),
+		PolicySetDefinitions:  mg.policySetDefinitions,
+		RoleDefinitions:       mg.roleDefinitions,
+	}
+	return json.Marshal(tmp)
 }

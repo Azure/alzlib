@@ -253,10 +253,9 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		location: "eastus",
 	}
 	h.mgs["mg1"] = mg
-	pd2mg := map[string]string{
-		"pd1": "mg1",
-	}
-	psd2mg := map[string]string{}
+	pd2mg := make(map[string]mapset.Set[string])
+	pd2mg["pd1"] = mapset.NewSet("mg1")
+	psd2mg := make(map[string]mapset.Set[string])
 
 	err := updatePolicyAsignments(mg, pd2mg, psd2mg)
 	require.NoError(t, err)
@@ -292,12 +291,10 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		},
 		location: "eastus",
 	}
-	pd2mg = map[string]string{
-		"pd1": "mg1",
-	}
-	psd2mg = map[string]string{
-		"psd1": "mg1",
-	}
+	pd2mg = make(map[string]mapset.Set[string])
+	pd2mg["pd1"] = mapset.NewThreadUnsafeSet("mg1")
+	psd2mg = make(map[string]mapset.Set[string])
+	psd2mg["psd1"] = mapset.NewThreadUnsafeSet("mg1")
 	err = updatePolicyAsignments(mg, pd2mg, psd2mg)
 	require.NoError(t, err)
 	expected = fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
@@ -331,12 +328,158 @@ func TestModifyPolicyAssignments(t *testing.T) {
 		},
 		location: "changeme",
 	}
-	pd2mg = map[string]string{}
-	psd2mg = map[string]string{}
+	pd2mg = make(map[string]mapset.Set[string])
+	psd2mg = make(map[string]mapset.Set[string])
 	err = updatePolicyAsignments(mg, pd2mg, psd2mg)
 	assert.Error(t, err)
 	expected = "resource id 'invalid' must start with '/'"
 	assert.ErrorContains(t, err, expected)
+}
+
+func TestManagementGroupUpdate(t *testing.T) {
+	h := NewHierarchy(nil)
+	mgRoot := &HierarchyManagementGroup{
+		id:                "mgRoot",
+		parent:            nil,
+		level:             0,
+		parentExternal:    to.Ptr("external"),
+		location:          "changeme",
+		hierarchy:         h,
+		policyAssignments: map[string]*assets.PolicyAssignment{},
+		policyDefinitions: map[string]*assets.PolicyDefinition{
+			"pdRoot01": {
+				Definition: armpolicy.Definition{
+					Name: to.Ptr("pdRoot01"),
+				},
+			},
+		},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions:      map[string]*assets.RoleDefinition{},
+	}
+	mg1 := &HierarchyManagementGroup{
+		id:                "mg1",
+		parent:            mgRoot,
+		level:             1,
+		location:          "changeme",
+		hierarchy:         h,
+		policyAssignments: map[string]*assets.PolicyAssignment{},
+		policyDefinitions: map[string]*assets.PolicyDefinition{
+			"pdDeployedTwice": {
+				Definition: armpolicy.Definition{
+					Name: to.Ptr("pdDeployedTwice"),
+				},
+			},
+		},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions:      map[string]*assets.RoleDefinition{},
+	}
+	mg1a := &HierarchyManagementGroup{
+		id:        "mg1a",
+		parent:    mg1,
+		level:     1,
+		location:  "changeme",
+		hierarchy: h,
+		policyAssignments: map[string]*assets.PolicyAssignment{
+			"paAtMg1a": {
+				Assignment: armpolicy.Assignment{
+					Name: to.Ptr("paAtMg1a"),
+					Properties: &armpolicy.AssignmentProperties{
+						PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdDeployedTwice")),
+					},
+				},
+			},
+		},
+		policyDefinitions: map[string]*assets.PolicyDefinition{},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{
+			"psdWithDefAtParent": {
+				SetDefinition: armpolicy.SetDefinition{
+					Name: to.Ptr("psdWithDefAtParent"),
+					Properties: &armpolicy.SetDefinitionProperties{
+						PolicyDefinitions: []*armpolicy.DefinitionReference{
+							{
+								PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdDeployedTwice")),
+							},
+						},
+					},
+				},
+			},
+		},
+		roleDefinitions: map[string]*assets.RoleDefinition{},
+	}
+	mg2 := &HierarchyManagementGroup{
+		id:        "mg2",
+		parent:    mgRoot,
+		level:     1,
+		location:  "changeme",
+		hierarchy: h,
+		policyAssignments: map[string]*assets.PolicyAssignment{
+			"paAtMg2": {
+				Assignment: armpolicy.Assignment{
+					Name: to.Ptr("paAtMg1a"),
+					Properties: &armpolicy.AssignmentProperties{
+						PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdDeployedTwice")),
+					},
+				},
+			},
+		},
+		policyDefinitions: map[string]*assets.PolicyDefinition{
+			"pdDeployedTwice": {
+				Definition: armpolicy.Definition{
+					Name: to.Ptr("pdDeployedTwice"),
+				},
+			},
+		},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions:      map[string]*assets.RoleDefinition{},
+	}
+	h.mgs["mgRoot"] = mgRoot
+	h.mgs["mg1"] = mg1
+	h.mgs["mg1a"] = mg1a
+	h.mgs["mg2"] = mg2
+	mgRoot.children = mapset.NewThreadUnsafeSet(mg1, mg2)
+	require.NoError(t, mgRoot.update())
+	require.NoError(t, mg1.update())
+	require.NoError(t, mg2.update())
+	require.NoError(t, mg1a.update())
+
+	// Check that the policy assignments reference the correct policy definitions.
+	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pdDeployedTwice"), *mg1a.policyAssignments["paAtMg1a"].Properties.PolicyDefinitionID)
+	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg2", "pdDeployedTwice"), *mg2.policyAssignments["paAtMg2"].Properties.PolicyDefinitionID)
+
+	// Check that the policy set definitions reference the correct policy definitions.
+	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pdDeployedTwice"), *mg1a.policySetDefinitions["psdWithDefAtParent"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
+
+	// add another root management group
+	mgOtherRoot := &HierarchyManagementGroup{
+		id:                "mgOtherRoot",
+		parent:            nil,
+		level:             0,
+		parentExternal:    to.Ptr("external"),
+		location:          "changeme",
+		hierarchy:         h,
+		policyAssignments: map[string]*assets.PolicyAssignment{},
+		policyDefinitions: map[string]*assets.PolicyDefinition{
+			"pdOtherRoot": {
+				Definition: armpolicy.Definition{
+					Name: to.Ptr("pdOtherRoot"),
+				},
+			},
+		},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions:      map[string]*assets.RoleDefinition{},
+	}
+	h.mgs["mgOtherRoot"] = mgOtherRoot
+	require.NoError(t, mgOtherRoot.update())
+
+	mg1.policyAssignments["defNotInHierarchy"] = &assets.PolicyAssignment{
+		Assignment: armpolicy.Assignment{
+			Name: to.Ptr("defNotInHierarchy"),
+			Properties: &armpolicy.AssignmentProperties{
+				PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdOtherRoot")),
+			},
+		},
+	}
+	assert.ErrorContains(t, mg1.update(), "policy assignment defNotInHierarchy has a policy definition pdOtherRoot that is not in the same hierarchy")
 }
 
 func TestModifyPolicyDefinitions(t *testing.T) {
@@ -392,9 +535,8 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 			}),
 		},
 	}
-	pd2mg := map[string]string{
-		"pd1": "mg1",
-	}
+	pd2mg := make(map[string]mapset.Set[string])
+	pd2mg["pd1"] = mapset.NewThreadUnsafeSet("mg1")
 	err := updatePolicySetDefinitions(alzmg, pd2mg)
 	require.NoError(t, err)
 	expected := fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
@@ -429,11 +571,11 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 			}),
 		},
 	}
-	pd2mg = map[string]string{
-		"pd1": "mg1",
-		"pd2": "mg1",
-		"pd3": "mg1",
-	}
+	pd2mg = make(map[string]mapset.Set[string])
+	pd2mg["pd1"] = mapset.NewThreadUnsafeSet("mg1")
+	pd2mg["pd2"] = mapset.NewThreadUnsafeSet("mg1")
+	pd2mg["pd3"] = mapset.NewThreadUnsafeSet("mg1")
+
 	_ = updatePolicySetDefinitions(alzmg, pd2mg)
 	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
@@ -451,7 +593,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 		id:                   "mg1",
 		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
 	}
-	pd2mg = map[string]string{}
+	pd2mg = make(map[string]mapset.Set[string])
 	_ = updatePolicySetDefinitions(alzmg, pd2mg)
 	assert.Empty(t, alzmg.policySetDefinitions)
 }
