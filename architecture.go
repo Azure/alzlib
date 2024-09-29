@@ -101,6 +101,11 @@ func (mg *ArchitectureManagementGroup) Id() string {
 	return mg.id
 }
 
+// Exists returns the exists value.
+func (mg *ArchitectureManagementGroup) Exists() bool {
+	return mg.exists
+}
+
 func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagementGroup, az *AlzLib) error {
 	if _, ok := a.mgs[libMg.Id]; ok {
 		return fmt.Errorf("Architecture.addMg: management group %s already exists", libMg.Id)

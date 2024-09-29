@@ -137,13 +137,14 @@ func (h *Hierarchy) AddDefaultPolicyAssignmentValue(ctx context.Context, default
 
 func recurseAddManagementGroup(ctx context.Context, h *Hierarchy, archMg *alzlib.ArchitectureManagementGroup, parent, location string, externalParent bool, level int) error {
 	req := managementGroupAddRequest{
-		id:               archMg.Id(),
-		displayName:      archMg.DisplayName(),
 		archetypes:       archMg.Archetypes(),
+		displayName:      archMg.DisplayName(),
+		exists:           archMg.Exists(),
+		id:               archMg.Id(),
+		level:            level,
 		location:         location,
 		parentId:         parent,
 		parentIsExternal: externalParent,
-		level:            level,
 	}
 	if _, err := h.addManagementGroup(ctx, req); err != nil {
 		return fmt.Errorf("Hierarchy.recurseAddManagementGroup: error adding management group `%s`: %w", archMg.Id(), err)
