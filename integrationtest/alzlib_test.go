@@ -66,5 +66,5 @@ func TestInitSimpleExistingMg(t *testing.T) {
 	err := h.FromArchitecture(ctx, "simple", "00000000-0000-0000-0000-000000000000", "testlocation")
 	require.NoError(t, err)
 	mg := h.ManagementGroup("simple")
-	assert.False(t, mg.Exists())
+	assert.True(t, mg.Exists())
 }

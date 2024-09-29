@@ -2,5 +2,6 @@
   "cSpell.words": [
     "alzlib",
     "armauthorization"
-  ]
+  ],
+  "go.testTimeout": "5m"
 }
