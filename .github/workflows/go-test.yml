@@ -8,7 +8,7 @@ on:
       - ".vscode/**"
     branches:
       - main
-  pull_request_target:
+  pull_request:
     branches:
       - main
   workflow_dispatch:
@@ -22,24 +22,6 @@ permissions:
 jobs:
   test:
     environment: test
-    if: |
-      (
-        github.event.pull_request.head.repo.full_name == 'Azure/alzlib'
-      )
-      ||
-      (
-        github.event.pull_request.head.repo.full_name != 'Azure/alzlib'
-        &&
-        contains(github.event.pull_request.labels.*.name, 'PR: Safe to test :test_tube:')
-      )
-      ||
-      (
-        github.event_name == 'workflow_dispatch'
-      )
-      ||
-      (
-        github.event_name == 'merge_group'
-      )
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -48,7 +30,6 @@ jobs:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         name: checkout
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
