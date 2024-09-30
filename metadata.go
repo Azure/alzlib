@@ -205,3 +205,12 @@ func (m *Metadata) Dependencies() LibraryReferences {
 func (m *Metadata) Path() string {
 	return m.path
 }
+
+func (m *Metadata) IsAlzLibraryRef() bool {
+	_, ok := m.ref.(*AlzLibraryReference)
+	return ok
+}
+
+func (m *Metadata) Ref() LibraryReference {
+	return m.ref
+}
