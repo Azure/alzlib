@@ -68,3 +68,17 @@ func TestInitSimpleExistingMg(t *testing.T) {
 	mg := h.ManagementGroup("simple")
 	assert.True(t, mg.Exists())
 }
+
+func TestInitMultipleRoleDefinitions(t *testing.T) {
+	az := alzlib.NewAlzLib(nil)
+	lib := alzlib.NewCustomLibraryReference("./testdata/multipleroledefinitions")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, az.Init(ctx, lib))
+	h := deployment.NewHierarchy(az)
+	err := h.FromArchitecture(ctx, "test", "00000000-0000-0000-0000-000000000000", "testlocation")
+	require.NoError(t, err)
+	mg1 := h.ManagementGroup("test1")
+	mg2 := h.ManagementGroup("test2")
+	assert.NotEqual(t, mg1.RoleDefinitionsMap()["test-role-definition"].Name, mg2.RoleDefinitionsMap()["test-role-definition"].Name)
+}

@@ -326,17 +326,18 @@ func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 }
 
 // processRoleDefinition is a processFunc that reads the role_definition
-// bytes, processes, then adds the created armpolicy.SetDefinition to the result.
+// bytes, processes, then adds the created armauthorization.RoleDefinition to the result.
+// We use Properties.RoleName as the key in the result map, as the GUID must be unique and a role definition may be deployed at multiple scopes.
 func processRoleDefinition(res *Result, unmar unmarshaler) error {
 	rd := new(armauthorization.RoleDefinition)
 	if err := unmar.unmarshal(rd); err != nil {
 		return fmt.Errorf("processRoleDefinition: error unmarshalling: %w", err)
 	}
-	if rd.Name == nil || *rd.Name == "" {
-		return fmt.Errorf("processRoleDefinition: policy set definition name is empty or not present")
+	if rd.Properties == nil || rd.Properties.RoleName == nil || *rd.Properties.RoleName == "" {
+		return fmt.Errorf("processRoleDefinition: role definition role name is empty or not present")
 	}
-	if _, exists := res.PolicySetDefinitions[*rd.Name]; exists {
-		return fmt.Errorf("processRoleDefinition: policy set definition with name `%s` already exists", *rd.Name)
+	if _, exists := res.PolicySetDefinitions[*rd.Properties.RoleName]; exists {
+		return fmt.Errorf("processRoleDefinition: role definition with role name `%s` already exists", *rd.Properties.RoleName)
 	}
 	// Use roleName here not the name, which is a GUID
 	res.RoleDefinitions[*rd.Properties.RoleName] = rd
