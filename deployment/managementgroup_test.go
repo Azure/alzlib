@@ -608,6 +608,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 				Name: to.Ptr("role1"),
 				Properties: &armauthorization.RoleDefinitionProperties{
 					AssignableScopes: []*string{},
+					RoleName:         to.Ptr("role1"),
 				},
 			}),
 		},
@@ -627,12 +628,14 @@ func TestModifyRoleDefinitions(t *testing.T) {
 				Name: to.Ptr("role1"),
 				Properties: &armauthorization.RoleDefinitionProperties{
 					AssignableScopes: []*string{},
+					RoleName:         to.Ptr("role1"),
 				},
 			}),
 			"rd2": assets.NewRoleDefinition(armauthorization.RoleDefinition{
 				Name: to.Ptr("role2"),
 				Properties: &armauthorization.RoleDefinitionProperties{
 					AssignableScopes: []*string{},
+					RoleName:         to.Ptr("role2"),
 				},
 			}),
 		},

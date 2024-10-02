@@ -506,7 +506,9 @@ func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[stri
 func updateRoleDefinitions(alzmg *HierarchyManagementGroup) {
 	for _, roledef := range alzmg.roleDefinitions {
 		u := uuidV5(alzmg.id, *roledef.Name)
+		roledef.Name = to.Ptr(u.String())
 		roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, u))
+		roledef.Properties.RoleName = to.Ptr(fmt.Sprintf("%s (%s)", *roledef.Properties.RoleName, alzmg.id))
 		if len(roledef.Properties.AssignableScopes) == 0 {
 			roledef.Properties.AssignableScopes = make([]*string, 1)
 		}
