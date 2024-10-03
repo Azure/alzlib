@@ -3,7 +3,12 @@
 
 package alzlib
 
-import mapset "github.com/deckarep/golang-set/v2"
+import (
+	"maps"
+	"slices"
+
+	mapset "github.com/deckarep/golang-set/v2"
+)
 
 // PolicyAssignmentsParameterValues is a map of default names to DefaultPolicyAssignmentValuesValue.
 // It is used to map a single value to multiple policy assignments.
@@ -46,4 +51,25 @@ func (d DefaultPolicyAssignmentValuesValue) copy() DefaultPolicyAssignmentValues
 		newVal[k] = v.Clone()
 	}
 	return newVal
+}
+
+// Assignments returns a sorted list of assignment names.
+func (d DefaultPolicyAssignmentValuesValue) Assignments() []string {
+	result := make([]string, 0, len(d))
+	for s := range maps.Keys(d) {
+		result = append(result, s)
+	}
+	slices.Sort(result)
+	return result
+}
+
+// Assignments returns a sorted list of parameter names.
+func (d DefaultPolicyAssignmentValuesValue) AssignmentParameters(name string) []string {
+	if _, ok := d[name]; !ok {
+		return nil
+	}
+	v := d[name]
+	s := v.ToSlice()
+	slices.Sort(s)
+	return s
 }

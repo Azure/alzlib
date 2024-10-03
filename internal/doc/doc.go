@@ -219,13 +219,14 @@ func alzlibReadmeMdPolicyDefaultValues(md *markdown.Markdown, az *alzlib.AlzLib)
 	if len(pdvs) == 0 {
 		return md
 	}
-	slices.Sort(pdvs)
+
 	md = md.H2("Policy Default Values").LF().PlainText("The following policy default values are available in this library:").LF()
 	for _, pdv := range pdvs {
 		md = md.H3("default name `" + pdv + "`").LF()
-		for assignment, params := range az.PolicyDefaultValue(pdv) {
+		for _, assignment := range az.PolicyDefaultValue(pdv).Assignments() {
+			params := az.PolicyDefaultValue(pdv).AssignmentParameters(assignment)
 			md = md.H4("assignment `"+assignment+"`").LF().
-				Details(fmt.Sprintf("%d parameter names", params.Cardinality()), "\n- "+strings.Join(params.ToSlice(), "\n- ")).LF()
+				Details(fmt.Sprintf("%d parameter names", len(params)), "\n- "+strings.Join(params, "\n- ")).LF()
 		}
 	}
 	return md
