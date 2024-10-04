@@ -172,7 +172,9 @@ func mermaidFromArchitectureRecursion(sb *strings.Builder, mg *alzlib.Architectu
 		archetypes[i] = a.Name()
 	}
 	archetypesStr := strings.Join(archetypes, ", ")
-	sb.WriteString(fmt.Sprintf("  %s[\"%s\\n(%s)\"]\n", mg.Id(), mg.DisplayName(), archetypesStr))
+	fmtStr := `  %s["%s
+(%s)"]\n`
+	sb.WriteString(fmt.Sprintf(fmtStr, mg.Id(), mg.DisplayName(), archetypesStr))
 	children := mg.Children()
 	slices.SortFunc(children, sortFuncArchitectureManagementGroup)
 	for _, child := range children {
