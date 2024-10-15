@@ -89,7 +89,7 @@ func (mg *ArchitectureManagementGroup) Archetypes() (res []*Archetype) {
 		}
 		return 0
 	})
-	return res
+	return
 }
 
 // Children returns the child management groups of the management group.
