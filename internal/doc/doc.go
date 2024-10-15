@@ -58,7 +58,7 @@ func alzlibReadmeMdDependencies(md *markdown.Markdown, deps alzlib.LibraryRefere
 	}
 	md = md.H2("Dependencies").LF()
 	for _, dep := range deps {
-		md = md.BulletList("%s", dep.String())
+		md = md.BulletList(dep.String())
 	}
 	return md.LF()
 }

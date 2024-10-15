@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Azure/alzlib/internal/environment"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
@@ -145,6 +146,11 @@ func (client *ProcessorClient) Process(res *Result) error {
 		}
 		// Skip directories
 		if d.IsDir() {
+			return nil
+		}
+		// Skip files where path contains base of the `ALZLIB_DIR`.
+		alzLibDirBase := filepath.Base(environment.AlzLibDir())
+		if strings.Contains(path, alzLibDirBase) {
 			return nil
 		}
 		// Skip files that are not json or yaml
