@@ -80,6 +80,15 @@ func (mg *ArchitectureManagementGroup) Archetypes() (res []*Archetype) {
 	for arch := range mg.archetypes.Iter() {
 		res = append(res, arch.copy())
 	}
+	slices.SortFunc(res, func(a, b *Archetype) int {
+		if a.name < b.name {
+			return -1
+		}
+		if a.name > b.name {
+			return 1
+		}
+		return 0
+	})
 	return res
 }
 
