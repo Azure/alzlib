@@ -45,6 +45,7 @@ var libraryCmd = cobra.Command{
 			checks.CheckAllDefinitionsAreReferenced,
 			checks.CheckAllArchitectures,
 			checks.CheckLibraryMemberPath,
+			checks.CheckDefaults,
 		)
 		err = chk.Validate(az)
 		if err != nil {
