@@ -16,7 +16,7 @@ var CheckDefaults = checker.NewValidatorCheck("All defaults are valid", checkDef
 func checkDefaults(azany any) error {
 	az, ok := azany.(*alzlib.AlzLib)
 	if !ok {
-		return fmt.Errorf("checkAllDefinitionsAreReferenced: expected *alzlib.AlzLib, got %T", azany)
+		return fmt.Errorf("checkDefaults: expected *alzlib.AlzLib, got %T", azany)
 	}
 	defs := az.PolicyDefaultValues()
 	for _, def := range defs {
