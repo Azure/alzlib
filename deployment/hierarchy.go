@@ -113,7 +113,7 @@ func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[Polic
 
 // AddDefaultPolicyAssignmentValue adds a default policy assignment value to the hierarchy.
 func (h *Hierarchy) AddDefaultPolicyAssignmentValue(ctx context.Context, defaultName string, defaultValue *armpolicy.ParameterValuesValue) error {
-	defs := h.alzlib.DefaultPolicyAssignmentValues(defaultName)
+	defs := h.alzlib.PolicyDefaultValue(defaultName)
 	if defs == nil {
 		return fmt.Errorf("Hierarchy.AddDefaultPolicyAssignmentValue: A default with name `%s` does not exist", defaultName)
 	}

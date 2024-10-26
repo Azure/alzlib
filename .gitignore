@@ -32,3 +32,6 @@ coverage.html
 
 # compiled binary
 /alzlibtool
+
+# goreleaser files
+dist/

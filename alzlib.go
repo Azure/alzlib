@@ -493,15 +493,6 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, pds []string) err
 	return nil
 }
 
-// DefaultPolicyAssignmentValues returns the DefaultPolicyAssignmentValuesValue associated with the given defaultName.
-// If the defaultName does not exist in the defaultPolicyAssignmentValues map, it returns nil.
-func (az *AlzLib) DefaultPolicyAssignmentValues(defaultName string) DefaultPolicyAssignmentValuesValue {
-	if _, ok := az.defaultPolicyAssignmentValues[defaultName]; !ok {
-		return nil
-	}
-	return az.defaultPolicyAssignmentValues[defaultName].copy()
-}
-
 // AssignmentReferencedDefinitionHasParameter checks if the referenced definition of an assignment has a specific parameter.
 // It takes a resource ID and a parameter name as input and returns a boolean indicating whether the parameter exists or not.
 func (az *AlzLib) AssignmentReferencedDefinitionHasParameter(res *arm.ResourceID, param string) bool {
