@@ -82,7 +82,9 @@ func FetchAzureLandingZonesLibraryMember(ctx context.Context, path, ref, dstDir 
 func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
 	baseDir := environment.AlzLibDir()
 	dst := filepath.Join(baseDir, dstDir)
-	client := getter.Client{}
+	client := getter.Client{
+		DisableSymlinks: true,
+	}
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("FetchLibraryByGetterString: error getting working directory: %w", err)
