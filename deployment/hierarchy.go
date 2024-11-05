@@ -119,7 +119,7 @@ func (h *Hierarchy) AddDefaultPolicyAssignmentValue(ctx context.Context, default
 	}
 	// Get the policy assignments for each management group.
 	for _, mg := range h.mgs {
-		for assignment, params := range defs {
+		for assignment, params := range defs.PolicyAssignment2ParameterMap() {
 			if _, ok := mg.policyAssignments[assignment]; !ok {
 				continue
 			}

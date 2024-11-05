@@ -154,8 +154,7 @@ func TestAddDefaultPolicyAssignmentValue(t *testing.T) {
 	defaults := defaultsPtr.Interface().(alzlib.DefaultPolicyAssignmentValues) //nolint:forcetypeassert
 
 	t.Run("Default param present in definition", func(t *testing.T) {
-		defaults["default"] = make(alzlib.DefaultPolicyAssignmentValuesValue)
-		defaults["default"]["pa1"] = mapset.NewThreadUnsafeSet("param1")
+		defaults.Add("default", "pa1", "", "param1")
 		// Define the default policy assignment value.
 		defaultName := "default"
 		defaultValue := &armpolicy.ParameterValuesValue{Value: to.Ptr("value1")}
@@ -167,7 +166,7 @@ func TestAddDefaultPolicyAssignmentValue(t *testing.T) {
 	})
 
 	t.Run("Default parameter not present in definition", func(t *testing.T) {
-		defaults["default"]["pa1"] = mapset.NewThreadUnsafeSet("param4")
+		defaults.Add("default", "pa1", "", "param4")
 		defaultName := "default"
 		defaultValue := &armpolicy.ParameterValuesValue{Value: to.Ptr("value1")}
 		// Add the default policy assignment value to the hierarchy.
