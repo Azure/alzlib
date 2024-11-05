@@ -416,9 +416,9 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 
 	// Check if the default policy values are added correctly
 	assert.Equal(t, 1, len(az.defaultPolicyAssignmentValues))
-	assert.Equal(t, 1, len(az.defaultPolicyAssignmentValues["default1"]))
-	assert.True(t, az.defaultPolicyAssignmentValues["default1"]["assignment1"].Contains("param1"))
-	assert.True(t, az.defaultPolicyAssignmentValues["default1"]["assignment1"].Contains("param2"))
+	assert.Equal(t, 1, len(az.defaultPolicyAssignmentValues["default1"].assignment2Parameters))
+	assert.True(t, az.defaultPolicyAssignmentValues["default1"].assignment2Parameters["assignment1"].Contains("param1"))
+	assert.True(t, az.defaultPolicyAssignmentValues["default1"].assignment2Parameters["assignment1"].Contains("param2"))
 	assert.True(t, az.defaultPolicyAssignmentValues.AssignmentParameterComboExists("assignment1", "param2"))
 
 	res = &processor.Result{

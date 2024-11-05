@@ -10,6 +10,7 @@ type LibDefaultPolicyValues struct {
 // LibDefaultPolicyValues represents the default policy values that allow a single value to be mapped into different assignments.
 type LibDefaultPolicyValuesDefaults struct {
 	DefaultName       string                             `json:"default_name" yaml:"default_name"`
+	Description       string                             `json:"description,omitempty" yaml:"description"`
 	PolicyAssignments []LibDefaultPolicyValueAssignments `json:"policy_assignments" yaml:"policy_assignments"`
 }
 

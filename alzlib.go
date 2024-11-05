@@ -264,14 +264,15 @@ func (az *AlzLib) PolicyDefaultValues() []string {
 	return result
 }
 
-func (az *AlzLib) PolicyDefaultValue(name string) DefaultPolicyAssignmentValuesValue {
+func (az *AlzLib) PolicyDefaultValue(name string) *DefaultPolicyAssignmentValuesValue {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 	val, ok := az.defaultPolicyAssignmentValues[name]
 	if !ok {
 		return nil
 	}
-	return val.copy()
+	ret := val.copy()
+	return &ret
 }
 
 // Architecture returns the requested architecture.
@@ -634,7 +635,7 @@ func (az *AlzLib) addDefaultPolicyAssignmentValues(res *processor.Result) error 
 					return fmt.Errorf("Alzlib.addDefaultPolicyValues: error processing default policy values for default name: `%s`, assignment `%s` and parameter `%s` already exists in defaults", defName, assignment.PolicyAssignmentName, param)
 				}
 			}
-			az.defaultPolicyAssignmentValues.Add(defName, assignment.PolicyAssignmentName, assignment.ParameterNames...)
+			az.defaultPolicyAssignmentValues.Add(defName, assignment.PolicyAssignmentName, def.Description, assignment.ParameterNames...)
 		}
 	}
 	return nil
