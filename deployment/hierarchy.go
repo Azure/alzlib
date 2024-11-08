@@ -5,6 +5,7 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -100,15 +101,24 @@ func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId
 func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[PolicyRoleAssignment], error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	var errs *PolicyRoleAssignmentErrors
 	res := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
 	// Get the policy assignments for each management group.
 	for _, mg := range h.mgs {
 		if err := mg.generatePolicyAssignmentAdditionalRoleAssignments(); err != nil {
+			var thisErrs *PolicyRoleAssignmentErrors
+			if errors.As(err, &thisErrs) {
+				if errs == nil {
+					errs = NewPolicyRoleAssignmentErrors()
+				}
+				errs.Add(thisErrs.Errors()...)
+				continue
+			}
 			return nil, fmt.Errorf("Hierarchy.PolicyRoleAssignments: error generating additional role assignments for management group `%s`: %w", mg.id, err)
 		}
 		res = res.Union(mg.policyRoleAssignments)
 	}
-	return res, nil
+	return res, errs
 }
 
 // AddDefaultPolicyAssignmentValue adds a default policy assignment value to the hierarchy.
