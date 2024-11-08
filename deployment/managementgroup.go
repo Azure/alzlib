@@ -318,7 +318,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 			}
 		}
 	}
-	return errs
+	if errs != nil {
+		return errs
+	}
+	return nil
 }
 
 // update will update the AlzManagementGroup resources with the correct resource ids, references, etc.
