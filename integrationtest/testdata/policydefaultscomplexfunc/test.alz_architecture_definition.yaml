@@ -1,0 +1,8 @@
+management_groups:
+  - archetypes:
+      - test
+    display_name: test
+    exists: false
+    id: test
+    parent_id: null
+name: test

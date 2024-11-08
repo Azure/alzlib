@@ -159,6 +159,9 @@ func (alzmg *HierarchyManagementGroup) RoleDefinitionsMap() map[string]*assets.R
 // It will iterate through all policy assignments and generate the additional role assignments for each one,
 // storing them in the AdditionalRoleAssignmentsByPolicyAssignment map.
 func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssignments() error {
+	// Make a error collection type so we can return them in the error message without stopping the process.
+	// Upstream code can then decide what to do with them, issue warnings in stead of hard fail, etc.
+	var errs *PolicyRoleAssignmentErrors
 	for paName, pa := range mg.policyAssignments {
 		// we only care about policy assignments that use an identity
 		if pa.IdentityType() == armpolicy.ResourceIdentityTypeNone {
@@ -288,7 +291,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 					// extract the assignment exposed policy set parameter name from the ARM function used in the policy definition reference
 					paParamName, err := extractParameterNameFromArmFunction(pdrefParamValStr)
 					if err != nil {
-						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: error extracting parameter name from ARM function `%s`: %w", pdrefParamValStr, err)
+						if errs == nil {
+							errs = NewPolicyRoleAssignmentErrors()
+						}
+						errs.Add(NewPolicyRoleAssignmentError(paName, mg.id, paramName, *pdRef.PolicyDefinitionReferenceID, rdids))
 					}
 
 					// if the parameter in the assignment doesn't exist, skip it
@@ -311,6 +317,9 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 				}
 			}
 		}
+	}
+	if errs != nil {
+		return errs
 	}
 	return nil
 }

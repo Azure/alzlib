@@ -1,0 +1,5 @@
+name: test
+policy_assignments:
+  - Deploy-Private-DNS-Zones
+policy_set_definitions:
+  - Deploy-Private-DNS-Zones

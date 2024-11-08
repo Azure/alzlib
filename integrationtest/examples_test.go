@@ -6,7 +6,6 @@ package integrationtest
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
@@ -30,7 +29,6 @@ func Example_deploymentNewHierarchy() {
 		return
 	}
 	az.AddPolicyClient(cf)
-	//dirFs, err := alzlib.FetchAzureLandingZonesLibraryMember(ctx, alzLibraryMember, alzLibraryTag, "alz")
 	lib := alzlib.NewCustomLibraryReference("testdata/alzlib-2024-07-01")
 	libs, err := lib.FetchWithDependencies(ctx)
 	if err != nil {
@@ -54,7 +52,6 @@ func Example_deploymentNewHierarchy() {
 		return
 	}
 	mgs := h.ManagementGroupNames()
-	slices.Sort(mgs)
 	fmt.Println("Management groups:", mgs)
 
 	// Output:

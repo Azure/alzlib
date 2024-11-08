@@ -5,6 +5,7 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -97,16 +98,30 @@ func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId
 }
 
 // PolicyAssignments returns the policy assignments required for the hierarchy.
+// This error returned bay be a PolicyAssignmentErrors, which contains a slice of errors.
+// This is so that callers can choose to issue a warning here instead of halting the process.
 func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[PolicyRoleAssignment], error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	var errs *PolicyRoleAssignmentErrors
 	res := mapset.NewThreadUnsafeSet[PolicyRoleAssignment]()
 	// Get the policy assignments for each management group.
 	for _, mg := range h.mgs {
 		if err := mg.generatePolicyAssignmentAdditionalRoleAssignments(); err != nil {
+			var thisErrs *PolicyRoleAssignmentErrors
+			if errors.As(err, &thisErrs) {
+				if errs == nil {
+					errs = NewPolicyRoleAssignmentErrors()
+				}
+				errs.Add(thisErrs.Errors()...)
+				continue
+			}
 			return nil, fmt.Errorf("Hierarchy.PolicyRoleAssignments: error generating additional role assignments for management group `%s`: %w", mg.id, err)
 		}
 		res = res.Union(mg.policyRoleAssignments)
+	}
+	if errs != nil {
+		return res, errs
 	}
 	return res, nil
 }

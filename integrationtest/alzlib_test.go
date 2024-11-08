@@ -9,6 +9,8 @@ import (
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,4 +83,26 @@ func TestInitMultipleRoleDefinitions(t *testing.T) {
 	mg1 := h.ManagementGroup("test1")
 	mg2 := h.ManagementGroup("test2")
 	assert.NotEqual(t, mg1.RoleDefinitionsMap()["test-role-definition"].Name, mg2.RoleDefinitionsMap()["test-role-definition"].Name)
+}
+
+func TestPolicyRoleAssignmentsWithComplexFunctions(t *testing.T) {
+	az := alzlib.NewAlzLib(nil)
+	lib := alzlib.NewCustomLibraryReference("./testdata/policydefaultscomplexfunc")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	require.NoError(t, err)
+	cf, err := armpolicy.NewClientFactory("", cred, nil)
+	require.NoError(t, err)
+	az.AddPolicyClient(cf)
+	require.NoError(t, az.Init(ctx, lib))
+	h := deployment.NewHierarchy(az)
+	require.NoError(t, h.AddDefaultPolicyAssignmentValue(ctx, "private_dns_zone_subscription_id", &armpolicy.ParameterValuesValue{Value: "00000000-0000-0000-0000-000000000000"}))
+	require.NoError(t, h.AddDefaultPolicyAssignmentValue(ctx, "private_dns_zone_resource_group_name", &armpolicy.ParameterValuesValue{Value: "test"}))
+	require.NoError(t, h.AddDefaultPolicyAssignmentValue(ctx, "private_dns_zone_region", &armpolicy.ParameterValuesValue{Value: "testlocation"}))
+	require.NoError(t, h.FromArchitecture(ctx, "test", "private_dns_zone_region", "testlocation"))
+	_, err = h.PolicyRoleAssignments(ctx)
+	var roleAssignmentErrors *deployment.PolicyRoleAssignmentErrors
+	assert.ErrorAs(t, err, &roleAssignmentErrors)
+	assert.ErrorContains(t, err, "could not generate role assignment for assignment `Deploy-Private-DNS-Zones` assigned at scope `test`. A new role assignment should be created at scope of the definition referenced by `DINE-Private-DNS-Azure-File-Sync`, using parameter name `privateDnsZoneId`")
 }
