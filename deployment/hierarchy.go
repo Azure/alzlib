@@ -120,7 +120,10 @@ func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[Polic
 		}
 		res = res.Union(mg.policyRoleAssignments)
 	}
-	return res, errs
+	if errs != nil {
+		return res, errs
+	}
+	return res, nil
 }
 
 // AddDefaultPolicyAssignmentValue adds a default policy assignment value to the hierarchy.
