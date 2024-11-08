@@ -98,6 +98,8 @@ func (h *Hierarchy) FromArchitecture(ctx context.Context, arch, externalParentId
 }
 
 // PolicyAssignments returns the policy assignments required for the hierarchy.
+// This error returned bay be a PolicyAssignmentErrors, which contains a slice of errors.
+// This is so that callers can choose to issue a warning here instead of halting the process.
 func (h *Hierarchy) PolicyRoleAssignments(ctx context.Context) (mapset.Set[PolicyRoleAssignment], error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

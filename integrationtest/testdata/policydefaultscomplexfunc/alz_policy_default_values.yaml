@@ -1,0 +1,19 @@
+defaults:
+  - default_name: private_dns_zone_subscription_id
+    description: The subscription id that hosts the private link DNS zones.
+    policy_assignments:
+      - parameter_names:
+          - dnsZoneSubscriptionId
+        policy_assignment_name: Deploy-Private-DNS-Zones
+  - default_name: private_dns_zone_resource_group_name
+    description: The resource group name that hosts the private link DNS zones.
+    policy_assignments:
+      - parameter_names:
+          - dnsZoneResourceGroupName
+        policy_assignment_name: Deploy-Private-DNS-Zones
+  - default_name: private_dns_zone_region
+    description: The region short name (e.g. `westus`) that should be used for the region specific private link DNS zones.
+    policy_assignments:
+      - parameter_names:
+          - dnsZoneRegion
+        policy_assignment_name: Deploy-Private-DNS-Zones
