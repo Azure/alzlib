@@ -62,7 +62,7 @@ func (e *PolicyRoleAssignmentErrors) Error() string {
 	for i, err := range e.errors {
 		errors[i] = err.Error()
 	}
-	return strings.Join(errors, "\n")
+	return strings.Join(errors, "\n---\n")
 }
 
 // Errors returns the collection of PolicyRoleAssignmentError.
