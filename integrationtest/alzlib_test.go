@@ -103,6 +103,5 @@ func TestPolicyRoleAssignmentsWithComplexFunctions(t *testing.T) {
 	require.NoError(t, h.FromArchitecture(ctx, "test", "private_dns_zone_region", "testlocation"))
 	_, err = h.PolicyRoleAssignments(ctx)
 	var roleAssignmentErrors *deployment.PolicyRoleAssignmentErrors
-	assert.ErrorAs(t, err, &roleAssignmentErrors)
-	assert.ErrorContains(t, err, "could not generate role assignment for assignment `Deploy-Private-DNS-Zones` assigned at scope `test`. A new role assignment should be created at scope of the definition referenced by `DINE-Private-DNS-Azure-File-Sync`, using parameter name `privateDnsZoneId`")
+	assert.NoError(t, err, roleAssignmentErrors)
 }
