@@ -15,6 +15,7 @@ type PolicyRoleAssignmentError struct {
 	definitionParameterName   string
 	policyDefinitionReference string
 	roleDefinitionIds         []string
+	wrappedError              error
 }
 
 // PolicyRoleAssignmentErrors represents a collection of PolicyRoleAssignmentError.
@@ -23,13 +24,14 @@ type PolicyRoleAssignmentErrors struct {
 	errors []*PolicyRoleAssignmentError
 }
 
-func NewPolicyRoleAssignmentError(assignmentName string, assignmentScope string, defParameterName string, pdref string, roleDefinitionIds []string) *PolicyRoleAssignmentError {
+func NewPolicyRoleAssignmentError(assignmentName string, assignmentScope string, defParameterName string, pdref string, roleDefinitionIds []string, innerError error) *PolicyRoleAssignmentError {
 	return &PolicyRoleAssignmentError{
 		assignmentName:            assignmentName,
 		assignmentScope:           assignmentScope,
 		definitionParameterName:   defParameterName,
 		policyDefinitionReference: pdref,
 		roleDefinitionIds:         roleDefinitionIds,
+		wrappedError:              innerError,
 	}
 }
 
@@ -42,13 +44,18 @@ func NewPolicyRoleAssignmentErrors() *PolicyRoleAssignmentErrors {
 // Error implements the error interface.
 func (e *PolicyRoleAssignmentError) Error() string {
 	return fmt.Sprintf(
-		"PolicyRoleAssignmentError: could not generate role assignment for assignment `%s` assigned at scope `%s`. A new role assignment should be created at scope of the definition referenced by `%s`, using parameter name `%s`, for the following role definition ids: `%s`",
+		"PolicyRoleAssignmentError: could not generate role assignment for assignment `%s` assigned at scope `%s`. A new role assignment should be created at scope of the definition referenced by `%s`, using parameter name `%s`, for the following role definition ids: `%s`. InnerError: %v",
 		e.assignmentName,
 		e.assignmentScope,
 		e.policyDefinitionReference,
 		e.definitionParameterName,
 		strings.Join(e.roleDefinitionIds, ", "),
+		e.wrappedError,
 	)
+}
+
+func (e *PolicyRoleAssignmentError) Unwrap() error {
+	return e.wrappedError
 }
 
 // Add adds one or more PolicyRoleAssignmentError to the collection.

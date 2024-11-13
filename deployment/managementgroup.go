@@ -4,6 +4,7 @@
 package deployment
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/matt-FFFFFF/goarmfunctions"
 )
 
 // HierarchyManagementGroup represents an Azure Management Group within a hierarchy, with links to parent and children.
@@ -270,42 +272,43 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 
 				// for each parameter with assignPermissions = true
 				// add the additional scopes to the additional role assignment data
-				// to do this we have to map the assignment parameter value to the policy definition parameter value
+				// to do this we have to map the assignment parameter value to the policy definition parameter value.
 				for paramName, paramVal := range pd.Properties.Parameters {
+					// If assignPermissions is not set then skip.
 					if paramVal.Metadata == nil || paramVal.Metadata.AssignPermissions == nil || !*paramVal.Metadata.AssignPermissions {
 						continue
 					}
-					// get the parameter value from the policy reference within the set definition
+					// get the parameter value from the policy reference within the set definition.
 					if _, ok := pd.Properties.Parameters[paramName]; !ok {
 						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: assignment `%s` for policy set `%s`, parameter `%s` not found in refernced policy definition `%s`", paName, *psd.Name, paramName, *pd.Name)
 					}
-					pdrefParam, ok := pdRef.Parameters[paramName]
-					if !ok {
-						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: assignment `%s` for policy set `%s`, parameter `%s` not found in policy definition reference `%s`", paName, *psd.Name, paramName, *pdRef.PolicyDefinitionID)
-					}
-					pdrefParamVal := pdrefParam.Value
-					pdrefParamValStr, ok := pdrefParamVal.(string)
-					if !ok {
-						return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: assignment `%s` for  policy set `%s`, parameter `%s` value in policy definition `%s` is not a string", paName, *psd.Name, paramName, *pd.Name)
-					}
-					// extract the assignment exposed policy set parameter name from the ARM function used in the policy definition reference
-					paParamName, err := extractParameterNameFromArmFunction(pdrefParamValStr)
+					// use goarmfunctions to evaluate the ARM expression in the parameter value in the set definition reference.
+					scope, err := parseArmFunctionInPolicySetParameter(*pdRef.PolicyDefinitionReferenceID, paramName, &pa.Assignment, &psd.SetDefinition)
 					if err != nil {
 						if errs == nil {
 							errs = NewPolicyRoleAssignmentErrors()
 						}
-						errs.Add(NewPolicyRoleAssignmentError(paName, mg.id, paramName, *pdRef.PolicyDefinitionReferenceID, rdids))
-					}
-
-					// if the parameter in the assignment doesn't exist, skip it
-					paParamVal, err := pa.ParameterValueAsString(paParamName)
-					if err != nil {
+						errs.Add(NewPolicyRoleAssignmentError(paName, mg.id, paramName, *pdRef.PolicyDefinitionReferenceID, rdids, err))
 						continue
 					}
-					resid, err := arm.ParseResourceID(paParamVal)
-					if err != nil {
+					// The value should be a string.
+					if _, ok := scope.(string); !ok {
+						if errs == nil {
+							errs = NewPolicyRoleAssignmentErrors()
+						}
+						errs.Add(NewPolicyRoleAssignmentError(paName, mg.id, paramName, *pdRef.PolicyDefinitionReferenceID, rdids, fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: assignment `%s` for policy set `%s`, parameter `%s` value in policy definition `%s` is not a string", paName, *psd.Name, paramName, *pd.Name)))
 						continue
 					}
+					// The value should be an ARM resource ID.
+					resid, err := arm.ParseResourceID(scope.(string))
+					if err != nil {
+						if errs == nil {
+							errs = NewPolicyRoleAssignmentErrors()
+						}
+						errs.Add(NewPolicyRoleAssignmentError(paName, mg.id, paramName, *pdRef.PolicyDefinitionReferenceID, rdids, err))
+						continue
+					}
+					// if we got this far then we can add the role assignments.
 					for _, rdid := range rdids {
 						mg.policyRoleAssignments.Add(PolicyRoleAssignment{
 							Scope:             resid.String(),
@@ -405,13 +408,36 @@ func (alzmg *HierarchyManagementGroup) ModifyPolicyAssignment(
 	return nil
 }
 
-// extractParameterNameFromArmFunction extracts the parameter name from an ARM function.
-func extractParameterNameFromArmFunction(value string) (string, error) {
-	// value is of the form "[parameters('parameterName')]".
-	if !strings.HasPrefix(value, "[parameters('") || !strings.HasSuffix(value, "')]") {
-		return "", fmt.Errorf("value is not a parameter reference")
+// parseArmFunctionInPolicySetParameter evaluates the ARM expression in a policy set parameter for a referenced definition.
+// It builds a map of the parameters in the policy set definition and the assignment and evaluates the ARM expression using goarmfunctions.
+func parseArmFunctionInPolicySetParameter(pdRef, paramName string, ass *armpolicy.Assignment, setDef *armpolicy.SetDefinition) (any, error) {
+	resultantParams := make(map[string]any)
+	for k, v := range setDef.Properties.Parameters {
+		resultantParams[k] = v.DefaultValue
 	}
-	return value[13 : len(value)-3], nil
+	for k, v := range ass.Properties.Parameters {
+		resultantParams[k] = v.Value
+	}
+	var toParse string
+	for _, def := range setDef.Properties.PolicyDefinitions {
+		if *def.PolicyDefinitionReferenceID != pdRef {
+			continue
+		}
+		p, ok := def.Parameters[paramName]
+		if !ok {
+			return nil, fmt.Errorf("parseArmFunctionInPolicySetParameter: paramName %s not found in %s", paramName, *def.PolicyDefinitionReferenceID)
+		}
+		pStr, ok := p.Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("parseArmFunctionInPolicySetParameter: paramName %s in %s is not a string", paramName, *def.PolicyDefinitionReferenceID)
+		}
+		toParse = pStr
+	}
+	res, err := goarmfunctions.LexAndParse(context.Background(), toParse, resultantParams, nil)
+	if err != nil {
+		return nil, fmt.Errorf("parseArmFunctionInPolicySetParameter: error parsing parameter %s in reference %s in set definition %s: %w", paramName, pdRef, *setDef.Name, err)
+	}
+	return res, nil
 }
 
 // updatePolicyDefinitions re-writes the policy definition resource IDs for the correct management group.
