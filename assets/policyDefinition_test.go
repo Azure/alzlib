@@ -6,7 +6,9 @@ package assets
 import (
 	"testing"
 
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNormalizedRoleDefinitionResourceIds(t *testing.T) {
@@ -46,4 +48,38 @@ func TestNormalizedRoleDefinitionResourceIds(t *testing.T) {
 			t.Errorf("expected role definition id %s, got %s", expected[i], id)
 		}
 	}
+}
+
+func TestSetAssignPermissionsOnParameter(t *testing.T) {
+	pd := &PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Properties: &armpolicy.DefinitionProperties{
+				Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+					"test": {
+						Metadata: &armpolicy.ParameterDefinitionsValueMetadata{},
+					},
+				},
+			},
+		},
+	}
+	pd.SetAssignPermissionsOnParameter("test")
+	assert.Equal(t, true, *pd.Properties.Parameters["test"].Metadata.AssignPermissions)
+}
+
+func TestUnsetAssignPermissionsOnParameter(t *testing.T) {
+	pd := &PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Properties: &armpolicy.DefinitionProperties{
+				Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+					"test": {
+						Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+							AssignPermissions: to.Ptr(true),
+						},
+					},
+				},
+			},
+		},
+	}
+	pd.UnsetAssignPermissionsOnParameter("test")
+	assert.Nil(t, pd.Properties.Parameters["test"].Metadata.AssignPermissions)
 }
