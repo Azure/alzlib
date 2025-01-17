@@ -183,6 +183,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 			if pd == nil {
 				return fmt.Errorf("ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: policy definition `%s`, referenced by `%s` not found in AlzLib", policyDefinitionRef.Name, paName)
 			}
+
 			// get the role definition ids from the policy definition and add to the additional role assignment data
 			rdids, err := pd.NormalizedRoleDefinitionResourceIds()
 			if err != nil {
