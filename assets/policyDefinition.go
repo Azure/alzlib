@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
@@ -114,6 +115,36 @@ func (pd *PolicyDefinition) Parameter(name string) *armpolicy.ParameterDefinitio
 		return nil
 	}
 	return ret
+}
+
+// SetAssignPermissionsOnParameter sets the AssignPermissions metadata field to true for the parameter with the given name.
+func (pd *PolicyDefinition) SetAssignPermissionsOnParameter(parameterName string) {
+	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
+		return
+	}
+	param, ok := pd.Properties.Parameters[parameterName]
+	if !ok {
+		return
+	}
+	if param.Metadata == nil {
+		param.Metadata = new(armpolicy.ParameterDefinitionsValueMetadata)
+	}
+	param.Metadata.AssignPermissions = to.Ptr(true)
+}
+
+// UnsetAssignPermissionsOnParameter removes the AssignPermissions metadata field for the parameter with the given name.
+func (pd *PolicyDefinition) UnsetAssignPermissionsOnParameter(parameterName string) {
+	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
+		return
+	}
+	param, ok := pd.Properties.Parameters[parameterName]
+	if !ok {
+		return
+	}
+	if param.Metadata == nil {
+		return
+	}
+	param.Metadata.AssignPermissions = nil
 }
 
 // normalizeRoleDefinitionId takes a Azure builtin role definition id and returns a normalized id.
