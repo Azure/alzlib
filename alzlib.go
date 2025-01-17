@@ -330,6 +330,28 @@ func (az *AlzLib) PolicyDefinition(name string) *assets.PolicyDefinition {
 	return deep.MustCopy(pd)
 }
 
+// SetAssignPermissionsOnDefinitionParameter sets the AssignPermissions metadata field to true for the definition and parameter with the given name.
+func (az *AlzLib) SetAssignPermissionsOnDefinitionParameter(definitionName, parameterName string) {
+	az.mu.Lock()
+	defer az.mu.Unlock()
+	definition, ok := az.policyDefinitions[definitionName]
+	if !ok {
+		return
+	}
+	definition.SetAssignPermissionsOnParameter(parameterName)
+}
+
+// UnsetAssignPermissionsOnDefinitionParameter removes the AssignPermissions metadata field to true for the definition and parameter with the given name.
+func (az *AlzLib) UnsetAssignPermissionsOnDefinitionParameter(definitionName, parameterName string) {
+	az.mu.Lock()
+	defer az.mu.Unlock()
+	definition, ok := az.policyDefinitions[definitionName]
+	if !ok {
+		return
+	}
+	definition.UnsetAssignPermissionsOnParameter(parameterName)
+}
+
 // GetPolicySetDefinition returns a deep copy of the requested policy set definition.
 // This is safe to modify without affecting the original.
 func (az *AlzLib) PolicyAssignment(name string) *assets.PolicyAssignment {
