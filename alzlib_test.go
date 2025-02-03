@@ -218,7 +218,7 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 					},
 				},
 			},
-			expectedError:  "",
+			expectedError:  "invalid parent",
 			expectedLength: 1,
 			expectedNotNil: "architecture1",
 		},

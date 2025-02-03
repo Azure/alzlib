@@ -1,0 +1,14 @@
+name: invalid
+management_groups:
+  - archetypes:
+      - empty
+    display_name: parent
+    exists: false
+    id: parent
+    parent_id: null
+  - archetypes:
+      - empty
+    display_name: child
+    exists: false
+    id: child
+    parent_id: parent_invalid
