@@ -783,6 +783,15 @@ func (az *AlzLib) generateArchitectures(res *processor.Result) error {
 		if _, exists := az.architectures[name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.generateArchitectures: error processing architecture %s - it already exists in the library", name)
 		}
+		validParents := mapset.NewThreadUnsafeSet[string]()
+		for _, mg := range libArch.ManagementGroups {
+			validParents.Add(mg.Id)
+		}
+		for _, mg := range libArch.ManagementGroups {
+			if mg.ParentId != nil && !validParents.Contains(*mg.ParentId) {
+				return fmt.Errorf("Alzlib.generateArchitectures: error processing architecture %s - management group %s has invalid parent %s", name, mg.Id, *mg.ParentId)
+			}
+		}
 		arch := NewArchitecture(name, az)
 		if err := architectureRecursion(nil, libArch, arch, az, 0); err != nil {
 			return fmt.Errorf("Alzlib.generateArchitectures: error processing architecture %s: %w", name, err)
@@ -802,13 +811,11 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 		return errors.New("architectureRecursion: no management groups found")
 	}
 	for _, mg := range libArch.ManagementGroups {
-		parentFound := false
 		switch {
 		case depth == 0 && mg.ParentId == nil:
 			if err := arch.addMgFromProcessor(mg, az); err != nil {
 				return fmt.Errorf("architectureRecursion: error adding management group %s: %w", mg.Id, err)
 			}
-			parentFound = true
 		case depth > 0 && mg.ParentId != nil:
 			if parents == nil {
 				return errors.New("architectureRecursion: depth > 1 and parents set to nil")
@@ -819,12 +826,8 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 			if err := arch.addMgFromProcessor(mg, az); err != nil {
 				return fmt.Errorf("architectureRecursion: error adding management group %s: %w", mg.Id, err)
 			}
-			parentFound = true
 		default:
 			continue
-		}
-		if !parentFound {
-			return fmt.Errorf("architectureRecursion: management group %s has no valid parent", mg.Id)
 		}
 		newParents.Add(mg.Id)
 	}
