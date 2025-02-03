@@ -25,20 +25,24 @@ var libraryCmd = cobra.Command{
 		creds, err := azidentity.NewDefaultAzureCredential(nil)
 		if err != nil {
 			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
+			os.Exit(1)
 		}
 		cf, err := armpolicy.NewClientFactory("", creds, nil)
 		if err != nil {
 			cmd.PrintErrf("%s could not create Azure policy client factory: %v\n", cmd.ErrPrefix(), err)
+			os.Exit(1)
 		}
 		az.AddPolicyClient(cf)
 		thisRef := alzlib.NewCustomLibraryReference(args[0])
 		libs, err := thisRef.FetchWithDependencies(cmd.Context())
 		if err != nil {
 			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
+			os.Exit(1)
 		}
 		err = az.Init(cmd.Context(), libs...)
 		if err != nil {
 			cmd.PrintErrf("%s library init error: %v\n", cmd.ErrPrefix(), err)
+			os.Exit(1)
 		}
 
 		chk := checker.NewValidator(
