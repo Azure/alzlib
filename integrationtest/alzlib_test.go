@@ -118,3 +118,16 @@ func TestInvalidParent(t *testing.T) {
 	az.AddPolicyClient(cf)
 	require.ErrorContains(t, az.Init(ctx, lib), "has invalid parent")
 }
+
+func TestExistsChildOnNotExistParent(t *testing.T) {
+	az := alzlib.NewAlzLib(nil)
+	lib := alzlib.NewCustomLibraryReference("./testdata/existingchildwithnotexistingparent")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	require.NoError(t, err)
+	cf, err := armpolicy.NewClientFactory("", cred, nil)
+	require.NoError(t, err)
+	az.AddPolicyClient(cf)
+	require.ErrorContains(t, az.Init(ctx, lib), "which is configured as existing but the parent management group")
+}

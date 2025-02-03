@@ -823,6 +823,9 @@ func architectureRecursion(parents mapset.Set[string], libArch *processor.LibArc
 			if !parents.Contains(*mg.ParentId) {
 				continue
 			}
+			if !arch.mgs[*mg.ParentId].exists && mg.Exists {
+				return fmt.Errorf("architectureRecursion: error adding management group %s, which is configured as existing but the parent management group %s does not exist and would be created", mg.Id, *mg.ParentId)
+			}
 			if err := arch.addMgFromProcessor(mg, az); err != nil {
 				return fmt.Errorf("architectureRecursion: error adding management group %s: %w", mg.Id, err)
 			}
