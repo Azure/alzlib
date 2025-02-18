@@ -54,3 +54,60 @@ func (pa *PolicyAssignment) ParameterValueAsString(paramName string) (string, er
 	}
 	return paParamValStr, nil
 }
+
+// ModifyPolicyAssignmentOption defines a functional option for modifying a policy assignment.
+type ModifyPolicyAssignmentOption func(*armpolicy.Assignment)
+
+// WithAssignmentParameters sets the parameters for the policy assignment.
+func WithAssignmentParameters(parameters map[string]*armpolicy.ParameterValuesValue) ModifyPolicyAssignmentOption {
+	return func(assignment *armpolicy.Assignment) {
+		if assignment.Properties.Parameters == nil && len(parameters) > 0 {
+			assignment.Properties.Parameters = make(map[string]*armpolicy.ParameterValuesValue, len(parameters))
+		}
+		for k, v := range parameters {
+			assignment.Properties.Parameters[k] = v
+		}
+	}
+}
+
+// WithAssignmentEnforcementMode sets the enforcement mode for the policy assignment.
+func WithAssignmentEnforcementMode(enforcementMode armpolicy.EnforcementMode) ModifyPolicyAssignmentOption {
+	return func(assignment *armpolicy.Assignment) {
+		assignment.Properties.EnforcementMode = &enforcementMode
+	}
+}
+
+// WithAssignmentNonComplianceMessages sets the non-compliance messages for the policy assignment.
+func WithAssignmentNonComplianceMessages(nonComplianceMessages []*armpolicy.NonComplianceMessage) ModifyPolicyAssignmentOption {
+	return func(assignment *armpolicy.Assignment) {
+		assignment.Properties.NonComplianceMessages = nonComplianceMessages
+	}
+}
+
+// WithAssignmentResourceSelectors sets the resource selectors for the policy assignment.
+func WithAssignmentResourceSelectors(resourceSelectors []*armpolicy.ResourceSelector) ModifyPolicyAssignmentOption {
+	return func(assignment *armpolicy.Assignment) {
+		assignment.Properties.ResourceSelectors = resourceSelectors
+	}
+}
+
+// WithAssignmentOverrides sets the overrides for the policy assignment.
+func WithAssignmentOverrides(overrides []*armpolicy.Override) ModifyPolicyAssignmentOption {
+	return func(assignment *armpolicy.Assignment) {
+		assignment.Properties.Overrides = overrides
+	}
+}
+
+// WithAssignmentIdentity sets the identity for the policy assignment.
+func WithAssignmentIdentity(identity *armpolicy.Identity) ModifyPolicyAssignmentOption {
+	return func(assignment *armpolicy.Assignment) {
+		assignment.Identity = identity
+	}
+}
+
+// WithNotScopes sets the not scopes for the policy assignment.
+func WithNotScopes(notScopes []*string) ModifyPolicyAssignmentOption {
+	return func(assignment *armpolicy.Assignment) {
+		assignment.Properties.NotScopes = notScopes
+	}
+}

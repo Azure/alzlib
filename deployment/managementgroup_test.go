@@ -710,13 +710,13 @@ func TestModifyPolicyAssignment(t *testing.T) {
 	// Call the ModifyPolicyAssignment function
 	err := alzmg.ModifyPolicyAssignment(
 		"test-policy-assignment",
-		map[string]*armpolicy.ParameterValuesValue{
+		assets.WithAssignmentParameters(map[string]*armpolicy.ParameterValuesValue{
 			"parameter2": {Value: "value2"},
-		},
-		to.Ptr(armpolicy.EnforcementModeDefault),
-		[]*armpolicy.NonComplianceMessage{},
-		&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-		[]*armpolicy.ResourceSelector{
+		}),
+		assets.WithAssignmentEnforcementMode(armpolicy.EnforcementModeDefault),
+		assets.WithAssignmentNonComplianceMessages([]*armpolicy.NonComplianceMessage{}),
+		assets.WithAssignmentIdentity(&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)}),
+		assets.WithAssignmentResourceSelectors([]*armpolicy.ResourceSelector{
 			{
 				Name: to.Ptr("resourceSelector1"),
 				Selectors: []*armpolicy.Selector{
@@ -726,8 +726,8 @@ func TestModifyPolicyAssignment(t *testing.T) {
 					},
 				},
 			},
-		},
-		[]*armpolicy.Override{},
+		}),
+		assets.WithAssignmentOverrides([]*armpolicy.Override{}),
 	)
 
 	// Check for errors

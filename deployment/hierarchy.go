@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Azure/alzlib"
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -142,7 +143,7 @@ func (h *Hierarchy) AddDefaultPolicyAssignmentValue(ctx context.Context, default
 			for param := range params.Iter() {
 				newParams[param] = defaultValue
 			}
-			if err := mg.ModifyPolicyAssignment(assignment, newParams, nil, nil, nil, nil, nil); err != nil {
+			if err := mg.ModifyPolicyAssignment(assignment, assets.WithAssignmentParameters(newParams)); err != nil {
 				return fmt.Errorf("Hierarchy.AddDefaultPolicyAssignmentValue: error adding default `%s` policy assignment value to management group `%s` for policy assignment `%s`: %w", defaultName, mg.id, assignment, err)
 			}
 		}

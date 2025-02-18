@@ -138,22 +138,22 @@ func (mg *HierarchyManagementGroup) ResourceId() string {
 
 // PolicyAssignmentMap returns a copy of the policy assignments map.
 func (mg *HierarchyManagementGroup) PolicyAssignmentMap() map[string]*assets.PolicyAssignment {
-	return copyMap[string, *assets.PolicyAssignment](mg.policyAssignments)
+	return copyMap(mg.policyAssignments)
 }
 
 // PolicyDefinitionsMap returns a copy of the policy definitions map.
 func (mg *HierarchyManagementGroup) PolicyDefinitionsMap() map[string]*assets.PolicyDefinition {
-	return copyMap[string, *assets.PolicyDefinition](mg.policyDefinitions)
+	return copyMap(mg.policyDefinitions)
 }
 
 // PolicySetDefinitionsMap returns a copy of the policy definitions map.
 func (mg *HierarchyManagementGroup) PolicySetDefinitionsMap() map[string]*assets.PolicySetDefinition {
-	return copyMap[string, *assets.PolicySetDefinition](mg.policySetDefinitions)
+	return copyMap(mg.policySetDefinitions)
 }
 
 // RoleDefinitionsMap returns a copy of the role definitions map.
 func (alzmg *HierarchyManagementGroup) RoleDefinitionsMap() map[string]*assets.RoleDefinition {
-	return copyMap[string, *assets.RoleDefinition](alzmg.roleDefinitions)
+	return copyMap(alzmg.roleDefinitions)
 }
 
 // generatePolicyAssignmentAdditionalRoleAssignments generates the additional role assignment data needed for the policy assignments
@@ -353,30 +353,27 @@ func (mg *HierarchyManagementGroup) update() error {
 }
 
 // ModifyPolicyAssignment modifies an existing policy assignment in the management group.
-// It will deep merge the supplied assignments with the existing assignments.
-func (alzmg *HierarchyManagementGroup) ModifyPolicyAssignment(
-	name string,
-	parameters map[string]*armpolicy.ParameterValuesValue,
-	enforcementMode *armpolicy.EnforcementMode,
-	nonComplianceMessages []*armpolicy.NonComplianceMessage,
-	identity *armpolicy.Identity,
-	resourceSelectors []*armpolicy.ResourceSelector,
-	overrides []*armpolicy.Override,
-) error {
-	if _, ok := alzmg.policyAssignments[name]; !ok {
+// It will apply the supplied functional options to the assignment.
+func (alzmg *HierarchyManagementGroup) ModifyPolicyAssignment(name string, opts ...assets.ModifyPolicyAssignmentOption) error {
+	assignment, ok := alzmg.policyAssignments[name]
+	if !ok {
 		return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: policy assignment %s not found in management group %s", name, alzmg.id)
 	}
 
-	if alzmg.policyAssignments[name].Properties == nil {
+	if assignment.Properties == nil {
 		return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: properties for policy assignment %s in management group %s is nil", name, alzmg.id)
 	}
 
-	if alzmg.policyAssignments[name].Properties.Parameters == nil && len(parameters) > 0 {
-		alzmg.policyAssignments[name].Properties.Parameters = make(map[string]*armpolicy.ParameterValuesValue, len(parameters))
+	for _, opt := range opts {
+		opt(&assignment.Assignment)
 	}
 
-	for k, v := range parameters {
-		// Only add parameter if it exists in the referenced policy definition.
+	if assignment.Properties.Parameters == nil {
+		return nil
+	}
+
+	// Check if the parameters in the assignment exist in the referenced definition.
+	for k := range assignment.Properties.Parameters {
 		ref, err := alzmg.policyAssignments[name].ReferencedPolicyDefinitionResourceId()
 		if err != nil {
 			return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: error getting referenced policy definition resource id for policy assignment %s: %w", name, err)
@@ -384,28 +381,8 @@ func (alzmg *HierarchyManagementGroup) ModifyPolicyAssignment(
 		if !alzmg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, k) {
 			return fmt.Errorf("HierarchyManagementGroup.ModifyPolicyAssignment: parameter `%s` not found in referenced %s `%s` for policy assignment `%s`", k, ref.ResourceType.Type, ref.Name, name)
 		}
-		alzmg.policyAssignments[name].Properties.Parameters[k] = v
 	}
 
-	if enforcementMode != nil {
-		alzmg.policyAssignments[name].Properties.EnforcementMode = enforcementMode
-	}
-
-	if nonComplianceMessages != nil {
-		alzmg.policyAssignments[name].Properties.NonComplianceMessages = nonComplianceMessages
-	}
-
-	if resourceSelectors != nil {
-		alzmg.policyAssignments[name].Properties.ResourceSelectors = resourceSelectors
-	}
-
-	if overrides != nil {
-		alzmg.policyAssignments[name].Properties.Overrides = overrides
-	}
-
-	if identity != nil {
-		alzmg.policyAssignments[name].Identity = identity
-	}
 	return nil
 }
 
