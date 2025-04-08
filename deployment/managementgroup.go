@@ -293,7 +293,8 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 						continue
 					}
 					// The value should be a string.
-					if _, ok := scope.(string); !ok {
+					scopeStr, ok := scope.(string)
+					if !ok {
 						if errs == nil {
 							errs = NewPolicyRoleAssignmentErrors()
 						}
@@ -301,7 +302,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 						continue
 					}
 					// The value should be an ARM resource ID.
-					resid, err := arm.ParseResourceID(scope.(string))
+					resid, err := arm.ParseResourceID(scopeStr)
 					if err != nil {
 						if errs == nil {
 							errs = NewPolicyRoleAssignmentErrors()
