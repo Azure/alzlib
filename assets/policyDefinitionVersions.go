@@ -122,13 +122,13 @@ func (pdvs *PolicyDefinitionVersions) GetVersion(versionConstr *string) (*Policy
 func policyVersionConstraintToSemVerConstraint(constraint string) (*semver.Constraints, error) {
 	majorMinorPatch := strings.Split(constraint, ".")
 	if len(majorMinorPatch) != 3 {
-		return nil, fmt.Errorf("version constraint should have three dot-separated components `%s`.", constraint)
+		return nil, fmt.Errorf("version constraint should have three dot-separated components `%s`", constraint)
 	}
 	if majorMinorPatch[0] == "*" {
-		return nil, fmt.Errorf("version constraint should not have wildcard in major version `%s`.", constraint)
+		return nil, fmt.Errorf("version constraint should not have wildcard in major version `%s`", constraint)
 	}
 	if majorMinorPatch[2] != "*" {
-		return nil, fmt.Errorf("version constraint should have wildcard in patch version `%s`.", constraint)
+		return nil, fmt.Errorf("version constraint should have wildcard in patch version `%s`", constraint)
 	}
 	return semver.NewConstraint(constraint)
 }
