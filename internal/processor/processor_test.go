@@ -10,8 +10,10 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestFullLibrary.
@@ -209,6 +211,60 @@ func TestProcessPolicySetDefinitionNoData(t *testing.T) {
 	res := &Result{}
 	unmar := newUnmarshaler([]byte{}, ".json")
 	assert.ErrorContains(t, processPolicySetDefinition(res, unmar), "unexpected end of JSON input")
+}
+
+// TestProcessRoleDefinitionWithDataActions tests the processing of a role definition with data actions.
+func TestProcessRoleDefinitionWithDataActions(t *testing.T) {
+	t.Parallel()
+	sampleData := getSampleRoleDefinitionWithDataActions()
+	res := &Result{
+		RoleDefinitions: make(map[string]*armauthorization.RoleDefinition),
+	}
+	unmar := newUnmarshaler(sampleData, ".json")
+	require.NoError(t, processRoleDefinition(res, unmar))
+	assert.Equal(t, len(res.RoleDefinitions), 1)
+	assert.Equal(t, *res.RoleDefinitions["test-role-definition"].Name, "86e16db7-c2fd-4674-b263-8ca9eef74d85")
+	assert.Equal(t, *res.RoleDefinitions["test-role-definition"].Properties.RoleName, "test-role-definition")
+	require.Len(t, res.RoleDefinitions["test-role-definition"].Properties.Permissions, 1)
+	assert.Len(t, res.RoleDefinitions["test-role-definition"].Properties.Permissions[0].Actions, 4)
+	assert.Len(t, res.RoleDefinitions["test-role-definition"].Properties.Permissions[0].DataActions, 5)
+}
+
+// getSampleRoleDefinitionWithDataActions returns a valid role definition with data actions.
+// This is based on the storage blob data contributor role definition.
+func getSampleRoleDefinitionWithDataActions() []byte {
+	return []byte(`{
+		"name": "86e16db7-c2fd-4674-b263-8ca9eef74d85",
+		"type": "Microsoft.Authorization/roleDefinitions",
+		"apiVersion": "2022-04-01",
+    "roleType": "CustomRole",
+		"properties": {
+      "roleName": "test-role-definition",
+      "description": "test role definition",
+			"permissions": [
+				{
+					"actions": [
+						"Microsoft.Storage/storageAccounts/blobServices/containers/delete",
+						"Microsoft.Storage/storageAccounts/blobServices/containers/read",
+            "Microsoft.Storage/storageAccounts/blobServices/containers/write",
+            "Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action"
+					],
+					"notActions": [],
+					"dataActions": [
+						"Microsoft.Storage/storageAccounts/blobServices/containers/blobs/delete",
+            "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
+						"Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write",
+            "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/move/action",
+            "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/add/action"
+					],
+          "notDataActions": []
+				}
+			],
+      "assignableScopes": [
+        "/"
+      ]
+		}
+	}`)
 }
 
 // getSampleArchetypeDefinition_valid returns a valid archetype definition.
