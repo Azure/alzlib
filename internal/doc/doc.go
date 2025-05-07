@@ -69,7 +69,7 @@ func alzlibReadmeMdUsage(md *markdown.Markdown, path string) *markdown.Markdown 
   library_references = [
     {
       path = "%s"
-      tag  = "0000.00.0" # Replace with the desired version
+      ref  = "0000.00.0" # Replace with the desired version
     }
   ]
 }`, path)).LF()
