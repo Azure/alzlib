@@ -8,38 +8,40 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-// PolicyDefinitionVersions is a collection of policy definition versions.
+// Check PolicySetDefinitionVersions implements the PolicyDefinitionVersion interface
+
+// PolicySetDefinitionVersions is a collection of policy set definition versions.
 // Each policy definition version is identified by its version string.
 // The name property must be identical for each policy definition version.
 // Do not use this type directly; use the NewPolicyDefinitionVersions function to create an instance.
-type PolicyDefinitionVersions struct {
-	versions              map[semver.Version]*PolicyDefinitionVersion // map of policy definition version strings to policy definitions
-	versionlessDefinition *PolicyDefinitionVersion                    // versionless policy definition
+type PolicySetDefinitionVersions struct {
+	versions              map[semver.Version]*PolicySetDefinitionVersion // map of policy definition version strings to policy definitions
+	versionlessDefinition *PolicySetDefinitionVersion                    // versionless policy definition
 }
 
-// NewPolicyDefinitionVersions creates a new PolicyDefinitionVersions instance.
+// NewPolicySetDefinitionVersions creates a new PolicyDefinitionVersions instance.
 // It initializes the versions map.
-func NewPolicyDefinitionVersions() *PolicyDefinitionVersions {
-	return &PolicyDefinitionVersions{
-		versions: make(map[semver.Version]*PolicyDefinitionVersion),
+func NewPolicySetDefinitionVersions() *PolicySetDefinitionVersions {
+	return &PolicySetDefinitionVersions{
+		versions: make(map[semver.Version]*PolicySetDefinitionVersion),
 	}
 }
 
-// Add adds a new policy definition version to the collection.
+// Add adds a new policy set definition version to the collection.
 // If the same version already exists, it will error.
 // If the version is empty, it will be treated as a versionless definition.
 // Versionless and versioned definitions cannot be mixed.
 // If the name property of the new version is different from the existing one, an error is returned.
-func (pdvs *PolicyDefinitionVersions) Add(ver *PolicyDefinitionVersion) error {
+func (pdvs *PolicySetDefinitionVersions) Add(ver *PolicySetDefinitionVersion) error {
 	if ver == nil || ver.Properties == nil {
-		return errors.New("PolicyDefinitionVersions.Add: cannot add nil policy definition or definition with nil properties")
+		return errors.New("PolicySetDefinitionVersions.Add: cannot add nil policy definition or definition with nil properties")
 	}
 
 	// Add versionless definition if there are no versioned definitions
 	verStr := ver.Version()
 	if verStr == nil {
 		if len(pdvs.versions) > 0 {
-			return errors.New("PolicyDefinitionVersions.Add: cannot add versionless definition when versioned definitions already exist")
+			return errors.New("PolicySetDefinitionVersions.Add: cannot add versionless definition when versioned definitions already exist")
 		}
 		pdvs.versionlessDefinition = ver
 		return nil
@@ -47,7 +49,7 @@ func (pdvs *PolicyDefinitionVersions) Add(ver *PolicyDefinitionVersion) error {
 
 	sv, err := semver.NewVersion(*verStr)
 	if err != nil {
-		return fmt.Errorf("PolicyDefinitionVersions.Add: invalid version string `%s` for policy %s. Inner error: %w", *verStr, *ver.Properties.DisplayName, err)
+		return fmt.Errorf("PolicySetDefinitionVersions.Add: invalid version string `%s` for policy %s. Inner error: %w", *verStr, *ver.Properties.DisplayName, err)
 	}
 
 	displayName := "unknown"
@@ -57,16 +59,16 @@ func (pdvs *PolicyDefinitionVersions) Add(ver *PolicyDefinitionVersion) error {
 
 	// Add versioned definition if there is no versionless definition
 	if pdvs.versionlessDefinition != nil {
-		return fmt.Errorf("PolicyDefinitionVersions.Add: cannot add versioned definition for policy %s when versionless definition already exists", displayName)
+		return fmt.Errorf("PolicySetDefinitionVersions.Add: cannot add versioned definition for policy %s when versionless definition already exists", displayName)
 	}
 
 	if _, ok := pdvs.versions[*sv]; ok {
-		return fmt.Errorf("PolicyDefinitionVersions.Add: version %s for policy %s already exists", *verStr, displayName)
+		return fmt.Errorf("PolicySetDefinitionVersions.Add: version %s for policy %s already exists", *verStr, displayName)
 	}
 
 	for v := range maps.Values(pdvs.versions) {
 		if v.Properties.DisplayName == nil || *v.Properties.DisplayName != displayName {
-			return fmt.Errorf("PolicyDefinitionVersions.Add: cannot add policy %s with nil name or different name than existing version %s", displayName, *v.Properties.DisplayName)
+			return fmt.Errorf("PolicySetDefinitionVersions.Add: cannot add policy %s with nil name or different name than existing version %s", displayName, *v.Properties.DisplayName)
 		}
 	}
 
@@ -77,7 +79,7 @@ func (pdvs *PolicyDefinitionVersions) Add(ver *PolicyDefinitionVersion) error {
 // GetVersion returns the policy definition version with the given version string.
 // If the version is not found, it returns nil.
 // If the version is empty, it returns the versionless definition.
-func (pdvs *PolicyDefinitionVersions) GetVersion(versionConstr *string) (*PolicyDefinitionVersion, error) {
+func (pdvs *PolicySetDefinitionVersions) GetVersion(versionConstr *string) (*PolicySetDefinitionVersion, error) {
 	var constraint *semver.Constraints
 	if versionConstr == nil || *versionConstr == "" {
 		if pdvs.versionlessDefinition != nil {
@@ -98,7 +100,7 @@ func (pdvs *PolicyDefinitionVersions) GetVersion(versionConstr *string) (*Policy
 		}
 	}
 
-	var res *PolicyDefinitionVersion
+	var res *PolicySetDefinitionVersion
 	var resKey semver.Version
 	for v, pd := range pdvs.versions {
 		if !constraint.Check(&v) || !semverCheckPrereleaseStrict(&v, constraint) {

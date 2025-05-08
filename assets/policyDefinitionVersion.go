@@ -9,6 +9,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
+// PolicyDefinitionVersion represents a version of a policy definition with version information.
+// It embeds the armpolicy.DefinitionVersion struct and provides additional methods to work with it.
 type PolicyDefinitionVersion struct {
 	armpolicy.DefinitionVersion
 }
