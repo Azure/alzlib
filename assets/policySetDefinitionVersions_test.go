@@ -11,18 +11,18 @@ import (
 )
 
 func TestPolicySetDefinitionVersions_Add_VersionlessFirst(t *testing.T) {
-	pdvs := NewPolicyDefinitionVersions()
+	pdvs := NewPolicySetDefinitionVersions()
 	name := "Test Policy"
-	policy := fakePolicyDefinitionVersionless(name)
+	policy := fakePolicySetDefinitionVersionless(name)
 	require.NoError(t, pdvs.Add(policy))
 	assert.Equal(t, policy, pdvs.versionlessDefinition)
 }
 
 func TestPolicySetDefinitionVersions_Add_VersionedFirst(t *testing.T) {
-	pdvs := NewPolicyDefinitionVersions()
+	pdvs := NewPolicySetDefinitionVersions()
 	name := "Test Policy"
 	version := "1.0.0"
-	policy := fakePolicyDefinitionVersioned(name, version)
+	policy := fakePolicySetDefinitionVersioned(name, version)
 	require.NoError(t, pdvs.Add(policy))
 	found := false
 	for k := range maps.Keys(pdvs.versions) {
@@ -36,52 +36,52 @@ func TestPolicySetDefinitionVersions_Add_VersionedFirst(t *testing.T) {
 }
 
 func TestPolicySetDefinitionVersions_Add_DuplicateSemVer(t *testing.T) {
-	pdvs := NewPolicyDefinitionVersions()
+	pdvs := NewPolicySetDefinitionVersions()
 	version := "1.0.0"
-	policy1 := fakePolicyDefinitionVersioned("Policy1", version)
-	policy2 := fakePolicyDefinitionVersioned("Policy2", version)
+	policy1 := fakePolicySetDefinitionVersioned("Policy1", version)
+	policy2 := fakePolicySetDefinitionVersioned("Policy2", version)
 	require.NoError(t, pdvs.Add(policy1))
 	require.ErrorContains(t, pdvs.Add(policy2), "version 1.0.0 for policy Policy2 already exists")
 }
 
 func TestPolicySetDefinitionVersions_Add_MixVersionedAndVersionless(t *testing.T) {
 	version := "1.0.0"
-	versioned := fakePolicyDefinitionVersioned("Policy1", version)
-	versionless := fakePolicyDefinitionVersionless("Policy2")
+	versioned := fakePolicySetDefinitionVersioned("Policy1", version)
+	versionless := fakePolicySetDefinitionVersionless("Policy2")
 
 	t.Run("versioned first", func(t *testing.T) {
-		pdvs := NewPolicyDefinitionVersions()
+		pdvs := NewPolicySetDefinitionVersions()
 		require.NoError(t, pdvs.Add(versioned))
 		require.ErrorContains(t, pdvs.Add(versionless), "versioned definitions already exist")
 	})
 
 	t.Run("versionless first", func(t *testing.T) {
-		pdvs := NewPolicyDefinitionVersions()
+		pdvs := NewPolicySetDefinitionVersions()
 		require.NoError(t, pdvs.Add(versionless))
 		require.ErrorContains(t, pdvs.Add(versioned), "versionless definition already exists")
 	})
 }
 
 func TestPolicySetDefinitionVersions_Add_InvalidVersionString(t *testing.T) {
-	pdvs := NewPolicyDefinitionVersions()
+	pdvs := NewPolicySetDefinitionVersions()
 	name := "Test Policy"
 	version := "not-a-semver"
-	policy := fakePolicyDefinitionVersioned(name, version)
+	policy := fakePolicySetDefinitionVersioned(name, version)
 	require.ErrorContains(t, pdvs.Add(policy), "invalid version string")
 }
 
 func TestPolicySetDefinitionVersions_Add_NilPolicyOrProperties(t *testing.T) {
-	pdvs := NewPolicyDefinitionVersions()
+	pdvs := NewPolicySetDefinitionVersions()
 	require.Error(t, pdvs.Add(nil))
 
-	policy := &PolicyDefinitionVersion{}
+	policy := &PolicySetDefinitionVersion{}
 	require.Error(t, pdvs.Add(policy))
 }
 
 func TestPolicySetDefinitionVersions_Add_DifferentName(t *testing.T) {
-	pdvs := NewPolicyDefinitionVersions()
-	policy1 := fakePolicyDefinitionVersioned("Policy1", "1.0.0")
-	policy2 := fakePolicyDefinitionVersioned("Policy2", "1.0.1")
+	pdvs := NewPolicySetDefinitionVersions()
+	policy1 := fakePolicySetDefinitionVersioned("Policy1", "1.0.0")
+	policy2 := fakePolicySetDefinitionVersioned("Policy2", "1.0.1")
 
 	require.NoError(t, pdvs.Add(policy1))
 	require.ErrorContains(t, pdvs.Add(policy2), "cannot add policy Policy2 with nil name or different name than existing version Policy1")
