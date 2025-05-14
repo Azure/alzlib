@@ -93,7 +93,7 @@ func TestVersionFromDefinition(t *testing.T) {
 				},
 			},
 		}
-		assert.Equal(t, "1.0.0", *pd.Version())
+		assert.Equal(t, "1.0.0", *pd.GetVersion())
 	})
 	t.Run("absent", func(t *testing.T) {
 		pd := &PolicyDefinitionVersion{
@@ -103,6 +103,6 @@ func TestVersionFromDefinition(t *testing.T) {
 				},
 			},
 		}
-		assert.Nil(t, pd.Version())
+		assert.Nil(t, pd.GetVersion())
 	})
 }

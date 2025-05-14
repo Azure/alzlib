@@ -137,9 +137,16 @@ func (pd *PolicyDefinitionVersion) UnsetAssignPermissionsOnParameter(parameterNa
 
 // Version returns the version of the policy definition, if it exists.
 // If the version is not set, it returns nil.
-func (pd *PolicyDefinitionVersion) Version() *string {
+func (pd *PolicyDefinitionVersion) GetVersion() *string {
 	if pd == nil || pd.Properties == nil {
 		return nil
 	}
 	return pd.Properties.Version
+}
+
+func (pd *PolicyDefinitionVersion) GetName() *string {
+	if pd == nil {
+		return nil
+	}
+	return pd.Name
 }

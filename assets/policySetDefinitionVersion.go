@@ -50,7 +50,14 @@ func (psd *PolicySetDefinitionVersion) Parameter(name string) *armpolicy.Paramet
 	return ret
 }
 
-func (psd *PolicySetDefinitionVersion) Version() *string {
+func (psd *PolicySetDefinitionVersion) GetName() *string {
+	if psd == nil {
+		return nil
+	}
+	return psd.Name
+}
+
+func (psd *PolicySetDefinitionVersion) GetVersion() *string {
 	if psd == nil || psd.Properties == nil {
 		return nil
 	}
