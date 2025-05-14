@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/internal/environment"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -49,7 +50,7 @@ var policyDefaultValuesRegex = regexp.MustCompile(policyDefaultValueFileName)
 type Result struct {
 	PolicyDefinitions                   map[string]*armpolicy.Definition
 	PolicySetDefinitions                map[string]*armpolicy.SetDefinition
-	PolicyAssignments                   map[string]*armpolicy.Assignment
+	PolicyAssignments                   map[string]*assets.PolicyAssignment
 	RoleDefinitions                     map[string]*armauthorization.RoleDefinition
 	LibArchetypes                       map[string]*LibArchetype
 	LibArchetypeOverrides               map[string]*LibArchetypeOverride
@@ -63,7 +64,7 @@ func NewResult() *Result {
 	return &Result{
 		PolicyDefinitions:                   make(map[string]*armpolicy.Definition),
 		PolicySetDefinitions:                make(map[string]*armpolicy.SetDefinition),
-		PolicyAssignments:                   make(map[string]*armpolicy.Assignment),
+		PolicyAssignments:                   make(map[string]*assets.PolicyAssignment),
 		RoleDefinitions:                     make(map[string]*armauthorization.RoleDefinition),
 		LibArchetypes:                       make(map[string]*LibArchetype),
 		LibArchetypeOverrides:               make(map[string]*LibArchetypeOverride),
@@ -281,9 +282,9 @@ func processArchetypeOverride(res *Result, unmar unmarshaler) error {
 }
 
 // processPolicyAssignment is a processFunc that reads the policy_assignment
-// bytes, processes, then adds the created armpolicy.Assignment to the result.
+// bytes, processes, then adds the created assets.PolicyAssignment to the result.
 func processPolicyAssignment(res *Result, unmar unmarshaler) error {
-	pa := new(armpolicy.Assignment)
+	pa := new(assets.PolicyAssignment)
 	if err := unmar.unmarshal(pa); err != nil {
 		return fmt.Errorf("processPolicyAssignment: error unmarshaling: %w", err)
 	}

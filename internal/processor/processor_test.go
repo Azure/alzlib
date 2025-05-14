@@ -10,6 +10,7 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
@@ -116,7 +117,7 @@ func TestProcessPolicyAssignmentValid(t *testing.T) {
 	t.Parallel()
 	sampleData := getSamplePolicyAssignment()
 	res := &Result{
-		PolicyAssignments: make(map[string]*armpolicy.Assignment),
+		PolicyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	assert.NoError(t, processPolicyAssignment(res, unmar))
@@ -131,10 +132,10 @@ func TestProcessPolicyAssignmentNoName(t *testing.T) {
 	t.Parallel()
 	sampleData := getSamplePolicyAssignment_noName()
 	res := &Result{
-		PolicyAssignments: make(map[string]*armpolicy.Assignment),
+		PolicyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.ErrorContains(t, processPolicyAssignment(res, unmar), "policy assignment name is empty or not present")
+	assert.ErrorContains(t, processPolicyAssignment(res, unmar), "name must not be nil")
 }
 
 // TestProcessPolicyDefinitionValid tests the processing of a valid policy definition.

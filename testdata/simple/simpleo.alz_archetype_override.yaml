@@ -2,6 +2,6 @@
 base_archetype: simple
 name: simpleoverride
 policy_assignments_to_add:
-  - override-policy-assignment
+  - override-pa
 policy_assignments_to_remove:
-  - test-policy-assignment
+  - test-pa
