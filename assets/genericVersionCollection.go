@@ -9,7 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-// VersionedPolicyCollection is a type constraint for versioned policy types.
+// VersionedTypes is a type constraint for versioned policy types.
 type VersionedTypes interface {
 	*PolicyDefinitionVersion | *PolicySetDefinitionVersion
 }
