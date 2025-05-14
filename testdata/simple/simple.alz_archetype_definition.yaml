@@ -1,7 +1,7 @@
 ---
 name: simple
 policy_assignments:
-  - test-policy-assignment
+  - test-pa
 policy_definitions:
   - test-policy-definition
 policy_set_definitions:

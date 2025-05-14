@@ -79,34 +79,34 @@ func (pa *PolicyAssignment) UnmarshalJSON(data []byte) error {
 // To reduce the risk of nil pointer dereferences, it will create empty values for optional fields.
 func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 	if pa.Name == nil {
-		return errors.New("PolicyAssignment.UnmarshalJSON: name must not be nil")
+		return errors.New("ValidatePolicyAssignment: name must not be nil")
 	}
 
 	if *pa.Name == "" || utf8.RuneCountInString(*pa.Name) > PolicyAssignmentNameMaxLength {
-		return fmt.Errorf("PolicyAssignment.UnmarshalJSON: name length is %d, must be between 1 and %d", utf8.RuneCountInString(*pa.Name), PolicyAssignmentNameMaxLength)
+		return fmt.Errorf("ValidatePolicyAssignment: name length is %d, must be between 1 and %d", utf8.RuneCountInString(*pa.Name), PolicyAssignmentNameMaxLength)
 	}
 
 	if pa.Properties == nil {
-		return errors.New("PolicyAssignment.UnmarshalJSON: properties must not be nil")
+		return errors.New("ValidatePolicyAssignment: properties must not be nil")
 	}
 
 	if pa.Properties.PolicyDefinitionID == nil {
-		return errors.New("PolicyAssignment.UnmarshalJSON: policy definition ID must not be nil")
+		return errors.New("ValidatePolicyAssignment: policy definition ID must not be nil")
 	}
 
 	if pa.Properties.DisplayName == nil {
-		return errors.New("PolicyAssignment.UnmarshalJSON: display name must not be nil")
+		return errors.New("ValidatePolicyAssignment: display name must not be nil")
 	}
 
 	if *pa.Properties.DisplayName == "" || utf8.RuneCountInString(*pa.Properties.DisplayName) > PolicyAssignmentDisplayNameMaxLength {
-		return fmt.Errorf("PolicyAssignment.UnmarshalJSON: display name length is %d, must be between 1 and %d", utf8.RuneCountInString(*pa.Properties.DisplayName), PolicyAssignmentDisplayNameMaxLength)
+		return fmt.Errorf("ValidatePolicyAssignment: display name length is %d, must be between 1 and %d", utf8.RuneCountInString(*pa.Properties.DisplayName), PolicyAssignmentDisplayNameMaxLength)
 	}
 
 	if pa.Properties.Description == nil {
-		return errors.New("PolicyAssignment.UnmarshalJSON: description must not be nil")
+		return errors.New("ValidatePolicyAssignment: description must not be nil")
 	}
 	if *pa.Properties.Description == "" || utf8.RuneCountInString(*pa.Properties.Description) > PolicyAssignmentDescriptionMaxLength {
-		return fmt.Errorf("PolicyAssignment.UnmarshalJSON: description length is %d, must be between 1 and %d", utf8.RuneCountInString(*pa.Properties.Description), PolicyAssignmentDescriptionMaxLength)
+		return fmt.Errorf("ValidatePolicyAssignment: description length is %d, must be between 1 and %d", utf8.RuneCountInString(*pa.Properties.Description), PolicyAssignmentDescriptionMaxLength)
 	}
 
 	if pa.Properties.Metadata == nil {
