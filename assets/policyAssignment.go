@@ -83,7 +83,7 @@ func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 	}
 
 	if *pa.Name == "" || utf8.RuneCountInString(*pa.Name) > PolicyAssignmentNameMaxLength {
-		return fmt.Errorf("ValidatePolicyAssignment: name length is %d, must be between 1 and %d", utf8.RuneCountInString(*pa.Name), PolicyAssignmentNameMaxLength)
+		return fmt.Errorf("ValidatePolicyAssignment: name length is %d, must be between 1 and %d due to assignment at management group scope", utf8.RuneCountInString(*pa.Name), PolicyAssignmentNameMaxLength)
 	}
 
 	if pa.Properties == nil {
