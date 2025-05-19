@@ -632,7 +632,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 		if _, exists := az.policyAssignments[k]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.addProcessedResult: policy assignment %s already exists in the library", k)
 		}
-		az.policyAssignments[k] = assets.NewPolicyAssignment(*v)
+		az.policyAssignments[k] = v
 	}
 	for k, v := range res.RoleDefinitions {
 		if _, exists := az.roleDefinitions[k]; exists && !az.Options.AllowOverwrite {

@@ -89,3 +89,123 @@ func TestGetParameterValueAsString(t *testing.T) {
 	expectedError = fmt.Sprintf("parameter %s not found in policy assignment %s", paramName, *pa.Name)
 	assert.ErrorContains(t, err, expectedError)
 }
+
+func TestValidatePolicyAssignment(t *testing.T) {
+	tests := []struct {
+		name        string
+		assignment  armpolicy.Assignment
+		expectedErr string
+	}{
+		{
+			name: "Valid PolicyAssignment",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+					DisplayName:        to.Ptr("Valid Display Name"),
+					Description:        to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "",
+		},
+		{
+			name: "Nil Name",
+			assignment: armpolicy.Assignment{
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+					DisplayName:        to.Ptr("Valid Display Name"),
+					Description:        to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "name must not be nil",
+		},
+		{
+			name: "Empty Name",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr(""),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+					DisplayName:        to.Ptr("Valid Display Name"),
+					Description:        to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "name length is 0, must be between 1 and 24",
+		},
+		{
+			name: "Nil Properties",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+			},
+			expectedErr: "properties must not be nil",
+		},
+		{
+			name: "Nil PolicyDefinitionID",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "policy definition ID must not be nil",
+		},
+		{
+			name: "Nil DisplayName",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+					Description:        to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "display name must not be nil",
+		},
+		{
+			name: "Empty DisplayName",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+					DisplayName:        to.Ptr(""),
+					Description:        to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "display name length is 0, must be between 1 and 128",
+		},
+		{
+			name: "Nil Description",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+					DisplayName:        to.Ptr("Valid Display Name"),
+				},
+			},
+			expectedErr: "description must not be nil",
+		},
+		{
+			name: "Empty Description",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+					DisplayName:        to.Ptr("Valid Display Name"),
+					Description:        to.Ptr(""),
+				},
+			},
+			expectedErr: "description length is 0, must be between 1 and 512",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pa := NewPolicyAssignment(tt.assignment)
+			err := ValidatePolicyAssignment(pa)
+			if tt.expectedErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tt.expectedErr)
+			}
+		})
+	}
+}

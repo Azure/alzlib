@@ -455,6 +455,6 @@ func TestInitSimple(t *testing.T) {
 	assert.Equal(t, []string{"test-policy-definition"}, az.PolicyDefinitions())
 	assert.Equal(t, []string{"test-policy-set-definition"}, az.PolicySetDefinitions())
 	assert.Equal(t, []string{"test-role-definition"}, az.RoleDefinitions())
-	assert.Equal(t, []string{"override-policy-assignment", "test-policy-assignment"}, az.PolicyAssignments())
+	assert.Equal(t, []string{"override-pa", "test-pa"}, az.PolicyAssignments())
 	assert.Equal(t, []string{"test"}, az.PolicyDefaultValues())
 }
