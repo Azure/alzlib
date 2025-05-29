@@ -306,7 +306,7 @@ func (h *Hierarchy) addManagementGroup(ctx context.Context, req managementGroupA
 	h.mgs[req.id] = mg
 
 	// run Update to change all refs, etc.
-	if err := h.mgs[req.id].update(); err != nil {
+	if err := h.mgs[req.id].update(h.alzlib.Options.UniqueRoleDefinitions); err != nil {
 		return nil, fmt.Errorf("Hierarchy.AddManagementGroup: adding `%s` error updating assets at scope %w", req.id, err)
 	}
 

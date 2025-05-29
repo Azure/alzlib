@@ -18,9 +18,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewAlzLibOptions(t *testing.T) {
+func TestNewAlzLibDefaultOptions(t *testing.T) {
 	az := NewAlzLib(nil)
+	assert.Equal(t, defaultOverwrite, az.Options.AllowOverwrite)
 	assert.Equal(t, defaultParallelism, az.Options.Parallelism)
+	assert.Equal(t, defaultUniqueRoleDefinitions, az.Options.UniqueRoleDefinitions)
+}
+
+func TestNewAlzLibCustomOptions(t *testing.T) {
+	az := NewAlzLib(&AlzLibOptions{
+		AllowOverwrite:        true,
+		Parallelism:           25,
+		UniqueRoleDefinitions: false,
+	})
+	assert.Equal(t, true, az.Options.AllowOverwrite)
+	assert.Equal(t, 25, az.Options.Parallelism)
+	assert.Equal(t, false, az.Options.UniqueRoleDefinitions)
 }
 
 // Test_NewAlzLib_noDir tests the creation of a new AlzLib when supplied with a path
