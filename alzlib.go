@@ -141,7 +141,7 @@ func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) e
 		if psd == nil || psd.Name == nil || *psd.Name == "" {
 			continue
 		}
-		if _, exists := az.policyDefinitions[*psd.Name]; exists && !az.Options.AllowOverwrite {
+		if _, exists := az.policySetDefinitions[*psd.Name]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.AddPolicySetDefinitions: policy set definition with name %s already exists and allow overwrite not set", *psd.Name)
 		}
 		cpy, err := deep.Copy(psd)
@@ -161,12 +161,12 @@ func (az *AlzLib) AddRoleDefinitions(rds ...*assets.RoleDefinition) error {
 		if rd == nil || rd.Name == nil || *rd.Name == "" {
 			continue
 		}
-		if _, exists := az.policyDefinitions[*rd.Name]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf("Alzlib.AddPolicyAssignments: role definition with name %s already exists and allow overwrite not set", *rd.Name)
+		if _, exists := az.roleDefinitions[*rd.Name]; exists && !az.Options.AllowOverwrite {
+			return fmt.Errorf("Alzlib.AddRoleDefinitions: role definition with name %s already exists and allow overwrite not set", *rd.Name)
 		}
 		cpy, err := deep.Copy(rd)
 		if err != nil {
-			return fmt.Errorf("Alzlib.AddPolicyAssignments: error making deep copy of role definition %s: %w", *rd.Name, err)
+			return fmt.Errorf("Alzlib.AddRoleDefinitions: error making deep copy of role definition %s: %w", *rd.Name, err)
 		}
 		az.roleDefinitions[*rd.Name] = cpy
 	}

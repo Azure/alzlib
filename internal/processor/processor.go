@@ -343,7 +343,7 @@ func processRoleDefinition(res *Result, unmar unmarshaler) error {
 	if rd.Properties == nil || rd.Properties.RoleName == nil || *rd.Properties.RoleName == "" {
 		return fmt.Errorf("processRoleDefinition: role definition role name is empty or not present")
 	}
-	if _, exists := res.PolicySetDefinitions[*rd.Properties.RoleName]; exists {
+	if _, exists := res.RoleDefinitions[*rd.Properties.RoleName]; exists {
 		return fmt.Errorf("processRoleDefinition: role definition with role name `%s` already exists", *rd.Properties.RoleName)
 	}
 	// Use roleName here not the name, which is a GUID
