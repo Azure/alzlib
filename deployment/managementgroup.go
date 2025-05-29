@@ -545,11 +545,10 @@ func updateRoleDefinitions(alzmg *HierarchyManagementGroup, uniqueRoleDefinition
 		if uniqueRoleDefinitions {
 			u := uuidV5(alzmg.id, *roledef.Name)
 			roledef.Name = to.Ptr(u.String())
-			roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, u))
 			roledef.Properties.RoleName = to.Ptr(fmt.Sprintf("%s (%s)", *roledef.Properties.RoleName, alzmg.id))
-		} else {
-			roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, *roledef.Name))
 		}
+		roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, *roledef.Name))
+
 		if len(roledef.Properties.AssignableScopes) == 0 {
 			roledef.Properties.AssignableScopes = make([]*string, 1)
 		}
