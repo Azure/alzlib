@@ -516,6 +516,8 @@ func TestManagementGroupUpdateWithUniqueRoleDefinitions(t *testing.T) {
 	assert.NotEqual(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, *mg1.roleDefinitions["rdMg101"].Properties.RoleName, "Role definitions should not have the same ID")
 	assert.NotEqual(t, *mgRoot.roleDefinitions["rdRoot01"].ID, "/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should not have the same ID after update")
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].ID, fmt.Sprintf("/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/%s", *mgRoot.roleDefinitions["rdRoot01"].Name), "Role definitions should have the same ID after update")
+	assert.NotEqual(t, *mgRoot.roleDefinitions["rdRoot01"].Name, "8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should have the same Name after update")
+	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, fmt.Sprintf("[ALZ] Application-Owners (%s)", mgRoot.id), "Role definitions should have the same RoleName after update")
 }
 
 func TestManagementGroupUpdateWithNonUniqueRoleDefinitions(t *testing.T) {
@@ -575,6 +577,8 @@ func TestManagementGroupUpdateWithNonUniqueRoleDefinitions(t *testing.T) {
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Name, *mg1.roleDefinitions["rdMg101"].Name, "Role definitions should not have the same ID after update")
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, *mg1.roleDefinitions["rdMg101"].Properties.RoleName, "Role definitions should not have the same ID after update")
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].ID, "/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should have the same ID after update")
+	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Name, "8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should have the same Name after update")
+	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, "[ALZ] Application-Owners", "Role definitions should have the same RoleName after update")
 }
 
 func TestModifyPolicyDefinitions(t *testing.T) {
