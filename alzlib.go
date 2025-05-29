@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	defaultParallelism = 10 // default number of parallel requests to make to Azure APIs
-	defaultOverwrite   = false
+	defaultParallelism           = 10 // default number of parallel requests to make to Azure APIs
+	defaultOverwrite             = false
+	defaultUniqueRoleDefinitions = true // default to unique role definitions per management group
 )
 
 // AlzLib is the structure that gets built from the the library files
@@ -48,8 +49,9 @@ type azureClients struct {
 
 // AlzLibOptions are options for the AlzLib.
 type AlzLibOptions struct {
-	AllowOverwrite bool // AllowOverwrite allows overwriting of existing policy assignments when processing additional libraries with AlzLib.Init().
-	Parallelism    int  // Parallelism is the number of parallel requests to make to Azure APIs when getting policy definitions and policy set definitions.
+	AllowOverwrite        bool // AllowOverwrite allows overwriting of existing policy assignments when processing additional libraries with AlzLib.Init().
+	Parallelism           int  // Parallelism is the number of parallel requests to make to Azure APIs when getting policy definitions and policy set definitions.
+	UniqueRoleDefinitions bool // UniqueRoleDefinitions indicates whether to update the role definitions to be unique per management group. If this is not set, you may end up with conflicting role definition names.
 }
 
 // NewAlzLib returns a new instance of the alzlib library, optionally using the supplied directory
@@ -77,8 +79,9 @@ func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 
 func defaultAlzLibOptions() *AlzLibOptions {
 	return &AlzLibOptions{
-		Parallelism:    defaultParallelism,
-		AllowOverwrite: defaultOverwrite,
+		Parallelism:           defaultParallelism,
+		AllowOverwrite:        defaultOverwrite,
+		UniqueRoleDefinitions: defaultUniqueRoleDefinitions,
 	}
 }
 

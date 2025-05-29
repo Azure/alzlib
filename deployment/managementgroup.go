@@ -331,7 +331,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 
 // update will update the AlzManagementGroup resources with the correct resource ids, references, etc.
 // Make sure to pass in any updates to the policy assignment parameter values.
-func (mg *HierarchyManagementGroup) update() error {
+func (mg *HierarchyManagementGroup) update(uniqueRoleDefinitions bool) error {
 	pd2mg := mg.hierarchy.policyDefinitionToMg()
 	psd2mg := mg.hierarchy.policySetDefinitionToMg()
 
@@ -345,7 +345,7 @@ func (mg *HierarchyManagementGroup) update() error {
 	}
 
 	// re-write the assignableScopes for the role definitions.
-	updateRoleDefinitions(mg)
+	updateRoleDefinitions(mg, uniqueRoleDefinitions)
 
 	if err := updatePolicyAsignments(mg, pd2mg, psd2mg); err != nil {
 		return fmt.Errorf("HierarchyManagementGroup.update: error updating policy assignments: %w", err)
@@ -540,12 +540,16 @@ func updatePolicyAsignments(mg *HierarchyManagementGroup, pd2mg, psd2mg map[stri
 	return nil
 }
 
-func updateRoleDefinitions(alzmg *HierarchyManagementGroup) {
+func updateRoleDefinitions(alzmg *HierarchyManagementGroup, uniqueRoleDefinitions bool) {
 	for _, roledef := range alzmg.roleDefinitions {
-		u := uuidV5(alzmg.id, *roledef.Name)
-		roledef.Name = to.Ptr(u.String())
-		roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, u))
-		roledef.Properties.RoleName = to.Ptr(fmt.Sprintf("%s (%s)", *roledef.Properties.RoleName, alzmg.id))
+		if uniqueRoleDefinitions {
+			u := uuidV5(alzmg.id, *roledef.Name)
+			roledef.Name = to.Ptr(u.String())
+			roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, u))
+			roledef.Properties.RoleName = to.Ptr(fmt.Sprintf("%s (%s)", *roledef.Properties.RoleName, alzmg.id))
+		} else {
+			roledef.ID = to.Ptr(fmt.Sprintf(RoleDefinitionIdFmt, alzmg.id, *roledef.Name))
+		}
 		if len(roledef.Properties.AssignableScopes) == 0 {
 			roledef.Properties.AssignableScopes = make([]*string, 1)
 		}

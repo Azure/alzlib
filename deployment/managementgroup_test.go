@@ -413,10 +413,10 @@ func TestManagementGroupUpdate(t *testing.T) {
 	h.mgs["mg1a"] = mg1a
 	h.mgs["mg2"] = mg2
 	mgRoot.children = mapset.NewThreadUnsafeSet(mg1, mg2)
-	require.NoError(t, mgRoot.update())
-	require.NoError(t, mg1.update())
-	require.NoError(t, mg2.update())
-	require.NoError(t, mg1a.update())
+	require.NoError(t, mgRoot.update(true))
+	require.NoError(t, mg1.update(true))
+	require.NoError(t, mg2.update(true))
+	require.NoError(t, mg1a.update(true))
 
 	// Check that the policy assignments reference the correct policy definitions.
 	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pdDeployedTwice"), *mg1a.policyAssignments["paAtMg1a"].Properties.PolicyDefinitionID)
@@ -445,7 +445,7 @@ func TestManagementGroupUpdate(t *testing.T) {
 		roleDefinitions:      map[string]*assets.RoleDefinition{},
 	}
 	h.mgs["mgOtherRoot"] = mgOtherRoot
-	require.NoError(t, mgOtherRoot.update())
+	require.NoError(t, mgOtherRoot.update(true))
 
 	mg1.policyAssignments["defNotInHierarchy"] = &assets.PolicyAssignment{
 		Assignment: armpolicy.Assignment{
@@ -455,7 +455,123 @@ func TestManagementGroupUpdate(t *testing.T) {
 			},
 		},
 	}
-	assert.ErrorContains(t, mg1.update(), "policy assignment defNotInHierarchy has a policy definition pdOtherRoot that is not in the same hierarchy")
+	assert.ErrorContains(t, mg1.update(true), "policy assignment defNotInHierarchy has a policy definition pdOtherRoot that is not in the same hierarchy")
+}
+
+func TestManagementGroupUpdateWithUniqueRoleDefinitions(t *testing.T) {
+	h := NewHierarchy(nil)
+	mgRoot := &HierarchyManagementGroup{
+		id:                   "mgRoot",
+		parent:               nil,
+		level:                0,
+		parentExternal:       to.Ptr("external"),
+		location:             "changeme",
+		hierarchy:            h,
+		policyAssignments:    map[string]*assets.PolicyAssignment{},
+		policyDefinitions:    map[string]*assets.PolicyDefinition{},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions: map[string]*assets.RoleDefinition{
+			"rdRoot01": {
+				RoleDefinition: armauthorization.RoleDefinition{
+					Name: to.Ptr("8a60c97f-9cb6-536b-b5db-9c997ee1de03"),
+					Properties: &armauthorization.RoleDefinitionProperties{
+						RoleName:    to.Ptr("[ALZ] Application-Owners"),
+						Description: to.Ptr("Contributor role granted for application/operations team at resource group level"),
+					},
+				},
+			},
+		},
+	}
+	mg1 := &HierarchyManagementGroup{
+		id:                   "mg1",
+		parent:               mgRoot,
+		level:                1,
+		location:             "changeme",
+		hierarchy:            h,
+		policyAssignments:    map[string]*assets.PolicyAssignment{},
+		policyDefinitions:    map[string]*assets.PolicyDefinition{},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions: map[string]*assets.RoleDefinition{
+			"rdMg101": {
+				RoleDefinition: armauthorization.RoleDefinition{
+					Name: to.Ptr("8a60c97f-9cb6-536b-b5db-9c997ee1de03"),
+					Properties: &armauthorization.RoleDefinitionProperties{
+						RoleName:    to.Ptr("[ALZ] Application-Owners"),
+						Description: to.Ptr("Contributor role granted for application/operations team at resource group level"),
+					},
+				},
+			},
+		},
+	}
+
+	h.mgs["mgRoot"] = mgRoot
+	h.mgs["mg1"] = mg1
+
+	mgRoot.children = mapset.NewThreadUnsafeSet(mg1)
+	require.NoError(t, mgRoot.update(true))
+	require.NoError(t, mg1.update(true))
+
+	// Check that the role definitions are unique
+	assert.NotEqual(t, mgRoot.roleDefinitions["rdRoot01"].Name, mg1.roleDefinitions["rdMg101"].Name, "Role definitions should not have the same ID")
+	assert.NotEqual(t, mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, mg1.roleDefinitions["rdMg101"].Properties.RoleName, "Role definitions should not have the same ID")
+}
+
+func TestManagementGroupUpdateWithNonUniqueRoleDefinitions(t *testing.T) {
+	h := NewHierarchy(nil)
+	mgRoot := &HierarchyManagementGroup{
+		id:                   "mgRoot",
+		parent:               nil,
+		level:                0,
+		parentExternal:       to.Ptr("external"),
+		location:             "changeme",
+		hierarchy:            h,
+		policyAssignments:    map[string]*assets.PolicyAssignment{},
+		policyDefinitions:    map[string]*assets.PolicyDefinition{},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions: map[string]*assets.RoleDefinition{
+			"rdRoot01": {
+				RoleDefinition: armauthorization.RoleDefinition{
+					Name: to.Ptr("8a60c97f-9cb6-536b-b5db-9c997ee1de03"),
+					Properties: &armauthorization.RoleDefinitionProperties{
+						RoleName:    to.Ptr("[ALZ] Application-Owners"),
+						Description: to.Ptr("Contributor role granted for application/operations team at resource group level"),
+					},
+				},
+			},
+		},
+	}
+	mg1 := &HierarchyManagementGroup{
+		id:                   "mg1",
+		parent:               mgRoot,
+		level:                1,
+		location:             "changeme",
+		hierarchy:            h,
+		policyAssignments:    map[string]*assets.PolicyAssignment{},
+		policyDefinitions:    map[string]*assets.PolicyDefinition{},
+		policySetDefinitions: map[string]*assets.PolicySetDefinition{},
+		roleDefinitions: map[string]*assets.RoleDefinition{
+			"rdMg101": {
+				RoleDefinition: armauthorization.RoleDefinition{
+					Name: to.Ptr("8a60c97f-9cb6-536b-b5db-9c997ee1de03"),
+					Properties: &armauthorization.RoleDefinitionProperties{
+						RoleName:    to.Ptr("[ALZ] Application-Owners"),
+						Description: to.Ptr("Contributor role granted for application/operations team at resource group level"),
+					},
+				},
+			},
+		},
+	}
+
+	h.mgs["mgRoot"] = mgRoot
+	h.mgs["mg1"] = mg1
+
+	mgRoot.children = mapset.NewThreadUnsafeSet(mg1)
+	require.NoError(t, mgRoot.update(false))
+	require.NoError(t, mg1.update(false))
+
+	// Check that the role definitions are still not unique after update
+	assert.Equal(t, mgRoot.roleDefinitions["rdRoot01"].Name, mg1.roleDefinitions["rdMg101"].Name, "Role definitions should not have the same ID after update")
+	assert.Equal(t, mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, mg1.roleDefinitions["rdMg101"].Properties.RoleName, "Role definitions should not have the same ID after update")
 }
 
 func TestModifyPolicyDefinitions(t *testing.T) {
@@ -589,7 +705,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 			}),
 		},
 	}
-	updateRoleDefinitions(alzmg)
+	updateRoleDefinitions(alzmg, true)
 	expected := fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
@@ -616,7 +732,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 			}),
 		},
 	}
-	updateRoleDefinitions(alzmg)
+	updateRoleDefinitions(alzmg, true)
 	expected = fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
@@ -633,7 +749,7 @@ func TestModifyRoleDefinitions(t *testing.T) {
 		id:              "mg1",
 		roleDefinitions: map[string]*assets.RoleDefinition{},
 	}
-	updateRoleDefinitions(alzmg)
+	updateRoleDefinitions(alzmg, true)
 	assert.Empty(t, alzmg.roleDefinitions)
 }
 
