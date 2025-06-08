@@ -13,12 +13,22 @@ import (
 	"github.com/Azure/alzlib/internal/tools/errcheck"
 )
 
-var CheckAllArchitectures = checker.NewValidatorCheck("All architectures are deployable", checkAllArchitectures)
+func CheckAllArchitectures(inputs ...any) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		"All architectures can be deployed",
+		func() error {
+			if len(inputs) != 1 {
+				return fmt.Errorf("checkAllArchitectures: expected 1 input, got %d", len(inputs))
+			}
+			return checkAllArchitectures(inputs[0])
+		},
+	)
+}
 
-func checkAllArchitectures(azany any) error {
-	az, ok := azany.(*alzlib.AlzLib)
+func checkAllArchitectures(input any) error {
+	az, ok := input.(*alzlib.AlzLib)
 	if !ok {
-		return fmt.Errorf("checkAllDefinitionsAreReferenced: expected *alzlib.AlzLib, got %T", azany)
+		return fmt.Errorf("checkAllDefinitionsAreReferenced: expected *alzlib.AlzLib, got %T", input)
 	}
 	archs := az.Architectures()
 	errs := errcheck.NewCheckerError()

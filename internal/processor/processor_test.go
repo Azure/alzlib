@@ -89,7 +89,7 @@ func TestProcessArchetypeDefinitionValid(t *testing.T) {
 	t.Parallel()
 	sampleData := getSampleArchetypeDefinition_valid()
 	res := &Result{
-		LibArchetypes: make(map[string]*LibArchetype, 0),
+		LibArchetypes: make(map[string]*assets.Archetype, 0),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	assert.NoError(t, processArchetype(res, unmar))
@@ -106,7 +106,7 @@ func Test_processArchetypeDefinition_invalidJson(t *testing.T) {
 	t.Parallel()
 	sampleData := getSampleArchetypeDefinition_invalidJson()
 	res := &Result{
-		LibArchetypes: make(map[string]*LibArchetype, 0),
+		LibArchetypes: make(map[string]*assets.Archetype, 0),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	assert.ErrorContains(t, processArchetype(res, unmar), "invalid character '[' after object key")

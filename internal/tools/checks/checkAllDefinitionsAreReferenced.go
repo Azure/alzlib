@@ -11,12 +11,22 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-var CheckAllDefinitionsAreReferenced = checker.NewValidatorCheck("All definitions are referenced", checkAllDefinitionsAreReferenced)
+func CheckAllDefinitionsAreReferenced(inputs ...any) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		"All definitions are referenced",
+		func() error {
+			if len(inputs) != 1 {
+				return fmt.Errorf("checkAllDefinitionsAreReferenced: expected 1 input, got %d", len(inputs))
+			}
+			return checkAllDefinitionsAreReferenced(inputs[0])
+		},
+	)
+}
 
-func checkAllDefinitionsAreReferenced(azany any) error {
-	az, ok := azany.(*alzlib.AlzLib)
+func checkAllDefinitionsAreReferenced(input any) error {
+	az, ok := input.(*alzlib.AlzLib)
 	if !ok {
-		return fmt.Errorf("checkAllDefinitionsAreReferenced: expected *alzlib.AlzLib, got %T", azany)
+		return fmt.Errorf("checkAllDefinitionsAreReferenced: expected *alzlib.AlzLib, got %T", input)
 	}
 	// Test if we have policy (set) definitions that are not referenced by any archetype
 	referencedPds := mapset.NewThreadUnsafeSet[string]()

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/internal/processor"
 	mapset "github.com/deckarep/golang-set/v2"
 )
@@ -60,7 +61,7 @@ type ArchitectureManagementGroup struct {
 	children     mapset.Set[*ArchitectureManagementGroup]
 	parent       *ArchitectureManagementGroup
 	exists       bool
-	archetypes   mapset.Set[*Archetype]
+	archetypes   mapset.Set[*assets.Archetype]
 	architecture *Architecture
 }
 
@@ -70,21 +71,21 @@ func newArchitectureManagementGroup(id, displayName string, exists bool, arch *A
 		displayName:  displayName,
 		children:     mapset.NewThreadUnsafeSet[*ArchitectureManagementGroup](),
 		exists:       exists,
-		archetypes:   mapset.NewThreadUnsafeSet[*Archetype](),
+		archetypes:   mapset.NewThreadUnsafeSet[*assets.Archetype](),
 		architecture: arch,
 	}
 }
 
 // Archetypes returns the archetypes assigned to the management group.
-func (mg *ArchitectureManagementGroup) Archetypes() (res []*Archetype) {
+func (mg *ArchitectureManagementGroup) Archetypes() (res []*assets.Archetype) {
 	for arch := range mg.archetypes.Iter() {
-		res = append(res, arch.copy())
+		res = append(res, arch.Copy())
 	}
-	slices.SortFunc(res, func(a, b *Archetype) int {
-		if a.name < b.name {
+	slices.SortFunc(res, func(a, b *assets.Archetype) int {
+		if a.Name < b.Name {
 			return -1
 		}
-		if a.name > b.name {
+		if a.Name > b.Name {
 			return 1
 		}
 		return 0
@@ -129,7 +130,7 @@ func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagem
 		mg.parent = parent
 		mg.parent.children.Add(mg)
 	}
-	mg.archetypes = mapset.NewThreadUnsafeSet[*Archetype]()
+	mg.archetypes = mapset.NewThreadUnsafeSet[*assets.Archetype]()
 	for archName := range libMg.Archetypes.Iter() {
 		arch, ok := az.archetypes[archName]
 		if !ok {

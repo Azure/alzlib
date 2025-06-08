@@ -30,7 +30,7 @@ const (
 type AlzLib struct {
 	Options *AlzLibOptions
 
-	archetypes                    map[string]*Archetype
+	archetypes                    map[string]*assets.Archetype
 	architectures                 map[string]*Architecture
 	policyAssignments             map[string]*assets.PolicyAssignment
 	policyDefinitions             map[string]*assets.PolicyDefinition
@@ -63,7 +63,7 @@ func NewAlzLib(opts *AlzLibOptions) *AlzLib {
 	}
 	az := &AlzLib{
 		Options:                       opts,
-		archetypes:                    make(map[string]*Archetype),
+		archetypes:                    make(map[string]*assets.Archetype),
 		architectures:                 make(map[string]*Architecture),
 		policyAssignments:             make(map[string]*assets.PolicyAssignment),
 		policyDefinitions:             make(map[string]*assets.PolicyDefinition),
@@ -234,14 +234,14 @@ func (az *AlzLib) Archetypes() []string {
 }
 
 // Archetype returns a copy of the requested archetype by name.
-func (az *AlzLib) Archetype(name string) *Archetype {
+func (az *AlzLib) Archetype(name string) *assets.Archetype {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 	arch, ok := az.archetypes[name]
 	if !ok {
 		return nil
 	}
-	return arch.copy()
+	return arch.Copy()
 }
 
 // Architectures returns a list of the architecture names in the AlzLib struct.
@@ -672,7 +672,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 	// add empty archetype if it doesn't exist.
 	if _, exists := az.archetypes["empty"]; !exists {
 		if _, exists := res.LibArchetypes["empty"]; !exists {
-			res.LibArchetypes["empty"] = &processor.LibArchetype{
+			res.LibArchetypes["empty"] = &assets.Archetype{
 				Name:                 "empty",
 				PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
 				PolicyDefinitions:    mapset.NewThreadUnsafeSet[string](),
@@ -687,7 +687,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 		if _, exists := az.archetypes[k]; exists && !az.Options.AllowOverwrite {
 			return fmt.Errorf("Alzlib.generateArchetypes: archetype %s already exists in the library", v.Name)
 		}
-		arch := NewArchetype(v.Name)
+		arch := assets.NewArchetype(v.Name)
 		for pd := range v.PolicyDefinitions.Iter() {
 			if _, ok := az.policyDefinitions[pd]; !ok {
 				return fmt.Errorf("Alzlib.generateArchetypes: error processing archetype %s, policy definition %s does not exist in the library", k, pd)
@@ -769,12 +769,12 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 			}
 		}
 
-		newArch := &Archetype{
+		newArch := &assets.Archetype{
 			PolicyDefinitions:    base.PolicyDefinitions.Clone().Union(ovr.PolicyDefinitionsToAdd).Difference(ovr.PolicyDefinitionsToRemove),
 			PolicySetDefinitions: base.PolicySetDefinitions.Clone().Union(ovr.PolicySetDefinitionsToAdd).Difference(ovr.PolicySetDefinitionsToRemove),
 			PolicyAssignments:    base.PolicyAssignments.Clone().Union(ovr.PolicyAssignmentsToAdd).Difference(ovr.PolicyAssignmentsToRemove),
 			RoleDefinitions:      base.RoleDefinitions.Clone().Union(ovr.RoleDefinitionsToAdd).Difference(ovr.RoleDefinitionsToRemove),
-			name:                 name,
+			Name:                 name,
 		}
 		az.archetypes[name] = newArch
 	}

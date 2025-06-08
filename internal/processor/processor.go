@@ -19,23 +19,47 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
-// These are the file prefixes for the resource types.
+// These are the file suffixes for the resource types.
 const (
-	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.(?:json|yaml|yml)$"
-	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition\\.(?:json|yaml|yml)$"
-	archetypeOverrideSuffix      = ".+\\.alz_archetype_override\\.(?:json|yaml|yml)$"
-	policyAssignmentSuffix       = ".+\\.alz_policy_assignment\\.(?:json|yaml|yml)$"
-	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?:json|yaml|yml)$"
-	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?:json|yaml|yml)$"
-	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?:json|yaml|yml)$"
-	policyDefaultValueFileName   = "^alz_policy_default_values\\.(?:json|yaml|yml)$"
+	architectureDefinitionSuffix = ".+\\." + AlzArchitectureDefinition + "\\.(?:json|yaml|yml)$"
+	archetypeDefinitionSuffix    = ".+\\." + AlzArchetypeDefinition + "\\.(?:json|yaml|yml)$"
+	archetypeOverrideSuffix      = ".+\\." + AlzArchetypeOverride + "\\.(?:json|yaml|yml)$"
+	policyAssignmentSuffix       = ".+\\." + AlzPolicyAssignment + "\\.(?:json|yaml|yml)$"
+	policyDefinitionSuffix       = ".+\\." + AlzPolicyDefinition + "\\.(?:json|yaml|yml)$"
+	policySetDefinitionSuffix    = ".+\\." + AlzPolicySetDefinition + "\\.(?:json|yaml|yml)$"
+	roleDefinitionSuffix         = ".+\\." + AlzRoleDefinition + "\\.(?:json|yaml|yml)$"
+	policyDefaultValueFileName   = "^" + AlzPolicyDefaultValues + "\\.(?:json|yaml|yml)$"
+)
+
+const (
+	AlzArchetypeDefinition    = "alz_archetype_definition"
+	AlzArchetypeOverride      = "alz_archetype_override"
+	AlzArchitectureDefinition = "alz_architecture_definition"
+	AlzPolicyAssignment       = "alz_policy_assignment"
+	AlzPolicyDefaultValues    = "alz_policy_default_values"
+	AlzPolicyDefinition       = "alz_policy_definition"
+	AlzPolicySetDefinition    = "alz_policy_set_definition"
+	AlzRoleDefinition         = "alz_role_definition"
 )
 
 const (
 	alzLibraryMetadataFile = "alz_library_metadata.json"
 )
 
-var supportedFileTypes = []string{".json", ".yaml", ".yml"}
+// SupportedFileExtensions is a list of supported file extensions for the ALZ library.
+var SupportedFileExtensions = []string{".json", ".yaml", ".yml"}
+
+// SupportedFileTypes is a list of supported file types for the ALZ library.
+var SupportedFileTypes = []string{
+	AlzArchetypeDefinition,
+	AlzArchetypeOverride,
+	AlzArchitectureDefinition,
+	AlzPolicyAssignment,
+	AlzPolicyDefaultValues,
+	AlzPolicyDefinition,
+	AlzPolicySetDefinition,
+	AlzRoleDefinition,
+}
 
 var architectureDefinitionRegex = regexp.MustCompile(architectureDefinitionSuffix)
 var archetypeDefinitionRegex = regexp.MustCompile(archetypeDefinitionSuffix)
@@ -52,7 +76,7 @@ type Result struct {
 	PolicySetDefinitions                map[string]*armpolicy.SetDefinition
 	PolicyAssignments                   map[string]*assets.PolicyAssignment
 	RoleDefinitions                     map[string]*armauthorization.RoleDefinition
-	LibArchetypes                       map[string]*LibArchetype
+	LibArchetypes                       map[string]*assets.Archetype
 	LibArchetypeOverrides               map[string]*LibArchetypeOverride
 	LibDefaultPolicyValues              map[string]*LibDefaultPolicyValuesDefaults
 	LibArchitectures                    map[string]*LibArchitecture
@@ -66,7 +90,7 @@ func NewResult() *Result {
 		PolicySetDefinitions:                make(map[string]*armpolicy.SetDefinition),
 		PolicyAssignments:                   make(map[string]*assets.PolicyAssignment),
 		RoleDefinitions:                     make(map[string]*armauthorization.RoleDefinition),
-		LibArchetypes:                       make(map[string]*LibArchetype),
+		LibArchetypes:                       make(map[string]*assets.Archetype),
 		LibArchetypeOverrides:               make(map[string]*LibArchetypeOverride),
 		LibDefaultPolicyValues:              make(map[string]*LibDefaultPolicyValuesDefaults),
 		LibArchitectures:                    make(map[string]*LibArchitecture),
@@ -155,7 +179,7 @@ func (client *ProcessorClient) Process(res *Result) error {
 			return nil
 		}
 		// Skip files that are not json or yaml
-		if !slices.Contains(supportedFileTypes, strings.ToLower(filepath.Ext(path))) {
+		if !slices.Contains(SupportedFileExtensions, strings.ToLower(filepath.Ext(path))) {
 			return nil
 		}
 		file, err := client.fs.Open(path)
@@ -256,7 +280,7 @@ func processDefaultPolicyValue(res *Result, unmar unmarshaler) error {
 // processArchetype is a processFunc that reads the archetype_definition
 // bytes, processes, then adds the created LibArchetype to the result.
 func processArchetype(res *Result, unmar unmarshaler) error {
-	la := new(LibArchetype)
+	la := new(assets.Archetype)
 	if err := unmar.unmarshal(la); err != nil {
 		return fmt.Errorf("processArchetype: error unmarshaling: %w", err)
 	}

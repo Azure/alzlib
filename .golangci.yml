@@ -1,43 +1,62 @@
+# This file contains all available configuration options
+# with their default values (in comments).
+#
+# This file is not a configuration example,
+# it contains the exhaustive configuration with explanations of the options.
+
+# Defines the configuration version.
+# The only possible value is "2".
 version: "2"
-run:
-  modules-download-mode: readonly
+
 linters:
+  # Default set of linters.
+  # The value can be:
+  # - `standard`: https://golangci-lint.run/usage/linters/#enabled-by-default
+  # - `all`: enables all linters by default.
+  # - `none`: disables all linters by default.
+  # - `fast`: enables only linters considered as "fast" (`golangci-lint help linters --json | jq '[ .[] | select(.fast==true) ] | map(.name)'`).
+  # Default: standard
   default: none
   enable:
-    - copyloopvar
-    - durationcheck
+    - err113
     - errcheck
-    - forcetypeassert
+    - goconst
     - godot
+    - goheader
     - govet
     - ineffassign
-    - makezero
-    - misspell
-    - nilerr
-    - predeclared
+    - lll
+    - mnd
+    - nestif
+    - revive
     - staticcheck
+    - testifylint
     - unconvert
     - unparam
     - unused
+    - wrapcheck
+    - wsl
+
   exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+    rules:
+      # Exclude some linters from running on tests files.
+      - path: _test\.go
+        linters:
+          - err113
+          - errcheck
+          - revive
+          - wrapcheck
+
+  settings:
+    goheader:
+      values:
+        const:
+          YEAR: "2025"
+          AUTHOR: "matt-FFFFFF"
+      template: |-
+        Copyright (c) {{ AUTHOR }} {{ YEAR }}. All rights reserved.
+        SPDX-License-Identifier: MIT
+
 issues:
+  max-issues-per-linter: 0
   max-same-issues: 0
-formatters:
-  enable:
-    - gofmt
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$

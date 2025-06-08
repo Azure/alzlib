@@ -11,12 +11,22 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 )
 
-var CheckDefaults = checker.NewValidatorCheck("All defaults are valid", checkDefaults)
+func CheckDefaults(inputs ...any) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		"CheckDefaults: invalid number of inputs",
+		func() error {
+			if len(inputs) != 1 {
+				return fmt.Errorf("checkDefaults: expected 1 input, got %d", len(inputs))
+			}
+			return checkDefaults(inputs[0])
+		},
+	)
+}
 
-func checkDefaults(azany any) error {
-	az, ok := azany.(*alzlib.AlzLib)
+func checkDefaults(input any) error {
+	az, ok := input.(*alzlib.AlzLib)
 	if !ok {
-		return fmt.Errorf("checkDefaults: expected *alzlib.AlzLib, got %T", azany)
+		return fmt.Errorf("checkDefaults: expected *alzlib.AlzLib, got %T", input)
 	}
 	defs := az.PolicyDefaultValues()
 	for _, def := range defs {

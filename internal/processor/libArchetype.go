@@ -21,7 +21,8 @@ type LibArchetype struct {
 	RoleDefinitions      mapset.Set[string] `json:"role_definitions" yaml:"role_definitions"`
 }
 
-type libArchetypeUnmarshaler struct {
+// libArchetype is a struct used to marshal/unmarshal the JSON or YAML representation of an archetype.
+type libArchetype struct {
 	Name                 string   `json:"name" yaml:"name"`
 	PolicyAssignments    []string `json:"policy_assignments" yaml:"policy_assignments"`
 	PolicyDefinitions    []string `json:"policy_definitions" yaml:"policy_definitions"`
@@ -29,9 +30,25 @@ type libArchetypeUnmarshaler struct {
 	RoleDefinitions      []string `json:"role_definitions" yaml:"role_definitions"`
 }
 
+// MarshalJSON creates a JSON representation of the LibArchetype.
+func (la *LibArchetype) MarshalJSON() ([]byte, error) {
+	tmp := libArchetype{
+		Name:                 la.Name,
+		PolicyAssignments:    mapset.Sorted(la.PolicyAssignments),
+		PolicyDefinitions:    mapset.Sorted(la.PolicyDefinitions),
+		PolicySetDefinitions: mapset.Sorted(la.PolicySetDefinitions),
+		RoleDefinitions:      mapset.Sorted(la.RoleDefinitions),
+	}
+	data, err := json.Marshal(tmp)
+	if err != nil {
+		return nil, fmt.Errorf("LibArchetype.MarshalJSON: json.Marshal error: %w", err)
+	}
+	return data, nil
+}
+
 // UnmarshalJSON creates a LibArchetype from the supplied JSON bytes.
 func (la *LibArchetype) UnmarshalJSON(data []byte) error {
-	tmp := libArchetypeUnmarshaler{}
+	tmp := libArchetype{}
 	if err := json.Unmarshal(data, &tmp); err != nil {
 		return fmt.Errorf("LibArchetype.UnmarshalJSON: json.Unmarshal error: %w", err)
 	}
@@ -45,7 +62,7 @@ func (la *LibArchetype) UnmarshalJSON(data []byte) error {
 
 // UnmarshalYAML creates a LibArchetype from the supplied JSON bytes.
 func (la *LibArchetype) UnmarshalYAML(n *yaml.Node) error {
-	tmp := libArchetypeUnmarshaler{}
+	tmp := libArchetype{}
 	if err := n.Decode(&tmp); err != nil {
 		return fmt.Errorf("LibArchetype.UnmarshalYAML: yaml.Node.Decode error: %w", err)
 	}

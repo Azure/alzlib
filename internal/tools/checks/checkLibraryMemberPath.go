@@ -15,7 +15,17 @@ const (
 	alzLibPathEnvVar = "LIBRARY_PATH"
 )
 
-var CheckLibraryMemberPath = checker.NewValidatorCheck("Library member path", checkLibraryMemberPath)
+func CheckLibraryMemberPath(inputs ...any) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		"Library member path is correct",
+		func() error {
+			if len(inputs) != 1 {
+				return fmt.Errorf("checkLibraryMemberPath: expected 1 input, got %d", len(inputs))
+			}
+			return checkLibraryMemberPath(inputs[0])
+		},
+	)
+}
 
 func checkLibraryMemberPath(in any) error {
 	path, ok := os.LookupEnv(alzLibPathEnvVar)

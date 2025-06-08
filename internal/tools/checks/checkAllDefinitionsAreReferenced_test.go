@@ -59,15 +59,15 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 	// use reflection/unsafe to populate archetypes
 	archetypesNotSettable := reflect.ValueOf(az).Elem().FieldByName("archetypes")
 	archetypesPtr := reflect.NewAt(archetypesNotSettable.Type(), (archetypesNotSettable.Addr().UnsafePointer())).Elem()
-	archetypes := archetypesPtr.Interface().(map[string]*alzlib.Archetype) //nolint:forcetypeassert
+	archetypes := archetypesPtr.Interface().(map[string]*assets.Archetype) //nolint:forcetypeassert
 
-	archetypes["archetype1"] = &alzlib.Archetype{
+	archetypes["archetype1"] = &assets.Archetype{
 		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
 		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
 		RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
 		PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
 	}
-	archetypes["archetype2"] = &alzlib.Archetype{
+	archetypes["archetype2"] = &assets.Archetype{
 		PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy2"),
 		PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet2"),
 		RoleDefinitions:      mapset.NewThreadUnsafeSet("role2"),

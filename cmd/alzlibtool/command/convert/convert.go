@@ -12,16 +12,41 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/alzlib/internal/tools/checker"
+	"github.com/Azure/alzlib/internal/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
 
 var convertCmdOverwrite bool
 
+const (
+	deprecatedString = "deprecated"
+)
+
 type convertible interface {
 	armpolicy.Definition |
 		armpolicy.SetDefinition
+}
+
+// metadataVersion is a struct to extract metadata version from policy definitions or set definitions.
+type metadataVersion struct {
+	Properties *struct {
+		Metadata *struct {
+			Version *string `json:"version"`
+		} `json:"metadata"`
+	} `json:"properties"`
+}
+
+func (m *metadataVersion) isDeprecated() bool {
+	if m.Properties == nil || m.Properties.Metadata == nil || m.Properties.Metadata.Version == nil {
+		return false
+	}
+	versionStr := *m.Properties.Metadata.Version
+	versionStr = strings.ToLower(versionStr)
+
+	return strings.Contains(versionStr, deprecatedString)
 }
 
 // ConvertBaseCmd represents the base process command.
@@ -43,7 +68,7 @@ func init() {
 	ConvertBaseCmd.AddCommand(&policysetdefinitionCmd)
 }
 
-func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid checker.Validator) error {
+func convertFiles[C convertible](src, dst string, cmd *cobra.Command) error {
 	if _, err := os.ReadDir(dst); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			if err := os.MkdirAll(dst, 0755); err != nil {
@@ -71,15 +96,27 @@ func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid chec
 		}
 
 		bytes, err := os.ReadFile(path)
-		if err != nil {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("readFile error: '%s': %w", path, err)
 		}
-		resource := new(C)
-		if err := json.Unmarshal(bytes, resource); err != nil {
-			return fmt.Errorf("json.Ummarshal error: '%s', %w", path, err)
+
+		var metadata metadataVersion
+		if err := json.Unmarshal(bytes, &metadata); err != nil {
+			return fmt.Errorf("json.Unmarshal metadata version error: '%s', %w", path, err)
 		}
 
-		if err := valid.Validate(resource); err != nil {
+		if metadata.isDeprecated() {
+			cmd.Printf("Skipping deprecated resource: %s\n", path)
+			return nil
+		}
+
+		resource := new(C)
+		if err := json.Unmarshal(bytes, resource); err != nil {
+			return fmt.Errorf("json.Unmarshal error: '%s', %w", path, err)
+		}
+
+		valid := checker.NewValidator(checks.CheckResourceTypeIsCorrect(resource))
+		if err := valid.Validate(); err != nil {
 			return fmt.Errorf("validation error: '%s', %w", path, err)
 		}
 		processedBytes := processResource(resource)
@@ -98,9 +135,9 @@ func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid chec
 func libraryFileName(in any) string {
 	switch in := in.(type) {
 	case *armpolicy.Definition:
-		return fmt.Sprintf("%s.alz_policy_definition.json", *in.Name)
+		return fmt.Sprintf("%s.%s.json", *in.Name, processor.AlzPolicyDefinition)
 	case *armpolicy.SetDefinition:
-		return fmt.Sprintf("%s.alz_policy_set_definition.json", *in.Name)
+		return fmt.Sprintf("%s.%s.json", *in.Name, processor.AlzPolicySetDefinition)
 	default:
 		return ""
 	}

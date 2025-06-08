@@ -105,7 +105,7 @@ func alzlibReadmeMdArchetypes(md *markdown.Markdown, az *alzlib.AlzLib) *markdow
 		pas := archetype.PolicyAssignments.ToSlice()
 		slices.Sort(pas)
 		if len(pds) > 0 || len(psds) > 0 || len(pas) > 0 || len(rds) > 0 {
-			md = md.H3("archetype `" + archetype.Name() + "`").LF()
+			md = md.H3("archetype `" + archetype.Name + "`").LF()
 			if len(pds) > 0 {
 				md.H4(a+" policy definitions").LF().
 					Details(fmt.Sprintf("%d policy definitions", archetype.PolicyDefinitions.Cardinality()), "\n- "+strings.Join(pds, "\n- ")).LF()
@@ -169,7 +169,7 @@ func mermaidFromArchitectureRecursion(sb *strings.Builder, mg *alzlib.Architectu
 	archs := mg.Archetypes()
 	archetypes := make([]string, len(archs))
 	for i, a := range archs {
-		archetypes[i] = a.Name()
+		archetypes[i] = a.Name
 	}
 	archetypesStr := strings.Join(archetypes, ", ")
 	fmtStr := `  %s["%s

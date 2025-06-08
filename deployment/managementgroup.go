@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -44,7 +43,7 @@ type managementGroupAddRequest struct {
 	exists           bool                // Whether the management group already exists in the hierarchy.
 	parentId         string              // The name of the parent management group.
 	parentIsExternal bool                // If true, the parent management group is external to the hierarchy.
-	archetypes       []*alzlib.Archetype // The archetypes to use for the management group.
+	archetypes       []*assets.Archetype // The archetypes to use for the management group.
 	level            int                 // The level of the management group in the hierarchy.
 	location         string              // The default location to use for artifacts in the management group.
 }

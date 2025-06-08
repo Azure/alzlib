@@ -46,12 +46,13 @@ var libraryCmd = cobra.Command{
 		}
 
 		chk := checker.NewValidator(
-			checks.CheckAllDefinitionsAreReferenced,
-			checks.CheckAllArchitectures,
-			checks.CheckLibraryMemberPath,
-			checks.CheckDefaults,
+			checks.CheckAllDefinitionsAreReferenced(az),
+			checks.CheckAllArchitectures(az),
+			checks.CheckLibraryMemberPath(az),
+			checks.CheckDefaults(az),
 		)
-		err = chk.Validate(az)
+
+		err = chk.Validate()
 		if err != nil {
 			cmd.PrintErrf("%s library check error: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
