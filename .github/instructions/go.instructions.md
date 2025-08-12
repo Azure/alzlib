@@ -250,6 +250,7 @@ Follow idiomatic Go practices and community standards when writing Go code. Thes
 - `golangci-lint`: Additional linting, add `--fix` flag to automatically fix issues
 - `go test`: Run tests
 - `go mod`: Manage dependencies
+- `govulncheck ./...`: Check for known vulnerabilities in dependencies
 
 ### Development Practices
 
