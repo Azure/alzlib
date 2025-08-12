@@ -17,6 +17,7 @@ import (
 )
 
 var (
+	// ErrReadmeGenerationFailed is returned when the README generation fails.
 	ErrReadmeGenerationFailed = fmt.Errorf("failed to generate README")
 )
 

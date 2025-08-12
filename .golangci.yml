@@ -18,7 +18,6 @@ linters:
   # Default: standard
   default: none
   enable:
-    - err113
     - errcheck
     - goconst
     - godot
@@ -34,8 +33,7 @@ linters:
     - unconvert
     - unparam
     - unused
-    - wrapcheck
-    - wsl
+    - wsl_v5
 
   exclusions:
     rules:

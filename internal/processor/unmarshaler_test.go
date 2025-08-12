@@ -16,6 +16,7 @@ func TestUnmarshalJson(t *testing.T) {
 	u := newUnmarshaler(data, ext)
 
 	var dst map[string]interface{}
+
 	err := u.unmarshal(&dst)
 
 	require.NoError(t, err)
@@ -32,6 +33,7 @@ age: 30
 		u := newUnmarshaler(data, ext)
 
 		var dst map[string]interface{}
+
 		err := u.unmarshal(&dst)
 
 		require.NoError(t, err)

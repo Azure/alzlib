@@ -19,6 +19,7 @@ func TestAlzlibReadmeMd(t *testing.T) {
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
+
 	err = AlzlibReadmeMd(ctx, &buf, lib)
 	t.Log(buf.String())
 	require.NoError(t, err)

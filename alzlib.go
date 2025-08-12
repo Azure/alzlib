@@ -385,6 +385,7 @@ func (az *AlzLib) Architecture(name string) *Architecture {
 func (az *AlzLib) PolicyDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
+
 	_, exists := az.policyDefinitions[name]
 
 	return exists
@@ -395,6 +396,7 @@ func (az *AlzLib) PolicyDefinitionExists(name string) bool {
 func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
+
 	_, exists := az.policySetDefinitions[name]
 
 	return exists
@@ -404,6 +406,7 @@ func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
 func (az *AlzLib) PolicyAssignmentExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
+
 	_, exists := az.policyAssignments[name]
 
 	return exists
@@ -413,6 +416,7 @@ func (az *AlzLib) PolicyAssignmentExists(name string) bool {
 func (az *AlzLib) RoleDefinitionExists(name string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
+
 	_, exists := az.roleDefinitions[name]
 
 	return exists
@@ -511,6 +515,7 @@ func (az *AlzLib) RoleDefinition(name string) *assets.RoleDefinition {
 func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
+
 	az.clients.policyClient = client
 }
 

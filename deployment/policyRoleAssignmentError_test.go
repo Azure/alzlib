@@ -28,6 +28,7 @@ func TestPolicyRoleAssignmentError_Error(t *testing.T) {
 
 func TestPolicyRoleAssignmentError_WrappedError(t *testing.T) {
 	var innerError = errors.New("inner error")
+
 	err := NewPolicyRoleAssignmentError(
 		"testAssignment",
 		"testScope",

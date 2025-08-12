@@ -73,6 +73,7 @@ func (h *Hierarchy) ManagementGroup(name string) *HierarchyManagementGroup {
 func (h *Hierarchy) ManagementGroupNames() []string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+
 	res := make([]string, len(h.mgs))
 	i := 0
 

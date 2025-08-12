@@ -25,6 +25,7 @@ func TestNewAlzLibOptionsError(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	require.ErrorContains(t, az.Init(ctx), "parallelism")
 	az.Options = new(alzlib.Options)
 	require.ErrorContains(t, az.Init(ctx), "parallelism")
@@ -62,6 +63,7 @@ func TestInitSimpleExistingMg(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	require.NoError(t, az.Init(ctx, lib))
 	assert.Equal(t, []string{"empty", "simple"}, az.Archetypes())
 	assert.Equal(t, []string{"test-policy-definition"}, az.PolicyDefinitions())
@@ -83,6 +85,7 @@ func TestInitMultipleRoleDefinitions(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	require.NoError(t, az.Init(ctx, lib))
 	h := deployment.NewHierarchy(az)
 	err := h.FromArchitecture(ctx, "test", "00000000-0000-0000-0000-000000000000", "testlocation")

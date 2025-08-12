@@ -107,6 +107,10 @@ func (pa *PolicyAssignment) UnmarshalJSON(data []byte) error {
 // ValidatePolicyAssignment performs validation checks on the policy assignment.
 // To reduce the risk of nil pointer dereferences, it will create empty values for optional fields.
 func ValidatePolicyAssignment(pa *PolicyAssignment) error {
+	if pa == nil {
+		return errors.New("ValidatePolicyAssignment: policy assignment is nil")
+	}
+
 	if pa.Name == nil {
 		return errors.New("ValidatePolicyAssignment: name must not be nil")
 	}

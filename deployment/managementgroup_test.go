@@ -949,6 +949,7 @@ func TestParseArmFunctionInPolicySetParameter(t *testing.T) {
 	const location = "uksouth"
 
 	const locationShort = "uks"
+
 	location2short := map[string]string{location: locationShort}
 	ass.Properties.Parameters["dnsZoneSubscriptionId"] = &armpolicy.ParameterValuesValue{Value: "00000000-0000-0000-0000-000000000001"}
 	ass.Properties.Parameters["dnsZoneResourceGroupName"] = &armpolicy.ParameterValuesValue{Value: "myRg"}
@@ -1296,7 +1297,7 @@ func TestParseArmFunctionInPolicySetParameter(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		result, err := parseArmFunctionInPolicySetParameter(tc.policyDefinitionRef, tc.parameterName, ass, set)
+		result, err := parseArmFunctionInPolicySetParameter(tc.policyDefinitionRef, tc.parameterName, &ass.Assignment, &set.SetDefinition)
 		require.NoErrorf(t, err, "error in %s with param %s", tc.policyDefinitionRef, tc.parameterName)
 
 		if err != nil {
@@ -1309,7 +1310,7 @@ func TestParseArmFunctionInPolicySetParameter(t *testing.T) {
 	}
 }
 
-func deployPrivateDnsZonesPolicySetDefinition() *armpolicy.SetDefinition {
+func deployPrivateDnsZonesPolicySetDefinition() *assets.PolicySetDefinition {
 	source := `{
   "name": "Deploy-Private-DNS-Zones",
   "properties": {
@@ -2054,7 +2055,7 @@ func deployPrivateDnsZonesPolicySetDefinition() *armpolicy.SetDefinition {
           "changeme": "changeme",
           "chilecentral": "clc",
           "eastasia": "ea",
-          eastUSLocation: "eus",
+          "eastus": "eus",
           "eastus2": "eus2",
           "eastus2euap": "ecy",
           "francecentral": "frc",
@@ -2984,13 +2985,16 @@ func deployPrivateDnsZonesPolicySetDefinition() *armpolicy.SetDefinition {
   },
   "type": "Microsoft.Authorization/policySetDefinitions"
 }`
-	result := new(armpolicy.SetDefinition)
-	_ = result.UnmarshalJSON([]byte(source))
+
+	result := new(assets.PolicySetDefinition)
+	if err := result.UnmarshalJSON([]byte(source)); err != nil {
+		panic(err)
+	}
 
 	return result
 }
 
-func deployPrivateDnsZonesPolicyAssignment() *armpolicy.Assignment {
+func deployPrivateDnsZonesPolicyAssignment() *assets.PolicyAssignment {
 	source := `{
   "type": "Microsoft.Authorization/policyAssignments",
   "apiVersion": "2022-06-01",
@@ -3217,8 +3221,11 @@ func deployPrivateDnsZonesPolicyAssignment() *armpolicy.Assignment {
     "notScopes": []
   }
 }`
-	result := new(armpolicy.Assignment)
-	_ = result.UnmarshalJSON([]byte(source))
+
+	result := new(assets.PolicyAssignment)
+	if err := result.UnmarshalJSON([]byte(source)); err != nil {
+		panic(err)
+	}
 
 	return result
 }

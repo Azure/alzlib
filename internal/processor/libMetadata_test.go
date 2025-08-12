@@ -59,6 +59,7 @@ func TestLibMetadataUnmarshal(t *testing.T) {
 	expectedEmpty := LibMetadata{}
 
 	var actualEmpty LibMetadata
+
 	err = json.Unmarshal([]byte(emptyInput), &actualEmpty)
 	require.NoError(t, err)
 
@@ -81,6 +82,7 @@ func TestLibMetadataUnmarshal(t *testing.T) {
   }`
 
 	var actualInvalid LibMetadata
+
 	err = json.Unmarshal([]byte(invalidInput), &actualInvalid)
 	require.Error(t, err)
 }
