@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package processor
 
@@ -20,17 +20,18 @@ import (
 // TestFullLibrary.
 func TestFullLibrary(t *testing.T) {
 	t.Parallel()
+
 	fs := os.DirFS("./testdata")
-	pc := NewProcessorClient(fs)
+	pc := NewClient(fs)
 	res := NewResult()
-	assert.NoError(t, pc.Process(res))
+	require.NoError(t, pc.Process(res))
 	assert.Equal(t, 13, res.LibArchetypes["root"].PolicyAssignments.Cardinality())
 	assert.Equal(t, 114, res.LibArchetypes["root"].PolicyDefinitions.Cardinality())
 	assert.Equal(t, 12, res.LibArchetypes["root"].PolicySetDefinitions.Cardinality())
 	assert.Equal(t, 5, res.LibArchetypes["root"].RoleDefinitions.Cardinality())
-	assert.Equal(t, 1, len(res.LibArchetypeOverrides))
-	assert.Equal(t, 1, len(res.LibDefaultPolicyValues))
-	assert.Equal(t, 9, len(res.LibArchitectures["alz"].ManagementGroups))
+	assert.Len(t, res.LibArchetypeOverrides, 1)
+	assert.Len(t, res.LibDefaultPolicyValues, 1)
+	assert.Len(t, res.LibArchitectures["alz"].ManagementGroups, 9)
 	assert.Equal(t, "test", res.Metadata.Name)
 	assert.Equal(t, "test display name.", res.Metadata.DisplayName)
 	assert.Equal(t, "test description", res.Metadata.Description)
@@ -40,17 +41,18 @@ func TestFullLibrary(t *testing.T) {
 			Ref:  "2024.08.0",
 		},
 		{
-			CustomUrl: "../testdir",
+			CustomURL: "../testdir",
 		},
 	}, res.Metadata.Dependencies)
 }
 
 func TestYamlDecode(t *testing.T) {
 	t.Parallel()
+
 	fs := os.DirFS("./yamllib")
-	pc := NewProcessorClient(fs)
+	pc := NewClient(fs)
 	res := NewResult()
-	assert.NoError(t, pc.Process(res))
+	require.NoError(t, pc.Process(res))
 	assert.Len(t, res.PolicyAssignments, 1)
 	assert.Len(t, res.LibArchetypes, 1)
 	assert.Len(t, res.LibArchitectures, 1)
@@ -59,22 +61,24 @@ func TestYamlDecode(t *testing.T) {
 // TestProcessArchetypeOverrideValid tests the processing of a valid archetype override.
 func TestProcessArchetypeOverrideValid(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSampleArchetypeOverride_valid()
 	res := &Result{
 		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.NoError(t, processArchetypeOverride(res, unmar))
-	assert.Equal(t, len(res.LibArchetypeOverrides), 1)
-	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyAssignmentsToAdd.Cardinality(), 1)
-	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyAssignmentsToRemove.Cardinality(), 1)
-	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyDefinitionsToAdd.Cardinality(), 1)
-	assert.Equal(t, res.LibArchetypeOverrides["test"].PolicyDefinitionsToRemove.Cardinality(), 1)
+	require.NoError(t, processArchetypeOverride(res, unmar))
+	assert.Len(t, res.LibArchetypeOverrides, 1)
+	assert.Equal(t, 1, res.LibArchetypeOverrides["test"].PolicyAssignmentsToAdd.Cardinality())
+	assert.Equal(t, 1, res.LibArchetypeOverrides["test"].PolicyAssignmentsToRemove.Cardinality())
+	assert.Equal(t, 1, res.LibArchetypeOverrides["test"].PolicyDefinitionsToAdd.Cardinality())
+	assert.Equal(t, 1, res.LibArchetypeOverrides["test"].PolicyDefinitionsToRemove.Cardinality())
 }
 
 // TestProcessArchetypeOverrideInvalid tests the processing of a valid archetype override.
 func TestProcessArchetypeOverrideInvalid(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSampleArchetypeOverride_invalid()
 	res := &Result{
 		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
@@ -87,23 +91,25 @@ func TestProcessArchetypeOverrideInvalid(t *testing.T) {
 // TestProcessArchetypeDefinitionValid test the processing of a valid archetype definition.
 func TestProcessArchetypeDefinitionValid(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSampleArchetypeDefinition_valid()
 	res := &Result{
 		LibArchetypes: make(map[string]*LibArchetype, 0),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.NoError(t, processArchetype(res, unmar))
-	assert.Equal(t, len(res.LibArchetypes), 1)
-	assert.Equal(t, res.LibArchetypes["test"].PolicyAssignments.Cardinality(), 1)
-	assert.Equal(t, res.LibArchetypes["test"].PolicyDefinitions.Cardinality(), 1)
-	assert.Equal(t, res.LibArchetypes["test"].PolicySetDefinitions.Cardinality(), 1)
-	assert.Equal(t, res.LibArchetypes["test"].RoleDefinitions.Cardinality(), 1)
+	require.NoError(t, processArchetype(res, unmar))
+	assert.Len(t, res.LibArchetypes, 1)
+	assert.Equal(t, 1, res.LibArchetypes["test"].PolicyAssignments.Cardinality())
+	assert.Equal(t, 1, res.LibArchetypes["test"].PolicyDefinitions.Cardinality())
+	assert.Equal(t, 1, res.LibArchetypes["test"].PolicySetDefinitions.Cardinality())
+	assert.Equal(t, 1, res.LibArchetypes["test"].RoleDefinitions.Cardinality())
 }
 
 // TestProcessArchetypeDefinition_multipleTopLevelObjects tests that the correct error
 // is generated when there as JSON errors in the archetype definition.
 func Test_processArchetypeDefinition_invalidJson(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSampleArchetypeDefinition_invalidJson()
 	res := &Result{
 		LibArchetypes: make(map[string]*LibArchetype, 0),
@@ -115,21 +121,27 @@ func Test_processArchetypeDefinition_invalidJson(t *testing.T) {
 // TestProcessPolicyAssignmentValid tests the processing of a valid policy assignment.
 func TestProcessPolicyAssignmentValid(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSamplePolicyAssignment()
 	res := &Result{
 		PolicyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.NoError(t, processPolicyAssignment(res, unmar))
-	assert.Equal(t, len(res.PolicyAssignments), 1)
-	assert.Equal(t, *res.PolicyAssignments["Deny-Storage-http"].Name, "Deny-Storage-http")
-	assert.Equal(t, *res.PolicyAssignments["Deny-Storage-http"].Properties.DisplayName, "Secure transfer to storage accounts should be enabled")
+	require.NoError(t, processPolicyAssignment(res, unmar))
+	assert.Len(t, res.PolicyAssignments, 1)
+	assert.Equal(t, "Deny-Storage-http", *res.PolicyAssignments["Deny-Storage-http"].Name)
+	assert.Equal(
+		t,
+		"Secure transfer to storage accounts should be enabled",
+		*res.PolicyAssignments["Deny-Storage-http"].Properties.DisplayName,
+	)
 }
 
 // TestProcessPolicyAssignmentNoName tests that the processing of a assignment
 // with a missing name field throws the correct error.
 func TestProcessPolicyAssignmentNoName(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSamplePolicyAssignment_noName()
 	res := &Result{
 		PolicyAssignments: make(map[string]*assets.PolicyAssignment),
@@ -141,94 +153,138 @@ func TestProcessPolicyAssignmentNoName(t *testing.T) {
 // TestProcessPolicyDefinitionValid tests the processing of a valid policy definition.
 func TestProcessPolicyDefinitionValid(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSamplePolicyDefinition()
 	res := &Result{
 		PolicyDefinitions: make(map[string]*armpolicy.Definition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.NoError(t, processPolicyDefinition(res, unmar))
-	assert.Equal(t, len(res.PolicyDefinitions), 1)
-	assert.Equal(t, *res.PolicyDefinitions["Append-AppService-httpsonly"].Name, "Append-AppService-httpsonly")
-	assert.Equal(t, *res.PolicyDefinitions["Append-AppService-httpsonly"].Properties.PolicyType, armpolicy.PolicyTypeCustom)
+	require.NoError(t, processPolicyDefinition(res, unmar))
+	assert.Len(t, res.PolicyDefinitions, 1)
+	assert.Equal(
+		t,
+		"Append-AppService-httpsonly",
+		*res.PolicyDefinitions["Append-AppService-httpsonly"].Name,
+	)
+	assert.Equal(
+		t,
+		armpolicy.PolicyTypeCustom,
+		*res.PolicyDefinitions["Append-AppService-httpsonly"].Properties.PolicyType,
+	)
 }
 
 // TestProcessPolicyDefinitionNoName tests that the processing of a definition
 // with a missing name field throws the correct error.
 func TestProcessPolicyDefinitionNoName(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSamplePolicyDefinition_noName()
 	res := &Result{
 		PolicyDefinitions: make(map[string]*armpolicy.Definition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.ErrorContains(t, processPolicyDefinition(res, unmar), "policy definition name is empty or not present")
+	assert.ErrorIs(
+		t,
+		processPolicyDefinition(res, unmar),
+		ErrNoNameProvided,
+	)
 }
 
 // TestProcessSetPolicyDefinitionValid tests the processing of a valid policy set definition.
 func TestProcessSetPolicyDefinitionValid(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSamplePolicySetDefinition()
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*armpolicy.SetDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.NoError(t, processPolicySetDefinition(res, unmar))
-	assert.Equal(t, len(res.PolicySetDefinitions), 1)
-	assert.Equal(t, *res.PolicySetDefinitions["Deploy-MDFC-Config"].Name, "Deploy-MDFC-Config")
-	assert.Equal(t, *res.PolicySetDefinitions["Deploy-MDFC-Config"].Properties.PolicyType, armpolicy.PolicyTypeCustom)
+	require.NoError(t, processPolicySetDefinition(res, unmar))
+	assert.Len(t, res.PolicySetDefinitions, 1)
+	assert.Equal(t, "Deploy-MDFC-Config", *res.PolicySetDefinitions["Deploy-MDFC-Config"].Name)
+	assert.Equal(
+		t,
+		armpolicy.PolicyTypeCustom,
+		*res.PolicySetDefinitions["Deploy-MDFC-Config"].Properties.PolicyType,
+	)
 }
 
 // TestProcessPolicySetDefinitionNoName tests that the processing of a set definition
 // with a missing name field throws the correct error.
 func TestProcessPolicySetDefinitionNoName(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSamplePolicySetDefinition_noName()
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*armpolicy.SetDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.ErrorContains(t, processPolicySetDefinition(res, unmar), "policy set definition name is empty or not present")
+	assert.ErrorIs(
+		t,
+		processPolicySetDefinition(res, unmar),
+		ErrNoNameProvided,
+	)
 }
 
-// TestProcessPolicyAssignmentNoData tests the processing of an invalid policy assignment with no data.
+// TestProcessPolicyAssignmentNoData tests the processing of an invalid policy assignment with no
+// data.
 func TestProcessPolicyAssignmentNoData(t *testing.T) {
 	t.Parallel()
+
 	res := &Result{}
 	unmar := newUnmarshaler([]byte{}, ".json")
 	assert.ErrorContains(t, processPolicyAssignment(res, unmar), "unexpected end of JSON input")
 }
 
-// TestProcessPolicyDefinitionNoData tests the processing of an invalid policy definition with no data.
+// TestProcessPolicyDefinitionNoData tests the processing of an invalid policy definition with no
+// data.
 func TestProcessPolicyDefinitionNoData(t *testing.T) {
 	t.Parallel()
+
 	res := &Result{}
 	unmar := newUnmarshaler([]byte{}, ".json")
 	assert.ErrorContains(t, processPolicyDefinition(res, unmar), "unexpected end of JSON input")
 }
 
-// TestProcessSetPolicyDefinitionNoData tests the processing of an invalid policy set definition with no data.
+// TestProcessSetPolicyDefinitionNoData tests the processing of an invalid policy set definition
+// with no data.
 func TestProcessPolicySetDefinitionNoData(t *testing.T) {
 	t.Parallel()
+
 	res := &Result{}
 	unmar := newUnmarshaler([]byte{}, ".json")
 	assert.ErrorContains(t, processPolicySetDefinition(res, unmar), "unexpected end of JSON input")
 }
 
-// TestProcessRoleDefinitionWithDataActions tests the processing of a role definition with data actions.
+// TestProcessRoleDefinitionWithDataActions tests the processing of a role definition with data
+// actions.
 func TestProcessRoleDefinitionWithDataActions(t *testing.T) {
 	t.Parallel()
+
 	sampleData := getSampleRoleDefinitionWithDataActions()
 	res := &Result{
 		RoleDefinitions: make(map[string]*armauthorization.RoleDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processRoleDefinition(res, unmar))
-	assert.Equal(t, len(res.RoleDefinitions), 1)
-	assert.Equal(t, *res.RoleDefinitions["test-role-definition"].Name, "86e16db7-c2fd-4674-b263-8ca9eef74d85")
-	assert.Equal(t, *res.RoleDefinitions["test-role-definition"].Properties.RoleName, "test-role-definition")
+	assert.Len(t, res.RoleDefinitions, 1)
+	assert.Equal(
+		t,
+		"86e16db7-c2fd-4674-b263-8ca9eef74d85",
+		*res.RoleDefinitions["test-role-definition"].Name,
+	)
+	assert.Equal(
+		t,
+		"test-role-definition",
+		*res.RoleDefinitions["test-role-definition"].Properties.RoleName,
+	)
 	require.Len(t, res.RoleDefinitions["test-role-definition"].Properties.Permissions, 1)
 	assert.Len(t, res.RoleDefinitions["test-role-definition"].Properties.Permissions[0].Actions, 4)
-	assert.Len(t, res.RoleDefinitions["test-role-definition"].Properties.Permissions[0].DataActions, 5)
+	assert.Len(
+		t,
+		res.RoleDefinitions["test-role-definition"].Properties.Permissions[0].DataActions,
+		5,
+	)
 }
 
 // getSampleRoleDefinitionWithDataActions returns a valid role definition with data actions.
@@ -1059,8 +1115,10 @@ func TestProcessorRegex(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
 			tmpl, _ := template.New("test").Parse(test.input) // nolint:errcheck
+
 			for ty, rex := range fileTypes2Regex {
 				var buf bytes.Buffer
+
 				tmpl.Execute(&buf, struct{ Type string }{Type: ty}) // nolint:errcheck
 				t.Run(buf.String(), func(t *testing.T) {
 					match := rex.MatchString(buf.String())
@@ -1101,8 +1159,10 @@ func TestProcessorRegexPolicyDefaultValues(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
 			tmpl, _ := template.New("test").Parse(test.input) // nolint:errcheck
+
 			for ty, rex := range fileTypes2Regex {
 				var buf bytes.Buffer
+
 				tmpl.Execute(&buf, struct{ Type string }{Type: ty}) // nolint:errcheck
 				t.Run(buf.String(), func(t *testing.T) {
 					match := rex.MatchString(buf.String())

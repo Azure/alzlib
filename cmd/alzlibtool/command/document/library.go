@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
+
 package document
 
 import (
@@ -17,7 +20,11 @@ var documentLibraryBaseCmd = cobra.Command{
 		thislib := alzlib.NewCustomLibraryReference(args[0])
 		alllibs, err := thislib.FetchWithDependencies(cmd.Context())
 		if err != nil {
-			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf(
+				"%s could not fetch all libraries with dependencies: %v\n",
+				cmd.ErrPrefix(),
+				err,
+			)
 			os.Exit(1)
 		}
 		err = doc.AlzlibReadmeMd(cmd.Context(), os.Stdout, alllibs...)

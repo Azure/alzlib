@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package command
 
@@ -25,7 +25,8 @@ var rootCmd = &cobra.Command{
 
 This tool can:
 
-- Convert policy definitions or policy set definitions from the source directory and write them to the destination directory.
+- Convert policy definitions or policy set definitions from the source directory and write them to the destination
+  directory.
 - Perform operations and checks on an alzlib library member.
 `,
 	// Uncomment the following line if your bare application
@@ -38,6 +39,7 @@ This tool can:
 func Execute() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	err := rootCmd.ExecuteContext(ctx)
 	if err != nil {
 		os.Exit(1)

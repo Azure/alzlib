@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package check
 
@@ -36,7 +36,11 @@ var libraryCmd = cobra.Command{
 		thisRef := alzlib.NewCustomLibraryReference(args[0])
 		libs, err := thisRef.FetchWithDependencies(cmd.Context())
 		if err != nil {
-			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf(
+				"%s could not fetch all libraries with dependencies: %v\n",
+				cmd.ErrPrefix(),
+				err,
+			)
 			os.Exit(1)
 		}
 		err = az.Init(cmd.Context(), libs...)

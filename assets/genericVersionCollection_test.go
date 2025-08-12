@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
+
 package assets
 
 import (
@@ -10,9 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testPolicyName      = "Test Policy"
+	testVersion100      = "1.0.0"
+	policyVersionedName = "PolicyVersioned"
+)
+
 func TestVersionedPolicyCollection_Add_VersionlessFirst(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	name := "Test Policy"
+	name := testPolicyName
 	policy := fakePolicyDefinitionVersionless(name)
 	require.NoError(t, pdvs.Add(policy))
 	assert.Equal(t, policy, pdvs.versionlessDefinition)
@@ -20,32 +29,38 @@ func TestVersionedPolicyCollection_Add_VersionlessFirst(t *testing.T) {
 
 func TestVersionedPolicyCollection_Add_VersionedFirst(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	name := "Test Policy"
-	version := "1.0.0"
+	name := testPolicyName
+	version := testVersion100
 	policy := fakePolicyDefinitionVersioned(name, version)
 	require.NoError(t, pdvs.Add(policy))
+
 	found := false
+
 	for k := range maps.Keys(pdvs.versions) {
 		if k.String() == version {
 			found = true
+
 			assert.Equal(t, policy, pdvs.versions[k])
+
 			break
 		}
 	}
+
 	assert.Truef(t, found, "expected version %s to be found in versions map", version)
 }
 
 func TestVersionedPolicyCollection_Add_DuplicateSemVer(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	version := "1.0.0"
+	version := testVersion100
 	policy1 := fakePolicyDefinitionVersioned("Policy1", version)
 	policy2 := fakePolicyDefinitionVersioned("Policy2", version)
+
 	require.NoError(t, pdvs.Add(policy1))
-	require.ErrorContains(t, pdvs.Add(policy2), "version 1.0.0 for Policy2 already exists")
+	require.ErrorContains(t, pdvs.Add(policy2), "version "+testVersion100+" for Policy2 already exists")
 }
 
 func TestVersionedPolicyCollection_Add_MixVersionedAndVersionless(t *testing.T) {
-	version := "1.0.0"
+	version := testVersion100
 	versioned := fakePolicyDefinitionVersioned("Policy1", version)
 	versionless := fakePolicyDefinitionVersionless("Policy2")
 
@@ -64,7 +79,7 @@ func TestVersionedPolicyCollection_Add_MixVersionedAndVersionless(t *testing.T) 
 
 func TestVersionedPolicyCollection_Add_InvalidVersionString(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	name := "Test Policy"
+	name := testPolicyName
 	version := "not-a-semver"
 	policy := fakePolicyDefinitionVersioned(name, version)
 	require.ErrorContains(t, pdvs.Add(policy), "invalid version string")
@@ -77,11 +92,15 @@ func TestVersionedPolicyCollection_Add_NilPolicyOrProperties(t *testing.T) {
 
 func TestVersionedPolicyCollection_Add_DifferentName(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	policy1 := fakePolicyDefinitionVersioned("Policy1", "1.0.0")
+	policy1 := fakePolicyDefinitionVersioned("Policy1", testVersion100)
 	policy2 := fakePolicyDefinitionVersioned("Policy2", "1.0.1")
 
 	require.NoError(t, pdvs.Add(policy1))
-	require.ErrorContains(t, pdvs.Add(policy2), "cannot add with different name than existing version.")
+	require.ErrorContains(
+		t,
+		pdvs.Add(policy2),
+		"cannot add with different name than existing version.",
+	)
 }
 
 func TestVersionedPolicyCollection_GetVersion_Versionless(t *testing.T) {
@@ -105,18 +124,19 @@ func TestVersionedPolicyCollection_GetVersion_Versionless(t *testing.T) {
 	t.Run("non-empty version constraint returns nil", func(t *testing.T) {
 		ver := "1.0.*"
 		got, err := pdvs.GetVersion(&ver)
-		assert.ErrorContains(t, err, "no version found for constraint")
+		require.ErrorContains(t, err, "no version found for constraint")
 		assert.Nil(t, got)
 	})
 }
 
 func TestVersionedPolicyCollection_GetVersion_Versioned(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	name := "PolicyVersioned"
-	v1 := "1.0.0"
+	name := policyVersionedName
+	v1 := testVersion100
 	v2 := "2.0.0"
 	policy1 := fakePolicyDefinitionVersioned(name, v1)
 	policy2 := fakePolicyDefinitionVersioned(name, v2)
+
 	require.NoError(t, pdvs.Add(policy1))
 	require.NoError(t, pdvs.Add(policy2))
 
@@ -167,7 +187,7 @@ func TestVersionedPolicyCollection_GetVersion_Versioned(t *testing.T) {
 	})
 
 	t.Run("invalid no wildcard patch", func(t *testing.T) {
-		constr := "1.0.0"
+		constr := testVersion100
 		got, err := pdvs.GetVersion(&constr)
 		require.ErrorContains(t, err, "version constraint should have wildcard in patch version")
 		assert.Nil(t, got)
@@ -176,27 +196,27 @@ func TestVersionedPolicyCollection_GetVersion_Versioned(t *testing.T) {
 
 func TestVersionedPolicyCollection_GetVersion_InvalidConstraint(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	name := "PolicyVersioned"
-	v1 := "1.0.0"
+	name := policyVersionedName
+	v1 := testVersion100
 	policy := fakePolicyDefinitionVersioned(name, v1)
 	require.NoError(t, pdvs.Add(policy))
 
 	constr := "not-a-semver"
 	got, err := pdvs.GetVersion(&constr)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, got)
 }
 
 func TestVersionedPolicyCollection_GetVersion_WildcardConstraint(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	name := "PolicyVersioned"
-	v1 := "1.0.0"
+	name := policyVersionedName
+	v1 := testVersion100
 	policy := fakePolicyDefinitionVersioned(name, v1)
 	require.NoError(t, pdvs.Add(policy))
 
 	constr := "1.*.0"
 	got, err := pdvs.GetVersion(&constr)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, got)
 }
 

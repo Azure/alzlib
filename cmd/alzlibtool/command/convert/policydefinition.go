@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package convert
 
@@ -12,13 +12,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// RequiredArgCount is the number of required arguments for convert commands.
+	RequiredArgCount = 2
+)
+
 // policydefinitionCmd represents the policydefinition command.
 var policydefinitionCmd = cobra.Command{
 	Use:   "policydefinition [flags] sourceDir destDir",
 	Short: "Convert policy definitions to the format required by alzlib.",
 	Long:  `Reads policy definitions from the Enterprise-Scale repo and converts to the format required by alzlib.`,
 	Args: cobra.MatchAll(
-		cobra.ExactArgs(2),
+		cobra.ExactArgs(RequiredArgCount),
 	),
 	Run: func(cmd *cobra.Command, args []string) {
 		valid := checker.NewValidator(checks.CheckResourceTypeIsCorrect)

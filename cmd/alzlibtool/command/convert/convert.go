@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package convert
 
@@ -17,6 +17,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// directoryPermissions is the permission to use when creating directories.
+	directoryPermissions = 0755
+	// filePermissions is the permission to use when writing files.
+	filePermissions = 0644
+)
+
 var convertCmdOverwrite bool
 
 type convertible interface {
@@ -26,11 +33,13 @@ type convertible interface {
 
 // ConvertBaseCmd represents the base process command.
 var ConvertBaseCmd = cobra.Command{
-	Use:   "convert",
-	Short: "Converts policy definitions or policy set definitions (depending on child command) from the source directory and writes them to the destination directory.",
-	Long: `Processes policy definitions or policy set definitions (depending on child command) from the source directory and writes them to the destination directory.
-Reequired child arguments are the chiuld comment, and the source and destination directories.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Use: "convert",
+	Short: "Converts policy definitions or policy set definitions (depending on child command) " +
+		"from the source directory and writes them to the destination directory.",
+	Long: `Processes policy definitions or policy set definitions (depending on child command) ` +
+		`from the source directory and writes them to the destination directory.
+Required child arguments are the child command, and the source and destination directories.`,
+	Run: func(cmd *cobra.Command, _ []string) {
 		cmd.PrintErrf("%s process command: missing required child command\n", cmd.ErrPrefix())
 		cmd.Usage() // nolint: errcheck
 		os.Exit(1)
@@ -38,35 +47,45 @@ Reequired child arguments are the chiuld comment, and the source and destination
 }
 
 func init() {
-	ConvertBaseCmd.PersistentFlags().BoolVarP(&convertCmdOverwrite, "overwrite", "o", false, "Overwrite existing files in the destination directory")
+	ConvertBaseCmd.PersistentFlags().
+		BoolVarP(&convertCmdOverwrite, "overwrite", "o", false, "Overwrite existing files in the destination directory")
 	ConvertBaseCmd.AddCommand(&policydefinitionCmd)
 	ConvertBaseCmd.AddCommand(&policysetdefinitionCmd)
 }
 
-func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid checker.Validator) error {
+func convertFiles[C convertible](
+	src, dst string,
+	cmd *cobra.Command,
+	valid checker.Validator,
+) error {
 	if _, err := os.ReadDir(dst); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			if err := os.MkdirAll(dst, 0755); err != nil {
+			if err := os.MkdirAll(dst, directoryPermissions); err != nil {
 				return fmt.Errorf("convert: error creating destination directory: %w", err)
 			}
 		} else {
 			return fmt.Errorf("convert: error reading destination directory: %w", err)
 		}
 	}
-	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
+
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error { //nolint:wrapcheck
 		if err != nil {
-			return err
+			return err //nolint:wrapcheck
 		}
+
 		if d.IsDir() {
 			return nil
 		}
+
 		if filepath.Ext(path) != ".json" {
 			return nil
 		}
 
 		base := filepath.Base(path)
+
 		baseNoExt := strings.TrimSuffix(base, filepath.Ext(base))
-		if sovCloud := filepath.Ext(baseNoExt); sovCloud == ".AzureChinaCloud" || sovCloud == ".AzureUSGovernment" {
+		if sovCloud := filepath.Ext(baseNoExt); sovCloud == ".AzureChinaCloud" ||
+			sovCloud == ".AzureUSGovernment" {
 			return nil
 		}
 
@@ -74,6 +93,7 @@ func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid chec
 		if err != nil {
 			return fmt.Errorf("readFile error: '%s': %w", path, err)
 		}
+
 		resource := new(C)
 		if err := json.Unmarshal(bytes, resource); err != nil {
 			return fmt.Errorf("json.Ummarshal error: '%s', %w", path, err)
@@ -82,15 +102,19 @@ func convertFiles[C convertible](src, dst string, cmd *cobra.Command, valid chec
 		if err := valid.Validate(resource); err != nil {
 			return fmt.Errorf("validation error: '%s', %w", path, err)
 		}
+
 		processedBytes := processResource(resource)
 		destination := filepath.Join(dst, libraryFileName(resource))
 		cmd.Printf("Processing %s => %s\n", path, destination)
+
 		if _, err := os.Stat(destination); err == nil && !convertCmdOverwrite {
 			return fmt.Errorf("destination file already exists and overwrite not set: '%s'", destination)
 		}
-		if err := os.WriteFile(destination, processedBytes, 0644); err != nil {
+
+		if err := os.WriteFile(destination, processedBytes, filePermissions); err != nil {
 			return fmt.Errorf("error writing %s: %w", destination, err)
 		}
+
 		return nil
 	})
 }
@@ -104,12 +128,12 @@ func libraryFileName(in any) string {
 	default:
 		return ""
 	}
-
 }
 
 func processResource(resource any) []byte {
 	jsonBytes, _ := json.MarshalIndent(resource, "", "  ")
 	jsonBytes = removeArmFunctionEscaping(jsonBytes)
+
 	return jsonBytes
 }
 

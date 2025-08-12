@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package alzlib
 
@@ -26,14 +26,14 @@ func TestNewAlzLibDefaultOptions(t *testing.T) {
 }
 
 func TestNewAlzLibCustomOptions(t *testing.T) {
-	az := NewAlzLib(&AlzLibOptions{
+	az := NewAlzLib(&Options{
 		AllowOverwrite:        true,
 		Parallelism:           25,
 		UniqueRoleDefinitions: false,
 	})
-	assert.Equal(t, true, az.Options.AllowOverwrite)
+	assert.True(t, az.Options.AllowOverwrite)
 	assert.Equal(t, 25, az.Options.Parallelism)
-	assert.Equal(t, false, az.Options.UniqueRoleDefinitions)
+	assert.False(t, az.Options.UniqueRoleDefinitions)
 }
 
 // Test_NewAlzLib_noDir tests the creation of a new AlzLib when supplied with a path
@@ -47,7 +47,8 @@ func TestNewAlzLibWithNoDir(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
-// Test_NewAlzLibDuplicateArchetypeDefinition tests the creation of a new AlzLib from a invalid source directory.
+// Test_NewAlzLibDuplicateArchetypeDefinition tests the creation of a new AlzLib from a invalid
+// source directory.
 func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
 	az := NewAlzLib(nil)
 	lib := NewCustomLibraryReference("./testdata/badlib-duplicatearchetypedef")
@@ -58,26 +59,42 @@ func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
 func TestGetBuiltInPolicy(t *testing.T) {
 	az := NewAlzLib(nil)
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
 	az.AddPolicyClient(cf)
-	err = az.getBuiltInPolicies(context.Background(), []string{"8154e3b3-cc52-40be-9407-7756581d71f6"})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(az.policyDefinitions))
-	assert.Equal(t, "Microsoft Managed Control 1614 - Developer Security Architecture And Design", *az.policyDefinitions["8154e3b3-cc52-40be-9407-7756581d71f6"].Properties.DisplayName)
+	err = az.getBuiltInPolicies(
+		context.Background(),
+		[]string{"8154e3b3-cc52-40be-9407-7756581d71f6"},
+	)
+	require.NoError(t, err)
+	assert.Len(t, az.policyDefinitions, 1)
+	assert.Equal(
+		t,
+		"Microsoft Managed Control 1614 - Developer Security Architecture And Design",
+		*az.policyDefinitions["8154e3b3-cc52-40be-9407-7756581d71f6"].Properties.DisplayName,
+	)
 }
 
 func TestGetBuiltInPolicySet(t *testing.T) {
 	az := NewAlzLib(nil)
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
 	az.AddPolicyClient(cf)
-	err = az.getBuiltInPolicySets(context.Background(), []string{"7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(az.policySetDefinitions))
-	assert.Equal(t, "Evaluate Private Link Usage Across All Supported Azure Resources", *az.policySetDefinitions["7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"].Properties.DisplayName)
-	assert.Equal(t, 30, len(az.policyDefinitions))
+	err = az.getBuiltInPolicySets(
+		context.Background(),
+		[]string{"7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"},
+	)
+	require.NoError(t, err)
+	assert.Len(t, az.policySetDefinitions, 1)
+	assert.Equal(
+		t,
+		"Evaluate Private Link Usage Across All Supported Azure Resources",
+		*az.policySetDefinitions["7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"].Properties.DisplayName,
+	)
+	assert.Len(t, az.policyDefinitions, 30)
 }
 
 func TestGenerateOverrideArchetypes(t *testing.T) {
@@ -122,15 +139,29 @@ func TestGenerateOverrideArchetypes(t *testing.T) {
 	az.roleDefinitions["role2"] = nil
 	az.roleDefinitions["role3"] = nil
 	err := az.generateOverrideArchetypes(result)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Check if the override archetype is created correctly
 	overrideArchetype, exists := az.archetypes["overrideArchetype"]
 	assert.True(t, exists)
-	assert.True(t, mapset.NewThreadUnsafeSet("policy2", "policy3").Equal(overrideArchetype.PolicyDefinitions))
-	assert.True(t, mapset.NewThreadUnsafeSet("policySet2", "policySet3").Equal(overrideArchetype.PolicySetDefinitions))
-	assert.True(t, mapset.NewThreadUnsafeSet("assignment2", "assignment3").Equal(overrideArchetype.PolicyAssignments))
-	assert.True(t, mapset.NewThreadUnsafeSet("role2", "role3").Equal(overrideArchetype.RoleDefinitions))
+	assert.True(
+		t,
+		mapset.NewThreadUnsafeSet("policy2", "policy3").Equal(overrideArchetype.PolicyDefinitions),
+	)
+	assert.True(
+		t,
+		mapset.NewThreadUnsafeSet("policySet2", "policySet3").
+			Equal(overrideArchetype.PolicySetDefinitions),
+	)
+	assert.True(
+		t,
+		mapset.NewThreadUnsafeSet("assignment2", "assignment3").
+			Equal(overrideArchetype.PolicyAssignments),
+	)
+	assert.True(
+		t,
+		mapset.NewThreadUnsafeSet("role2", "role3").Equal(overrideArchetype.RoleDefinitions),
+	)
 	assert.Equal(t, "overrideArchetype", overrideArchetype.name)
 }
 
@@ -168,15 +199,15 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 						Name: "architecture1",
 						ManagementGroups: []processor.LibArchitectureManagementGroup{
 							{
-								Id:          "mg1",
-								ParentId:    nil,
+								ID:          "mg1",
+								ParentID:    nil,
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "mg1",
 								Exists:      false,
 							},
 							{
-								Id:          "mg2",
-								ParentId:    to.Ptr("mg1"),
+								ID:          "mg2",
+								ParentID:    to.Ptr("mg1"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
 								DisplayName: "mg2",
 								Exists:      false,
@@ -214,15 +245,15 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 						Name: "architecture1",
 						ManagementGroups: []processor.LibArchitectureManagementGroup{
 							{
-								Id:          "mg1",
-								ParentId:    nil,
+								ID:          "mg1",
+								ParentID:    nil,
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "mg1",
 								Exists:      false,
 							},
 							{
-								Id:          "mg2",
-								ParentId:    to.Ptr("notexist"),
+								ID:          "mg2",
+								ParentID:    to.Ptr("notexist"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
 								DisplayName: "mg2",
 								Exists:      false,
@@ -284,15 +315,15 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 						Name: "architecture1",
 						ManagementGroups: []processor.LibArchitectureManagementGroup{
 							{
-								Id:          "mg1",
-								ParentId:    nil,
+								ID:          "mg1",
+								ParentID:    nil,
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "mg1",
 								Exists:      false,
 							},
 							{
-								Id:          "mg2",
-								ParentId:    to.Ptr("mg1"),
+								ID:          "mg2",
+								ParentID:    to.Ptr("mg1"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype2"),
 								DisplayName: "mg2",
 								Exists:      false,
@@ -303,8 +334,8 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 						Name: "architecture2",
 						ManagementGroups: []processor.LibArchitectureManagementGroup{
 							{
-								Id:          "mg3",
-								ParentId:    nil,
+								ID:          "mg3",
+								ParentID:    nil,
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1", "archetype2"),
 								DisplayName: "mg3",
 								Exists:      false,
@@ -334,50 +365,50 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 						Name: "toodeep",
 						ManagementGroups: []processor.LibArchitectureManagementGroup{
 							{
-								Id:          "level0",
-								ParentId:    nil,
+								ID:          "level0",
+								ParentID:    nil,
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "level0",
 								Exists:      false,
 							},
 							{
-								Id:          "level1",
-								ParentId:    to.Ptr("level0"),
+								ID:          "level1",
+								ParentID:    to.Ptr("level0"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "level0",
 								Exists:      false,
 							},
 							{
-								Id:          "level2",
-								ParentId:    to.Ptr("level1"),
+								ID:          "level2",
+								ParentID:    to.Ptr("level1"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "level2",
 								Exists:      false,
 							},
 							{
-								Id:          "level3",
-								ParentId:    to.Ptr("level2"),
+								ID:          "level3",
+								ParentID:    to.Ptr("level2"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "level3",
 								Exists:      false,
 							},
 							{
-								Id:          "level4",
-								ParentId:    to.Ptr("level3"),
+								ID:          "level4",
+								ParentID:    to.Ptr("level3"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "level4",
 								Exists:      false,
 							},
 							{
-								Id:          "level5",
-								ParentId:    to.Ptr("level4"),
+								ID:          "level5",
+								ParentID:    to.Ptr("level4"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "level5",
 								Exists:      false,
 							},
 							{
-								Id:          "level6",
-								ParentId:    to.Ptr("level5"),
+								ID:          "level6",
+								ParentID:    to.Ptr("level5"),
 								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
 								DisplayName: "level6",
 								Exists:      false,
@@ -399,8 +430,8 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 
 			err := az.generateArchitectures(tc.processorOutput)
 			if tc.expectedError == "" {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedLength, len(az.architectures))
+				require.NoError(t, err)
+				assert.Len(t, az.architectures, tc.expectedLength)
 				assert.NotNil(t, az.architectures[tc.expectedNotNil])
 			} else {
 				assert.ErrorContains(t, err, tc.expectedError)
@@ -425,14 +456,27 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 	}
 
 	err := az.addDefaultPolicyAssignmentValues(res)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Check if the default policy values are added correctly
-	assert.Equal(t, 1, len(az.defaultPolicyAssignmentValues))
-	assert.Equal(t, 1, len(az.defaultPolicyAssignmentValues["default1"].assignment2Parameters))
-	assert.True(t, az.defaultPolicyAssignmentValues["default1"].assignment2Parameters["assignment1"].Contains("param1"))
-	assert.True(t, az.defaultPolicyAssignmentValues["default1"].assignment2Parameters["assignment1"].Contains("param2"))
-	assert.True(t, az.defaultPolicyAssignmentValues.AssignmentParameterComboExists("assignment1", "param2"))
+	assert.Len(t, az.defaultPolicyAssignmentValues, 1)
+	assert.Len(t, az.defaultPolicyAssignmentValues["default1"].assignment2Parameters, 1)
+	assert.True(
+		t,
+		az.defaultPolicyAssignmentValues["default1"].assignment2Parameters["assignment1"].Contains(
+			"param1",
+		),
+	)
+	assert.True(
+		t,
+		az.defaultPolicyAssignmentValues["default1"].assignment2Parameters["assignment1"].Contains(
+			"param2",
+		),
+	)
+	assert.True(
+		t,
+		az.defaultPolicyAssignmentValues.AssignmentParameterComboExists("assignment1", "param2"),
+	)
 
 	res = &processor.Result{
 		LibDefaultPolicyValues: map[string]*processor.LibDefaultPolicyValuesDefaults{
@@ -456,7 +500,11 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 	}
 	az = NewAlzLib(nil)
 	err = az.addDefaultPolicyAssignmentValues(res)
-	assert.ErrorContains(t, err, "assignment `assignment1` and parameter `param1` already exists in defaults")
+	assert.ErrorContains(
+		t,
+		err,
+		"assignment `assignment1` and parameter `param1` already exists in defaults",
+	)
 }
 
 func TestInitSimple(t *testing.T) {

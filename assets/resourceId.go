@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package assets
 
@@ -9,20 +9,22 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 )
 
-// NameFromResourceId returns the name of the resource from a resource ID.
-func NameFromResourceId(resId string) (string, error) {
-	r, err := arm.ParseResourceID(resId)
+// NameFromResourceID returns the name of the resource from a resource ID.
+func NameFromResourceID(resID string) (string, error) {
+	r, err := arm.ParseResourceID(resID)
 	if err != nil {
-		return "", fmt.Errorf("assets.NameFromResourceId: could not parse %s: %w", resId, err)
+		return "", fmt.Errorf("assets.NameFromResourceId: could not parse %s: %w", resID, err)
 	}
+
 	return r.Name, nil
 }
 
-// ResourceTypeFromResourceId returns the resource type of the resource from a resource ID.
-func ResourceTypeFromResourceId(resId string) (string, error) {
-	r, err := arm.ParseResourceID(resId)
+// ResourceTypeFromResourceID returns the resource type of the resource from a resource ID.
+func ResourceTypeFromResourceID(resID string) (string, error) {
+	r, err := arm.ParseResourceID(resID)
 	if err != nil {
-		return "", fmt.Errorf("assets.ResourceTypeFromResourceId: could not parse %s: %w", resId, err)
+		return "", fmt.Errorf("assets.ResourceTypeFromResourceId: could not parse %s: %w", resID, err)
 	}
+
 	return r.ResourceType.Type, nil
 }

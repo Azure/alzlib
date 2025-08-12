@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package assets
 
@@ -33,7 +33,9 @@ func TestIdentityType(t *testing.T) {
 func TestReferencedPolicyDefinitionResourceId(t *testing.T) {
 	pa := NewPolicyAssignment(armpolicy.Assignment{
 		Properties: &armpolicy.AssignmentProperties{
-			PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
+			PolicyDefinitionID: to.Ptr(
+				"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+			),
 		},
 	})
 	expectedResourceID := &arm.ResourceID{
@@ -47,10 +49,12 @@ func TestReferencedPolicyDefinitionResourceId(t *testing.T) {
 		},
 		Name: "pd1",
 	}
-	resourceID, err := pa.ReferencedPolicyDefinitionResourceId()
+
+	resourceID, err := pa.ReferencedPolicyDefinitionResourceID()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if reflect.DeepEqual(resourceID, expectedResourceID) {
 		t.Fatalf("got %v, want %v", resourceID, expectedResourceID)
 	}
@@ -74,13 +78,18 @@ func TestGetParameterValueAsString(t *testing.T) {
 	expectedValue := "value1"
 	paramValue, err := pa.ParameterValueAsString(paramName)
 	require.NoError(t, err)
-	assert.Equal(t, paramValue, expectedValue)
+	assert.Equal(t, expectedValue, paramValue)
 
 	paramName = "param2"
 	_, err = pa.ParameterValueAsString(paramName)
 	require.Error(t, err)
-	expectedError := fmt.Sprintf("parameter %s value in policy assignment %s is not a string", paramName, *pa.Name)
-	assert.ErrorContains(t, err, expectedError)
+
+	expectedError := fmt.Sprintf(
+		"parameter %s value in policy assignment %s is not a string",
+		paramName,
+		*pa.Name,
+	)
+	require.ErrorContains(t, err, expectedError)
 
 	paramName = "param3"
 	_, err = pa.ParameterValueAsString(paramName)
@@ -101,9 +110,11 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			assignment: armpolicy.Assignment{
 				Name: to.Ptr("validName"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
-					DisplayName:        to.Ptr("Valid Display Name"),
-					Description:        to.Ptr("Valid Description"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
 				},
 			},
 			expectedErr: "",
@@ -112,9 +123,11 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			name: "Nil Name",
 			assignment: armpolicy.Assignment{
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
-					DisplayName:        to.Ptr("Valid Display Name"),
-					Description:        to.Ptr("Valid Description"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
 				},
 			},
 			expectedErr: "name must not be nil",
@@ -124,9 +137,11 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			assignment: armpolicy.Assignment{
 				Name: to.Ptr(""),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
-					DisplayName:        to.Ptr("Valid Display Name"),
-					Description:        to.Ptr("Valid Description"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
 				},
 			},
 			expectedErr: "name length is 0, must be between 1 and 24",
@@ -154,8 +169,10 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			assignment: armpolicy.Assignment{
 				Name: to.Ptr("validName"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
-					Description:        to.Ptr("Valid Description"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					Description: to.Ptr("Valid Description"),
 				},
 			},
 			expectedErr: "display name must not be nil",
@@ -165,9 +182,11 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			assignment: armpolicy.Assignment{
 				Name: to.Ptr("validName"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
-					DisplayName:        to.Ptr(""),
-					Description:        to.Ptr("Valid Description"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr(""),
+					Description: to.Ptr("Valid Description"),
 				},
 			},
 			expectedErr: "display name length is 0, must be between 1 and 128",
@@ -177,8 +196,10 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			assignment: armpolicy.Assignment{
 				Name: to.Ptr("validName"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
-					DisplayName:        to.Ptr("Valid Display Name"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
 				},
 			},
 			expectedErr: "description must not be nil",
@@ -188,9 +209,11 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			assignment: armpolicy.Assignment{
 				Name: to.Ptr("validName"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr("/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1"),
-					DisplayName:        to.Ptr("Valid Display Name"),
-					Description:        to.Ptr(""),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr(""),
 				},
 			},
 			expectedErr: "description length is 0, must be between 1 and 512",
@@ -200,9 +223,10 @@ func TestValidatePolicyAssignment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pa := NewPolicyAssignment(tt.assignment)
+
 			err := ValidatePolicyAssignment(pa)
 			if tt.expectedErr == "" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
 				assert.ErrorContains(t, err, tt.expectedErr)
 			}

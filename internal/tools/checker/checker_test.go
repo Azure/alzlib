@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package checker_test
 
@@ -19,6 +19,7 @@ func TestValidator_Validate(t *testing.T) {
 	validResource := &armpolicy.Definition{
 		Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
 	}
+
 	err := validator.Validate(validResource)
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
@@ -28,6 +29,7 @@ func TestValidator_Validate(t *testing.T) {
 	invalidResource := &armpolicy.Definition{
 		Type: to.Ptr("InvalidType"),
 	}
+
 	err = validator.Validate(invalidResource)
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")

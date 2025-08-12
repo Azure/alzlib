@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package deployment
 
@@ -15,6 +15,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPolicySetDefinitionToMg(t *testing.T) {
@@ -150,7 +151,8 @@ func TestAddDefaultPolicyAssignmentValue(t *testing.T) {
 
 	// reflect set default value in alzlib
 	defaultsNotSettable := reflect.ValueOf(az).Elem().FieldByName("defaultPolicyAssignmentValues")
-	defaultsPtr := reflect.NewAt(defaultsNotSettable.Type(), (defaultsNotSettable.Addr().UnsafePointer())).Elem()
+	defaultsPtr := reflect.NewAt(defaultsNotSettable.Type(), (defaultsNotSettable.Addr().UnsafePointer())).
+		Elem()
 	defaults := defaultsPtr.Interface().(alzlib.DefaultPolicyAssignmentValues) //nolint:forcetypeassert
 
 	t.Run("Default param present in definition", func(t *testing.T) {
@@ -160,17 +162,22 @@ func TestAddDefaultPolicyAssignmentValue(t *testing.T) {
 		defaultValue := &armpolicy.ParameterValuesValue{Value: to.Ptr("value1")}
 		// Add the default policy assignment value to the hierarchy.
 		err := h.AddDefaultPolicyAssignmentValue(context.Background(), defaultName, defaultValue)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Verify that the default policy assignment value is added to the management group.
-		assert.EqualValues(t, to.Ptr("value1"), h.mgs["mg1"].policyAssignments["pa1"].Properties.Parameters["param1"].Value)
+		assert.EqualValues(
+			t,
+			to.Ptr("value1"),
+			h.mgs["mg1"].policyAssignments["pa1"].Properties.Parameters["param1"].Value,
+		)
 	})
 
 	t.Run("Default parameter not present in definition", func(t *testing.T) {
 		defaults.Add("default", "pa1", "", "param4")
+
 		defaultName := "default"
 		defaultValue := &armpolicy.ParameterValuesValue{Value: to.Ptr("value1")}
 		// Add the default policy assignment value to the hierarchy.
 		err := h.AddDefaultPolicyAssignmentValue(context.Background(), defaultName, defaultValue)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

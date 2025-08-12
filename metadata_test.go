@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
+
 package alzlib
 
 import (
@@ -9,11 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFetchLibrariesWithDependencies tests fetching libraries with dependencies and they they are fetched in the right order.
+// TestFetchLibrariesWithDependencies tests fetching libraries with dependencies and they they are
+// fetched in the right
+// order.
 func TestFetchLibrariesWithDependencies(t *testing.T) {
 	ctx := context.Background()
+
 	require.NoError(t, os.RemoveAll(".alzlib"))
+
 	defer os.RemoveAll(".alzlib") // nolint: errcheck
+
 	expcted := []string{
 		"testdata/dependent-libs/lib2",
 		"testdata/dependent-libs/lib1",
@@ -24,20 +32,26 @@ func TestFetchLibrariesWithDependencies(t *testing.T) {
 	libA := NewCustomLibraryReference("testdata/dependent-libs/libA")
 	libs := LibraryReferences{lib1, libA}
 	libs, err := libs.FetchWithDependencies(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, libs, 4)
+
 	result := make([]string, 4)
 	for i, lib := range libs {
 		result[i] = lib.String()
 	}
+
 	assert.ElementsMatch(t, expcted, result)
 }
 
-// TestFetchLibrariesWithCommonDependency checks that a libraries having a common dependency is fetched only once.
+// TestFetchLibrariesWithCommonDependency checks that a libraries having a common dependency is
+// fetched only once.
 func TestFetchLibrariesWithCommonDependency(t *testing.T) {
 	ctx := context.Background()
+
 	require.NoError(t, os.RemoveAll(".alzlib"))
+
 	defer os.RemoveAll(".alzlib") // nolint: errcheck
+
 	expcted := []string{
 		"testdata/dependent-libs/lib2",
 		"testdata/dependent-libs/lib1",
@@ -47,11 +61,13 @@ func TestFetchLibrariesWithCommonDependency(t *testing.T) {
 	libA := NewCustomLibraryReference("testdata/dependent-libs/lib3")
 	libs := LibraryReferences{lib1, libA}
 	libs, err := libs.FetchWithDependencies(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, libs, 3)
+
 	result := make([]string, 3)
 	for i, lib := range libs {
 		result[i] = lib.String()
 	}
+
 	assert.ElementsMatch(t, expcted, result)
 }

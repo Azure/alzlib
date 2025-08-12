@@ -1,6 +1,5 @@
-// Copyright 2017 Microsoft Corporation. All rights reserved.
-// Use of this source code is governed by an MIT
-// license that can be found in the LICENSE file.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 // Package to contains various type-conversion helper functions.
 package to

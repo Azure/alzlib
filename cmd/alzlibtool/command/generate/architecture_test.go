@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
+
 package generate
 
 import (

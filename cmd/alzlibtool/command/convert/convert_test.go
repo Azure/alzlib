@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package convert
 
@@ -17,6 +17,7 @@ func TestLibraryFileName(t *testing.T) {
 	}
 	expected := "policy1.alz_policy_definition.json"
 	result := libraryFileName(definition)
+
 	if result != expected {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}
@@ -26,6 +27,7 @@ func TestLibraryFileName(t *testing.T) {
 	}
 	expected = "policySet1.alz_policy_set_definition.json"
 	result = libraryFileName(setDefinition)
+
 	if result != expected {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}
@@ -33,6 +35,7 @@ func TestLibraryFileName(t *testing.T) {
 	other := "other"
 	expected = ""
 	result = libraryFileName(other)
+
 	if result != expected {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}
@@ -42,6 +45,7 @@ func TestRemoveArmFunctionEscaping(t *testing.T) {
 	input := []byte(`"[[someFunction()]"`)
 	expected := []byte(`"[someFunction()]"`)
 	result := removeArmFunctionEscaping(input)
+
 	if !bytes.Equal(result, expected) {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}

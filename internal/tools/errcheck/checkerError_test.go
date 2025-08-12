@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package errcheck
 
@@ -37,5 +37,6 @@ func TestValidateError_ErrorPanic(t *testing.T) {
 	}()
 
 	_ = validateErr.Error()
+
 	t.FailNow()
 }

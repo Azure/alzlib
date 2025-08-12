@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package checks
 
@@ -14,6 +14,7 @@ func TestCheckResourceType(t *testing.T) {
 	definition := &armpolicy.Definition{
 		Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
 	}
+
 	err := checkResourceTypeIsCorrect(definition)
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
@@ -31,6 +32,7 @@ func TestCheckResourceType(t *testing.T) {
 	invalidDefinition := &armpolicy.Definition{
 		Type: to.Ptr("InvalidType"),
 	}
+
 	err = checkResourceTypeIsCorrect(invalidDefinition)
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")
@@ -39,6 +41,7 @@ func TestCheckResourceType(t *testing.T) {
 	invalidSetDefinition := &armpolicy.SetDefinition{
 		Type: to.Ptr("InvalidType"),
 	}
+
 	err = checkResourceTypeIsCorrect(invalidSetDefinition)
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")

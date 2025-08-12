@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package integrationtest
 
@@ -22,28 +22,32 @@ const (
 
 func TestNewAlzLibOptionsError(t *testing.T) {
 	az := new(alzlib.AlzLib)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	assert.ErrorContains(t, az.Init(ctx), "parallelism")
-	az.Options = new(alzlib.AlzLibOptions)
-	assert.ErrorContains(t, az.Init(ctx), "parallelism")
+	require.ErrorContains(t, az.Init(ctx), "parallelism")
+	az.Options = new(alzlib.Options)
+	require.ErrorContains(t, az.Init(ctx), "parallelism")
 }
 
 // TestInitMultiLib tests that we can initialize the library with multiple urls.
 func TestInitMultiLib(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	az.Options.AllowOverwrite = true
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	remoteLib := alzlib.NewAlzLibraryReference(alzLibraryMember, alzLibraryTag)
 	_, err := remoteLib.Fetch(ctx, "alz")
 	require.NoError(t, err)
+
 	localLib := alzlib.NewCustomLibraryReference("../testdata/simple")
 	_, err = localLib.Fetch(ctx, "simple")
 	require.NoError(t, err)
 	err = az.Init(ctx, remoteLib, localLib)
 	require.NoError(t, err)
-	assert.Equal(t, 13, len(az.Archetypes()))
+	assert.Len(t, az.Archetypes(), 13)
 	// Test root archetype has been overridden
 	arch := az.Archetype("root")
 	assert.Equal(t, 158, arch.PolicyDefinitions.Cardinality())
@@ -55,6 +59,7 @@ func TestInitMultiLib(t *testing.T) {
 func TestInitSimpleExistingMg(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	lib := alzlib.NewCustomLibraryReference("./testdata/simple-existingmg")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	require.NoError(t, az.Init(ctx, lib))
@@ -67,6 +72,7 @@ func TestInitSimpleExistingMg(t *testing.T) {
 	h := deployment.NewHierarchy(az)
 	err := h.FromArchitecture(ctx, "simple", "00000000-0000-0000-0000-000000000000", "testlocation")
 	require.NoError(t, err)
+
 	mg := h.ManagementGroup("simple")
 	assert.True(t, mg.Exists())
 }
@@ -74,22 +80,30 @@ func TestInitSimpleExistingMg(t *testing.T) {
 func TestInitMultipleRoleDefinitions(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	lib := alzlib.NewCustomLibraryReference("./testdata/multipleroledefinitions")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	require.NoError(t, az.Init(ctx, lib))
 	h := deployment.NewHierarchy(az)
 	err := h.FromArchitecture(ctx, "test", "00000000-0000-0000-0000-000000000000", "testlocation")
 	require.NoError(t, err)
+
 	mg1 := h.ManagementGroup("test1")
 	mg2 := h.ManagementGroup("test2")
-	assert.NotEqual(t, mg1.RoleDefinitionsMap()["test-role-definition"].Name, mg2.RoleDefinitionsMap()["test-role-definition"].Name)
+	assert.NotEqual(
+		t,
+		mg1.RoleDefinitionsMap()["test-role-definition"].Name,
+		mg2.RoleDefinitionsMap()["test-role-definition"].Name,
+	)
 }
 
 func TestPolicyRoleAssignmentsWithComplexFunctions(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	lib := alzlib.NewCustomLibraryReference("./testdata/policydefaultscomplexfunc")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	require.NoError(t, err)
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
@@ -97,20 +111,45 @@ func TestPolicyRoleAssignmentsWithComplexFunctions(t *testing.T) {
 	az.AddPolicyClient(cf)
 	require.NoError(t, az.Init(ctx, lib))
 	h := deployment.NewHierarchy(az)
-	require.NoError(t, h.AddDefaultPolicyAssignmentValue(ctx, "private_dns_zone_subscription_id", &armpolicy.ParameterValuesValue{Value: "00000000-0000-0000-0000-000000000000"}))
-	require.NoError(t, h.AddDefaultPolicyAssignmentValue(ctx, "private_dns_zone_resource_group_name", &armpolicy.ParameterValuesValue{Value: "test"}))
-	require.NoError(t, h.AddDefaultPolicyAssignmentValue(ctx, "private_dns_zone_region", &armpolicy.ParameterValuesValue{Value: "testlocation"}))
+	require.NoError(
+		t,
+		h.AddDefaultPolicyAssignmentValue(
+			ctx,
+			"private_dns_zone_subscription_id",
+			&armpolicy.ParameterValuesValue{Value: "00000000-0000-0000-0000-000000000000"},
+		),
+	)
+	require.NoError(
+		t,
+		h.AddDefaultPolicyAssignmentValue(
+			ctx,
+			"private_dns_zone_resource_group_name",
+			&armpolicy.ParameterValuesValue{Value: "test"},
+		),
+	)
+	require.NoError(
+		t,
+		h.AddDefaultPolicyAssignmentValue(
+			ctx,
+			"private_dns_zone_region",
+			&armpolicy.ParameterValuesValue{Value: "testlocation"},
+		),
+	)
 	require.NoError(t, h.FromArchitecture(ctx, "test", "private_dns_zone_region", "testlocation"))
 	_, err = h.PolicyRoleAssignments(ctx)
+
 	var roleAssignmentErrors *deployment.PolicyRoleAssignmentErrors
-	assert.NoError(t, err, roleAssignmentErrors)
+
+	require.NoError(t, err, roleAssignmentErrors)
 }
 
 func TestInvalidParent(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	lib := alzlib.NewCustomLibraryReference("./testdata/invalidparent")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	require.NoError(t, err)
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
@@ -122,12 +161,18 @@ func TestInvalidParent(t *testing.T) {
 func TestExistsChildOnNotExistParent(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	lib := alzlib.NewCustomLibraryReference("./testdata/existingchildwithnotexistingparent")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	require.NoError(t, err)
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
 	require.NoError(t, err)
 	az.AddPolicyClient(cf)
-	require.ErrorContains(t, az.Init(ctx, lib), "which is configured as existing but the parent management group")
+	require.ErrorContains(
+		t,
+		az.Init(ctx, lib),
+		"which is configured as existing but the parent management group",
+	)
 }

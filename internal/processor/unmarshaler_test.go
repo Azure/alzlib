@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package processor
 
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUnmarshalJson(t *testing.T) {
@@ -17,9 +18,9 @@ func TestUnmarshalJson(t *testing.T) {
 	var dst map[string]interface{}
 	err := u.unmarshal(&dst)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "John", dst["name"])
-	assert.Equal(t, float64(30), dst["age"])
+	assert.InEpsilon(t, float64(30), dst["age"], 0.01)
 }
 
 func TestUnmarshalYaml(t *testing.T) {
@@ -33,7 +34,7 @@ age: 30
 		var dst map[string]interface{}
 		err := u.unmarshal(&dst)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "John", dst["name"])
 		assert.Equal(t, int(30), dst["age"])
 	}

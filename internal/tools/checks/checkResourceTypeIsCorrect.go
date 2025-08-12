@@ -1,27 +1,42 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package checks
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Azure/alzlib/internal/tools/checker"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
-var CheckResourceTypeIsCorrect = checker.NewValidatorCheck("Resource type is correct", checkResourceTypeIsCorrect)
+// CheckResourceTypeIsCorrect is a validator check that ensures the resource type is correct for
+// policy definitions and set definitions.
+var CheckResourceTypeIsCorrect = checker.NewValidatorCheck(
+	"Resource type is correct",
+	checkResourceTypeIsCorrect,
+)
+
+// ErrResourceTypeIsIncorrect is returned when the resource type is incorrect.
+var ErrResourceTypeIsIncorrect = errors.New("resource type is incorrect")
+
+// NewErrResourceTypeIsIncorrect creates a new error indicating that the resource type is incorrect.
+func NewErrResourceTypeIsIncorrect(resourceType string) error {
+	return fmt.Errorf("%w: %s", ErrResourceTypeIsIncorrect, resourceType)
+}
 
 func checkResourceTypeIsCorrect(anyType any) error {
 	switch anyType := anyType.(type) {
 	case *armpolicy.Definition:
 		if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policyDefinitions" {
-			return errors.New("resource is not a policy definition")
+			return NewErrResourceTypeIsIncorrect("policy definition")
 		}
 	case *armpolicy.SetDefinition:
 		if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policySetDefinitions" {
-			return errors.New("resource is not a policy set definition")
+			return NewErrResourceTypeIsIncorrect("policy set definition")
 		}
 	}
+
 	return nil
 }

@@ -1,13 +1,19 @@
-// Package environment contains the types and methods for fetching configuration from the local environment.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
+
 package environment
 
 import "os"
 
 const (
-	fetchDefaultBaseDir    = ".alzlib"                                      // fetchDefaultBaseDir is the default base directory for fetching libraries.
-	fetchDefaultBaseDirEnv = "ALZLIB_DIR"                                   // fetchDefaultBaseDirEnv is the environment variable to override the default base directory.
-	alzLibraryGitUrl       = "github.com/Azure/Azure-Landing-Zones-Library" // alzLibraryGitUrl is the URL of the Azure Landing Zones Library.
-	alzLibraryGitUrlEnv    = "ALZLIB_LIBRARY_GIT_URL"                       // alzLibraryGitUrlEnv is the environment variable to override the default git URL.
+	// fetchDefaultBaseDir is the default base directory for fetching libraries.
+	fetchDefaultBaseDir = ".alzlib"
+	// fetchDefaultBaseDirEnv is the environment variable to override the default base directory.
+	fetchDefaultBaseDirEnv = "ALZLIB_DIR"
+	// alzLibraryGitURL is the URL of the Azure Landing Zones Library.
+	alzLibraryGitURL = "github.com/Azure/Azure-Landing-Zones-Library"
+	// alzLibraryGitURLEnv is the environment variable to override the default git URL.
+	alzLibraryGitURLEnv = "ALZLIB_LIBRARY_GIT_URL"
 )
 
 // AlzLibDir contents of the `ALZLIB_DIR` environment variable, or the default which is `.alzlib`.
@@ -16,14 +22,18 @@ func AlzLibDir() string {
 	if d := os.Getenv(fetchDefaultBaseDirEnv); d != "" {
 		dir = d
 	}
+
 	return dir
 }
 
-// AlzLibraryGitUrl contents of the `ALZLIB_LIBRARY_GIT_URL` environment variable, or the default which is `github.com/Azure/Azure-Landing-Zones-Library`.
-func AlzLibraryGitUrl() string {
-	url := alzLibraryGitUrl
-	if u := os.Getenv(alzLibraryGitUrlEnv); u != "" {
+// AlzLibraryGitURL contents of the `ALZLIB_LIBRARY_GIT_URL` environment variable, or the default
+// which is
+// `github.com/Azure/Azure-Landing-Zones-Library`.
+func AlzLibraryGitURL() string {
+	url := alzLibraryGitURL
+	if u := os.Getenv(alzLibraryGitURLEnv); u != "" {
 		url = u
 	}
+
 	return url
 }

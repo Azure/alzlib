@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package processor
 
@@ -20,6 +20,7 @@ func newUnmarshaler(data []byte, ext string) unmarshaler {
 	if !strings.HasPrefix(ext, ".") {
 		ext = "." + ext
 	}
+
 	return unmarshaler{
 		d:   data,
 		ext: ext,
@@ -35,13 +36,14 @@ func (u unmarshaler) unmarshal(dst any) error {
 	case ".yml":
 		return unmarshalYAML(u.d, dst)
 	}
+
 	return fmt.Errorf("unmarshaler.unmarshal: unsupported extension: %s", u.ext)
 }
 
 func unmarshalJSON(data []byte, dst any) error {
-	return json.Unmarshal(data, dst)
+	return json.Unmarshal(data, dst) //nolint:wrapcheck
 }
 
 func unmarshalYAML(data []byte, dst any) error {
-	return yaml.Unmarshal(data, dst)
+	return yaml.Unmarshal(data, dst) //nolint:wrapcheck
 }

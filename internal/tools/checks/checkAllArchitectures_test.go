@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package checks
 
@@ -10,7 +10,6 @@ import (
 	"github.com/Azure/alzlib"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,5 +26,5 @@ func TestCheckAllArchitectures(t *testing.T) {
 	az.AddPolicyClient(cf)
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
-	assert.NoError(t, checkAllArchitectures(az))
+	require.NoError(t, checkAllArchitectures(az))
 }

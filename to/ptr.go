@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package to
 
@@ -14,5 +14,6 @@ func SliceOfPtrs[T any](vv ...T) []*T {
 	for i := range vv {
 		slc[i] = Ptr(vv[i])
 	}
+
 	return slc
 }

@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation 2025. All rights reserved.
+// SPDX-License-Identifier: MIT
 
 package checks
 
@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
@@ -58,7 +59,8 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 
 	// use reflection/unsafe to populate archetypes
 	archetypesNotSettable := reflect.ValueOf(az).Elem().FieldByName("archetypes")
-	archetypesPtr := reflect.NewAt(archetypesNotSettable.Type(), (archetypesNotSettable.Addr().UnsafePointer())).Elem()
+	archetypesPtr := reflect.NewAt(archetypesNotSettable.Type(), (archetypesNotSettable.Addr().UnsafePointer())).
+		Elem()
 	archetypes := archetypesPtr.Interface().(map[string]*alzlib.Archetype) //nolint:forcetypeassert
 
 	archetypes["archetype1"] = &alzlib.Archetype{
@@ -75,7 +77,7 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 	}
 
 	err := checkAllDefinitionsAreReferenced(az)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test case with unreferenced definitions
 	az.AddPolicyDefinitions( // nolint: errcheck
@@ -101,5 +103,9 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 	)
 
 	err = checkAllDefinitionsAreReferenced(az)
-	assert.ErrorContains(t, err, "found unreferenced definitions [policyDefinitions] [policySetDefinitions] [roleDefinitions]: [policy3], [policySet3], [role3]")
+	assert.ErrorContains(
+		t,
+		err,
+		"found unreferenced definitions [policyDefinitions] [policySetDefinitions] [roleDefinitions]: [policy3], [policySet3], [role3]",
+	)
 }
