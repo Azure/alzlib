@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation 2025. All rights reserved.
-// SPDX-License-Identifier: MIT
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 // Package alzlib provides the data structures needed to deploy Azure Landing Zones.
 // It takes in fs.FS as input and returns a map of resources that can be used to deploy

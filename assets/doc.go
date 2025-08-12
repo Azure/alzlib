@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation 2025. All rights reserved.
-// SPDX-License-Identifier: MIT
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 // Package assets provides the types used by the Alzlib library.
 // It wraps Azure SDK types and provides additional functionality

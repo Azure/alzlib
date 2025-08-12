@@ -50,11 +50,10 @@ linters:
     goheader:
       values:
         const:
-          YEAR: "2025"
           AUTHOR: "Microsoft Corporation"
       template: |-
-        Copyright (c) {{ AUTHOR }} {{ YEAR }}. All rights reserved.
-        SPDX-License-Identifier: MIT
+        Copyright (c) {{ AUTHOR }}. All rights reserved.
+        Licensed under the MIT License.
 
 issues:
   max-issues-per-linter: 0
