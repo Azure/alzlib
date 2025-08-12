@@ -11,8 +11,8 @@
 - Run `golangci-lint run` to check for linting issues, use with the `--fix` flag to automatically fix issues where possible.
   - Inspect the `.golangci.yml` file in the root of this repo for specific linting rules.
 - Each go file must have the following header, followed by a blank line and then the package keyword:
-    // Copyright (c) Microsoft Corporation 2025. All rights reserved.
-    // SPDX-License-Identifier: MIT
+    // Copyright (c) Microsoft Corporation. All rights reserved.
+    // Licensed under the MIT License.
 - Each package should have a `doc.go` file that contains the header above, then a blank line and the package-level documentation using the `// Package <name> ...` comment format. Then the package keyword.
 - Complex nested if statements should be avoided. Use switch statements or early returns instead.
 - All exported functions and types should have comments that explain their purpose.
