@@ -46,6 +46,38 @@ var policySetDefinitionRegex = regexp.MustCompile(policySetDefinitionSuffix)
 var roleDefinitionRegex = regexp.MustCompile(roleDefinitionSuffix)
 var policyDefaultValuesRegex = regexp.MustCompile(policyDefaultValueFileName)
 
+var (
+	// ErrResourceAlreadyExists is returned when a resource already exists in the result.
+	ErrResourceAlreadyExists = errors.New("resource already exists in the result")
+
+	// ErrNoNameProvided is returned when no name was provided for the resource.
+	ErrNoNameProvided = errors.New("no name provided for the resource, cannot process it without a name")
+
+	// ErrUnmarshaling is returned when unmarshaling fails.
+	ErrUnmarshaling = errors.New("error converting data from YAML/JSON, please check the file format and content")
+
+	// ErrMultipleDefaultPolicyValuesFileFound is returned when multiple default policy values files are found.
+	ErrMultipleDefaultPolicyValuesFileFound = errors.New("multiple default policy values files found, only one is allowed")
+
+	// ErrProcessingFile is returned when there is an error processing the file.
+	ErrProcessingFile = errors.New("error processing file, please check the file format and content")
+)
+
+// NewErrResourceAlreadyExists creates a new error indicating that a resource already exists in the result.
+func NewErrResourceAlreadyExists(resourceType, name string) error {
+	return fmt.Errorf("%w: %s with name `%s` already exists", ErrResourceAlreadyExists, resourceType, name)
+}
+
+// NewErrNoNameProvided creates a new error indicating that no name was provided for the resource.
+func NewErrNoNameProvided(resourceType string) error {
+	return fmt.Errorf("%w: %s", ErrNoNameProvided, resourceType)
+}
+
+// NewErrorUnmarshaling creates a new error indicating that unmarshaling failed.
+func NewErrorUnmarshaling(detail string) error {
+	return fmt.Errorf("%w: %s", ErrUnmarshaling, detail)
+}
+
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
 	PolicyDefinitions                   map[string]*armpolicy.Definition
@@ -60,6 +92,7 @@ type Result struct {
 	libDefaultPolicyValuesFileProcessed bool
 }
 
+// NewResult creates a new Result struct with initialized maps for each resource type.
 func NewResult() *Result {
 	return &Result{
 		PolicyDefinitions:                   make(map[string]*armpolicy.Definition),
@@ -78,21 +111,24 @@ func NewResult() *Result {
 // processFunc is the function signature that is used to process different types of lib file.
 type processFunc func(result *Result, data unmarshaler) error
 
-// ProcessorClient is the client that is used to process the library files.
-type ProcessorClient struct {
+// Client is the client that is used to process the library files.
+type Client struct {
 	fs fs.FS
 }
 
-func NewProcessorClient(fs fs.FS) *ProcessorClient {
-	return &ProcessorClient{
+// NewClient creates a new Client with the provided filesystem.
+func NewClient(fs fs.FS) *Client {
+	return &Client{
 		fs: fs,
 	}
 }
 
 // Metadata returns the metadata of the library.
-func (client *ProcessorClient) Metadata() (*LibMetadata, error) {
+func (client *Client) Metadata() (*LibMetadata, error) {
 	metadataFile, err := client.fs.Open(alzLibraryMetadataFile)
+
 	var pe *fs.PathError
+
 	if errors.As(err, &pe) {
 		return &LibMetadata{
 			Name:         "",
@@ -102,42 +138,53 @@ func (client *ProcessorClient) Metadata() (*LibMetadata, error) {
 			Dependencies: make([]LibMetadataDependency, 0),
 		}, nil
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("ProcessorClient.Metadata: error opening metadata file: %w", err)
 	}
+
 	defer metadataFile.Close() // nolint: errcheck
+
 	data, err := io.ReadAll(metadataFile)
 	if err != nil {
 		return nil, fmt.Errorf("ProcessorClient.Metadata: error reading metadata file: %w", err)
 	}
+
 	unmar := newUnmarshaler(data, ".json")
 	metadata := new(LibMetadata)
+
 	err = unmar.unmarshal(metadata)
 	if err != nil {
-		return nil, fmt.Errorf("ProcessorClient.Metadata: error unmarshaling metadata: %w", err)
+		return nil, errors.Join(NewErrorUnmarshaling(alzLibraryMetadataFile), err)
 	}
+
 	for _, dep := range metadata.Dependencies {
 		switch {
-		case dep.Path != "" && dep.Ref != "" && dep.CustomUrl == "":
+		case dep.Path != "" && dep.Ref != "" && dep.CustomURL == "":
 			continue
-		case dep.Path == "" && dep.Ref == "" && dep.CustomUrl != "":
+		case dep.Path == "" && dep.Ref == "" && dep.CustomURL != "":
 			continue
 		default:
-			return nil, fmt.Errorf("ProcessorClient.Metadata: invalid dependency, either path & ref should be set, or custom_url: %v", dep)
+			return nil, fmt.Errorf(
+				"ProcessorClient.Metadata: invalid dependency, either path & ref should be set, or custom_url: %v",
+				dep,
+			)
 		}
 	}
+
 	return metadata, nil
 }
 
 // Process reads the library files and processes them into a Result.
 // Pass in a pointer to a Result struct to store the processed data,
 // create a new *Result with NewResult().
-func (client *ProcessorClient) Process(res *Result) error {
+func (client *Client) Process(res *Result) error {
 	// Open the metadata file and store contents in the result
 	metad, err := client.Metadata()
 	if err != nil {
 		return fmt.Errorf("ProcessorClient.Process: error getting metadata: %w", err)
 	}
+
 	res.Metadata = metad
 
 	// Walk the embedded lib FS and process files
@@ -164,8 +211,9 @@ func (client *ProcessorClient) Process(res *Result) error {
 		}
 		return classifyLibFile(res, file, d.Name())
 	}); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
+
 	return nil
 }
 
@@ -202,15 +250,16 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 	// if the file is an policy default values file
 	case policyDefaultValuesRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processDefaultPolicyValue)
-	}
 
-	// if the file is an architecture definition
-	if architectureDefinitionRegex.MatchString(name) {
+		// if the file is an architecture definition
+	case architectureDefinitionRegex.MatchString(n):
 		err = readAndProcessFile(res, file, processArchitecture)
 	}
 
 	if err != nil {
-		err = fmt.Errorf("classifyLibFile: error processing file: %w", err)
+		err = errors.Join(
+			ErrProcessingFile, err,
+		)
 	}
 
 	return err
@@ -221,15 +270,19 @@ func classifyLibFile(res *Result, file fs.File, name string) error {
 func processArchitecture(res *Result, unmar unmarshaler) error {
 	arch := new(LibArchitecture)
 	if err := unmar.unmarshal(arch); err != nil {
-		return fmt.Errorf("processArchitecture: error unmarshaling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("architecture definition"), err)
 	}
+
 	if arch.Name == "" {
-		return fmt.Errorf("processArchitecture: architecture name is empty")
+		return NewErrNoNameProvided("architecture")
 	}
+
 	if _, exists := res.LibArchitectures[arch.Name]; exists {
-		return fmt.Errorf("processArchitecture: architecture with name `%s` already exists", arch.Name)
+		return NewErrResourceAlreadyExists("architecture", arch.Name)
 	}
+
 	res.LibArchitectures[arch.Name] = arch
+
 	return nil
 }
 
@@ -237,19 +290,24 @@ func processArchitecture(res *Result, unmar unmarshaler) error {
 // bytes, processes, then adds the created LibDefaultPolicyValues to the result.
 func processDefaultPolicyValue(res *Result, unmar unmarshaler) error {
 	if res.libDefaultPolicyValuesFileProcessed {
-		return fmt.Errorf("processDefaultPolicyValues: multiple default policy values files found, only one is allowed")
+		return ErrMultipleDefaultPolicyValuesFileFound
 	}
+
 	lpv := new(LibDefaultPolicyValues)
 	if err := unmar.unmarshal(lpv); err != nil {
-		return fmt.Errorf("processDefaultPolicyValues: error unmarshaling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("default policy values"), err)
 	}
+
 	for _, def := range lpv.Defaults {
 		if _, exists := res.LibDefaultPolicyValues[def.DefaultName]; exists {
-			return fmt.Errorf("processDefaultPolicyValues: default policy values with name `%s` already exists", def.DefaultName)
+			return NewErrResourceAlreadyExists("default policy value", def.DefaultName)
 		}
+
 		res.LibDefaultPolicyValues[def.DefaultName] = &def
 	}
+
 	res.libDefaultPolicyValuesFileProcessed = true
+
 	return nil
 }
 
@@ -258,12 +316,15 @@ func processDefaultPolicyValue(res *Result, unmar unmarshaler) error {
 func processArchetype(res *Result, unmar unmarshaler) error {
 	la := new(LibArchetype)
 	if err := unmar.unmarshal(la); err != nil {
-		return fmt.Errorf("processArchetype: error unmarshaling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("archetype definition"), err)
 	}
+
 	if _, exists := res.LibArchetypes[la.Name]; exists {
-		return fmt.Errorf("processArchetype: archetype with name `%s` already exists", la.Name)
+		return NewErrResourceAlreadyExists("archetype", la.Name)
 	}
+
 	res.LibArchetypes[la.Name] = la
+
 	return nil
 }
 
@@ -272,12 +333,15 @@ func processArchetype(res *Result, unmar unmarshaler) error {
 func processArchetypeOverride(res *Result, unmar unmarshaler) error {
 	lao := new(LibArchetypeOverride)
 	if err := unmar.unmarshal(lao); err != nil {
-		return fmt.Errorf("processArchetypeOverride: error unmarshaling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("archetype override"), err)
 	}
+
 	if _, exists := res.LibArchetypeOverrides[lao.Name]; exists {
-		return fmt.Errorf("processArchetypeOverride: archetype override with name `%s` already exists", lao.Name)
+		return NewErrResourceAlreadyExists("archetype override", lao.Name)
 	}
+
 	res.LibArchetypeOverrides[lao.Name] = lao
+
 	return nil
 }
 
@@ -286,15 +350,19 @@ func processArchetypeOverride(res *Result, unmar unmarshaler) error {
 func processPolicyAssignment(res *Result, unmar unmarshaler) error {
 	pa := new(assets.PolicyAssignment)
 	if err := unmar.unmarshal(pa); err != nil {
-		return fmt.Errorf("processPolicyAssignment: error unmarshaling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("policy assignment"), err)
 	}
+
 	if pa.Name == nil || *pa.Name == "" {
-		return fmt.Errorf("processPolicyAssignment: policy assignment name is empty or not present")
+		return NewErrNoNameProvided("policy assignment")
 	}
+
 	if _, exists := res.PolicyAssignments[*pa.Name]; exists {
-		return fmt.Errorf("processPolicyAssignment: policy assignment with name `%s` already exists", *pa.Name)
+		return NewErrResourceAlreadyExists("policy assignment", *pa.Name)
 	}
+
 	res.PolicyAssignments[*pa.Name] = pa
+
 	return nil
 }
 
@@ -303,15 +371,19 @@ func processPolicyAssignment(res *Result, unmar unmarshaler) error {
 func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 	pd := new(armpolicy.Definition)
 	if err := unmar.unmarshal(pd); err != nil {
-		return fmt.Errorf("processPolicyDefinition: error unmarshaling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("policy definition"), err)
 	}
+
 	if pd.Name == nil || *pd.Name == "" {
-		return fmt.Errorf("processPolicyDefinition: policy definition name is empty or not present")
+		return NewErrNoNameProvided("policy definition")
 	}
+
 	if _, exists := res.PolicyDefinitions[*pd.Name]; exists {
-		return fmt.Errorf("processPolicyDefinition: policy definition with name `%s` already exists", *pd.Name)
+		return NewErrResourceAlreadyExists("policy definition", *pd.Name)
 	}
+
 	res.PolicyDefinitions[*pd.Name] = pd
+
 	return nil
 }
 
@@ -320,47 +392,60 @@ func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 	psd := new(armpolicy.SetDefinition)
 	if err := unmar.unmarshal(psd); err != nil {
-		return fmt.Errorf("processPolicySetDefinition: error unmarshaling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("policy set definition"), err)
 	}
+
 	if psd.Name == nil || *psd.Name == "" {
-		return fmt.Errorf("processPolicySetDefinition: policy set definition name is empty or not present")
+		return NewErrNoNameProvided("policy set definition")
 	}
+
 	if _, exists := res.PolicySetDefinitions[*psd.Name]; exists {
-		return fmt.Errorf("processPolicySetDefinition: policy set definition with name `%s` already exists", *psd.Name)
+		return NewErrResourceAlreadyExists("policy set definition", *psd.Name)
 	}
+
 	res.PolicySetDefinitions[*psd.Name] = psd
+
 	return nil
 }
 
 // processRoleDefinition is a processFunc that reads the role_definition
 // bytes, processes, then adds the created armauthorization.RoleDefinition to the result.
-// We use Properties.RoleName as the key in the result map, as the GUID must be unique and a role definition may be deployed at multiple scopes.
+// We use Properties.RoleName as the key in the result map, as the GUID must be unique and a role
+// definition may be
+// deployed at multiple scopes.
 func processRoleDefinition(res *Result, unmar unmarshaler) error {
 	rd := new(armauthorization.RoleDefinition)
 	if err := unmar.unmarshal(rd); err != nil {
-		return fmt.Errorf("processRoleDefinition: error unmarshalling: %w", err)
+		return errors.Join(NewErrorUnmarshaling("role definition"), err)
 	}
+
 	if rd.Properties == nil || rd.Properties.RoleName == nil || *rd.Properties.RoleName == "" {
-		return fmt.Errorf("processRoleDefinition: role definition role name is empty or not present")
+		return NewErrNoNameProvided("role definition")
 	}
+
 	if _, exists := res.RoleDefinitions[*rd.Properties.RoleName]; exists {
-		return fmt.Errorf("processRoleDefinition: role definition with role name `%s` already exists", *rd.Properties.RoleName)
+		return NewErrResourceAlreadyExists("role definition", *rd.Properties.RoleName)
 	}
 	// Use roleName here not the name, which is a GUID
 	res.RoleDefinitions[*rd.Properties.RoleName] = rd
+
 	return nil
 }
 
-// readAndProcessFile reads the file bytes at the supplied path and processes it using the supplied processFunc.
+// readAndProcessFile reads the file bytes at the supplied path and processes it using the supplied
+// processFunc.
 func readAndProcessFile(res *Result, file fs.File, processFn processFunc) error {
 	s, err := file.Stat()
 	if err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
+
 	data := make([]byte, s.Size())
-	defer file.Close() // nolint: errcheck
+
+	defer file.Close() // nolint:errcheck
+
 	if _, err := file.Read(data); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 
 	ext := filepath.Ext(s.Name())
@@ -369,7 +454,8 @@ func readAndProcessFile(res *Result, file fs.File, processFn processFunc) error 
 
 	// pass the  data to the supplied process function
 	if err := processFn(res, unmar); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
+
 	return nil
 }

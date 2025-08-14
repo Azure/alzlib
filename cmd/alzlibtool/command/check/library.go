@@ -36,7 +36,11 @@ var libraryCmd = cobra.Command{
 		thisRef := alzlib.NewCustomLibraryReference(args[0])
 		libs, err := thisRef.FetchWithDependencies(cmd.Context())
 		if err != nil {
-			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf(
+				"%s could not fetch all libraries with dependencies: %v\n",
+				cmd.ErrPrefix(),
+				err,
+			)
 			os.Exit(1)
 		}
 		err = az.Init(cmd.Context(), libs...)

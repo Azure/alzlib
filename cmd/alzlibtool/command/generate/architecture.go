@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package generate
 
 import (
@@ -11,16 +14,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// RequiredArchitectureArgs is the number of required arguments for architecture generation.
+	RequiredArchitectureArgs = 2
+)
+
 var generateArchitectureBaseCmd = cobra.Command{
 	Use:   "architecture librarypath name",
 	Short: "Generates deployment JSON for the supplied architecture.",
-	Long:  `Generates deployment JSON for the supplied architecture. This enables deployment with a tool of your choosing.`,
-	Args:  cobra.ExactArgs(2),
+	Long: `Generates deployment JSON for the supplied architecture. ` +
+		`This enables deployment with a tool of your choosing.`,
+	Args: cobra.ExactArgs(RequiredArchitectureArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		thislib := alzlib.NewCustomLibraryReference(args[0])
 		alllibs, err := thislib.FetchWithDependencies(cmd.Context())
 		if err != nil {
-			cmd.PrintErrf("%s could not fetch all libraries with dependencies: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf(
+				"%s could not fetch all libraries with dependencies: %v\n",
+				cmd.ErrPrefix(),
+				err,
+			)
 			os.Exit(1)
 		}
 		az := alzlib.NewAlzLib(nil)
@@ -61,6 +74,9 @@ var generateArchitectureBaseCmd = cobra.Command{
 }
 
 func init() {
-	generateArchitectureBaseCmd.Flags().StringP("rootmg", "r", "00000000-0000-0000-0000-000000000000", "The root management group id to use for the deployment.")
-	generateArchitectureBaseCmd.Flags().StringP("location", "l", "northeurope", "The location to use for the deployment.")
+	generateArchitectureBaseCmd.Flags().
+		StringP("rootmg", "r", "00000000-0000-0000-0000-000000000000",
+			"The root management group id to use for the deployment.")
+	generateArchitectureBaseCmd.Flags().
+		StringP("location", "l", "northeurope", "The location to use for the deployment.")
 }

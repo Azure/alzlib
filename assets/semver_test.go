@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package assets
 
 import (
@@ -92,10 +95,12 @@ func TestPolicyVersionConstraintToSemVerConstraint(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := policyVersionConstraintToSemVerConstraint(tt.constraint)
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
+
 				if tt.errorSubstr != "" {
 					assert.Contains(t, err.Error(), tt.errorSubstr)
 				}
+
 				assert.Nil(t, c)
 			} else {
 				require.NoError(t, err)
@@ -160,6 +165,7 @@ func TestSemverCheckPrereleaseStrict(t *testing.T) {
 			require.NoError(t, err)
 			c, err := semver.NewConstraint(tt.constraint)
 			require.NoError(t, err)
+
 			result := semverCheckPrereleaseStrict(v, c)
 			assert.Equal(t, tt.expectedResult, result)
 		})

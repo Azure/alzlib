@@ -34,7 +34,7 @@ func TestVersionNormalizedRoleDefinitionResourceIds(t *testing.T) {
 		"/providers/Microsoft.Authorization/roleDefinitions/role2",
 	}
 
-	ids, err := pd.NormalizedRoleDefinitionResourceIds()
+	ids, err := pd.NormalizedRoleDefinitionResourceIDs()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestVersionSetAssignPermissionsOnParameter(t *testing.T) {
 		},
 	}
 	pd.SetAssignPermissionsOnParameter("test")
-	assert.Equal(t, true, *pd.Properties.Parameters["test"].Metadata.AssignPermissions)
+	assert.True(t, *pd.Properties.Parameters["test"].Metadata.AssignPermissions)
 }
 
 func TestVersionUnsetAssignPermissionsOnParameter(t *testing.T) {

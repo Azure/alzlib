@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package deployment
 
 import (
@@ -8,13 +11,15 @@ import (
 var _ error = &PolicyRoleAssignmentError{}
 var _ error = &PolicyRoleAssignmentErrors{}
 
-// PolicyRoleAssignmentError represents an error that occurred while generating a role assignment for a policy assignment.
+// PolicyRoleAssignmentError represents an error that occurred while generating a role assignment
+// for a policy
+// assignment.
 type PolicyRoleAssignmentError struct {
 	assignmentName            string
 	assignmentScope           string
 	definitionParameterName   string
 	policyDefinitionReference string
-	roleDefinitionIds         []string
+	roleDefinitionIDs         []string
 	wrappedError              error
 }
 
@@ -24,32 +29,44 @@ type PolicyRoleAssignmentErrors struct {
 	errors []*PolicyRoleAssignmentError
 }
 
-func NewPolicyRoleAssignmentError(assignmentName string, assignmentScope string, defParameterName string, pdref string, roleDefinitionIds []string, innerError error) *PolicyRoleAssignmentError {
+// NewPolicyRoleAssignmentError creates a new PolicyRoleAssignmentError with the provided parameters.
+func NewPolicyRoleAssignmentError(
+	assignmentName string,
+	assignmentScope string,
+	defParameterName string,
+	pdref string,
+	roleDefinitionIDs []string,
+	innerError error,
+) *PolicyRoleAssignmentError {
 	return &PolicyRoleAssignmentError{
 		assignmentName:            assignmentName,
 		assignmentScope:           assignmentScope,
 		definitionParameterName:   defParameterName,
 		policyDefinitionReference: pdref,
-		roleDefinitionIds:         roleDefinitionIds,
+		roleDefinitionIDs:         roleDefinitionIDs,
 		wrappedError:              innerError,
 	}
 }
 
+// NewPolicyRoleAssignmentErrors creates a new PolicyRoleAssignmentErrors collection.
 func NewPolicyRoleAssignmentErrors() *PolicyRoleAssignmentErrors {
 	e := new(PolicyRoleAssignmentErrors)
 	e.errors = make([]*PolicyRoleAssignmentError, 0)
+
 	return e
 }
 
 // Error implements the error interface.
 func (e *PolicyRoleAssignmentError) Error() string {
 	return fmt.Sprintf(
-		"PolicyRoleAssignmentError: could not generate role assignment for assignment `%s` assigned at scope `%s`. A new role assignment should be created at scope of the definition referenced by `%s`, using parameter name `%s`, for the following role definition ids: `%s`. InnerError: %v",
+		"PolicyRoleAssignmentError: could not generate role assignment for assignment `%s` assigned at scope `%s`. "+
+			"A new role assignment should be created at scope of the definition referenced by `%s`, "+
+			"using parameter name `%s`, for the following role definition ids: `%s`. InnerError: %v",
 		e.assignmentName,
 		e.assignmentScope,
 		e.policyDefinitionReference,
 		e.definitionParameterName,
-		strings.Join(e.roleDefinitionIds, ", "),
+		strings.Join(e.roleDefinitionIDs, ", "),
 		e.wrappedError,
 	)
 }
@@ -69,6 +86,7 @@ func (e *PolicyRoleAssignmentErrors) Error() string {
 	for i, err := range e.errors {
 		errors[i] = err.Error()
 	}
+
 	return strings.Join(errors, "\n---\n")
 }
 

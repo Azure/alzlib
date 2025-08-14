@@ -5,48 +5,150 @@ package assets
 
 import (
 	"errors"
+	"fmt"
+	"unicode/utf8"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
+const (
+	// PolicySetDefinitionDisplayNameMaxLength is the maximum length of the display name for a policy set definition.
+	PolicySetDefinitionDisplayNameMaxLength = 128
+	// PolicySetDefinitionDescriptionMaxLength is the maximum length of the description for a policy set definition.
+	PolicySetDefinitionDescriptionMaxLength = 512
+	// policySetDefinitionCollectionCapacity is the initial capacity for collections in a policy set definition.
+	policySetDefinitionCollectionCapacity = 20
+)
+
+// PolicySetDefinition represents a policy set definition and embeds the armpolicy.SetDefinition struct.
 type PolicySetDefinition struct {
 	armpolicy.SetDefinition
 }
 
+// NewPolicySetDefinition creates a new PolicySetDefinition from an armpolicy.SetDefinition.
 func NewPolicySetDefinition(psd armpolicy.SetDefinition) *PolicySetDefinition {
 	return &PolicySetDefinition{psd}
 }
 
+// ReferencedPolicyDefinitionNames returns the names of the policy definitions referenced by the policy set definition.
 func (psd *PolicySetDefinition) ReferencedPolicyDefinitionNames() ([]string, error) {
 	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
 		return nil, errors.New("policy set definition is nil, missing properties or policy definitions")
 	}
+
 	names := make([]string, len(psd.Properties.PolicyDefinitions))
+
 	for i, pd := range psd.Properties.PolicyDefinitions {
-		resId, err := arm.ParseResourceID(*pd.PolicyDefinitionID)
+		resID, err := arm.ParseResourceID(*pd.PolicyDefinitionID)
 		if err != nil {
 			return nil, err
 		}
-		names[i] = resId.Name
+
+		names[i] = resID.Name
 	}
+
 	return names, nil
 }
 
+// PolicyDefinitionReferences returns the policy definition references for the policy set definition.
 func (psd *PolicySetDefinition) PolicyDefinitionReferences() []*armpolicy.DefinitionReference {
 	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
 		return nil
 	}
+
 	return psd.Properties.PolicyDefinitions
 }
 
+// Parameter returns the parameter definition for the given name.
 func (psd *PolicySetDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
 	if psd == nil || psd.Properties == nil || psd.Properties.Parameters == nil {
 		return nil
 	}
+
 	ret, ok := psd.Properties.Parameters[name]
 	if !ok {
 		return nil
 	}
+
 	return ret
+}
+
+// ValidatePolicySetDefinition performs validation checks on the policy set definition.
+// To reduce the risk of nil pointer dereferences, it will create empty values for optional fields.
+func ValidatePolicySetDefinition(psd *PolicySetDefinition) error {
+	if psd == nil {
+		return errors.New("ValidatePolicySetDefinition: policy set definition is nil")
+	}
+
+	if psd.Name == nil {
+		return errors.New("ValidatePolicySetDefinition: name must not be nil")
+	}
+
+	if psd.Properties == nil {
+		return errors.New("ValidatePolicySetDefinition: properties must not be nil")
+	}
+
+	if psd.Properties.Description == nil {
+		return errors.New("ValidatePolicySetDefinition: description must not be nil")
+	}
+
+	if psd.Properties.DisplayName == nil {
+		return errors.New("ValidatePolicySetDefinition: display name must not be nil")
+	}
+
+	if psd.Properties.Parameters == nil {
+		psd.Properties.Parameters = make(map[string]*armpolicy.ParameterDefinitionsValue)
+	}
+
+	if psd.Properties.DisplayName == nil {
+		return errors.New("ValidatePolicySetDefinition: display name must not be nil")
+	}
+
+	if psd.Properties.Description == nil {
+		return errors.New("ValidatePolicySetDefinition: description must not be nil")
+	}
+
+	if *psd.Properties.Description == "" ||
+		utf8.RuneCountInString(*psd.Properties.Description) > PolicySetDefinitionDescriptionMaxLength {
+		return fmt.Errorf(
+			"ValidatePolicySetDefinition: description length is %d, must be between 1 and %d",
+			utf8.RuneCountInString(*psd.Properties.Description),
+			PolicySetDefinitionDescriptionMaxLength,
+		)
+	}
+
+	if *psd.Properties.DisplayName == "" ||
+		utf8.RuneCountInString(*psd.Properties.DisplayName) > PolicySetDefinitionDisplayNameMaxLength {
+		return fmt.Errorf(
+			"ValidatePolicySetDefinition: display name length is %d, must be between 1 and %d",
+			utf8.RuneCountInString(*psd.Properties.DisplayName),
+			PolicySetDefinitionDisplayNameMaxLength,
+		)
+	}
+
+	if psd.Properties.PolicyDefinitions == nil {
+		psd.Properties.PolicyDefinitions = make([]*armpolicy.DefinitionReference, 0, policySetDefinitionCollectionCapacity)
+	}
+
+	if psd.Properties.PolicyDefinitionGroups == nil {
+		psd.Properties.PolicyDefinitionGroups = make([]*armpolicy.DefinitionGroup, 0, policySetDefinitionCollectionCapacity)
+	}
+
+	if psd.Properties.Metadata == nil {
+		psd.Properties.Metadata = any(map[string]any{})
+	}
+
+	return nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for type PolicySetDefinition.
+// It performs validity checks on mandatory fields as well as some validation checks on certain
+// fields.
+func (psd *PolicySetDefinition) UnmarshalJSON(data []byte) error {
+	if err := psd.SetDefinition.UnmarshalJSON(data); err != nil {
+		return fmt.Errorf("PolicySetDefinition.UnmarshalJSON: %w", err)
+	}
+
+	return ValidatePolicySetDefinition(psd)
 }

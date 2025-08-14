@@ -39,17 +39,22 @@ func (a *Architecture) RootMgs() (res []*ArchitectureManagementGroup) {
 		if mg.parent != nil {
 			continue
 		}
+
 		res = append(res, mg)
 	}
+
 	slices.SortFunc(res, func(a, b *ArchitectureManagementGroup) int {
 		if a.id < b.id {
 			return -1
 		}
+
 		if a.id > b.id {
 			return 1
 		}
+
 		return 0
 	})
+
 	return res
 }
 
@@ -64,7 +69,11 @@ type ArchitectureManagementGroup struct {
 	architecture *Architecture
 }
 
-func newArchitectureManagementGroup(id, displayName string, exists bool, arch *Architecture) *ArchitectureManagementGroup {
+func newArchitectureManagementGroup(
+	id, displayName string,
+	exists bool,
+	arch *Architecture,
+) *ArchitectureManagementGroup {
 	return &ArchitectureManagementGroup{
 		id:           id,
 		displayName:  displayName,
@@ -80,15 +89,19 @@ func (mg *ArchitectureManagementGroup) Archetypes() (res []*Archetype) {
 	for arch := range mg.archetypes.Iter() {
 		res = append(res, arch.copy())
 	}
+
 	slices.SortFunc(res, func(a, b *Archetype) int {
 		if a.name < b.name {
 			return -1
 		}
+
 		if a.name > b.name {
 			return 1
 		}
+
 		return 0
 	})
+
 	return
 }
 
@@ -97,6 +110,7 @@ func (mg *ArchitectureManagementGroup) Children() (res []*ArchitectureManagement
 	for child := range mg.children.Iter() {
 		res = append(res, child)
 	}
+
 	return res
 }
 
@@ -105,8 +119,8 @@ func (mg *ArchitectureManagementGroup) DisplayName() string {
 	return mg.displayName
 }
 
-// Id returns the id of the management group.
-func (mg *ArchitectureManagementGroup) Id() string {
+// ID returns the id of the management group.
+func (mg *ArchitectureManagementGroup) ID() string {
 	return mg.id
 }
 
@@ -115,28 +129,45 @@ func (mg *ArchitectureManagementGroup) Exists() bool {
 	return mg.exists
 }
 
-func (a *Architecture) addMgFromProcessor(libMg processor.LibArchitectureManagementGroup, az *AlzLib) error {
-	if _, ok := a.mgs[libMg.Id]; ok {
-		return fmt.Errorf("Architecture.addMg: management group %s already exists", libMg.Id)
+func (a *Architecture) addMgFromProcessor(
+	libMg processor.LibArchitectureManagementGroup,
+	az *AlzLib,
+) error {
+	if _, ok := a.mgs[libMg.ID]; ok {
+		return fmt.Errorf("Architecture.addMg: management group %s already exists", libMg.ID)
 	}
-	mg := newArchitectureManagementGroup(libMg.Id, libMg.DisplayName, libMg.Exists, a)
+
+	mg := newArchitectureManagementGroup(libMg.ID, libMg.DisplayName, libMg.Exists, a)
 	// check parent exists and create parent-child relationship
-	if libMg.ParentId != nil {
-		parent, ok := a.mgs[*libMg.ParentId]
+	if libMg.ParentID != nil {
+		parent, ok := a.mgs[*libMg.ParentID]
 		if !ok {
-			return fmt.Errorf("Architecture.addMg: parent management group does not exist %s", *libMg.ParentId)
+			return fmt.Errorf(
+				"Architecture.addMg: parent management group does not exist %s",
+				*libMg.ParentID,
+			)
 		}
+
 		mg.parent = parent
 		mg.parent.children.Add(mg)
 	}
+
 	mg.archetypes = mapset.NewThreadUnsafeSet[*Archetype]()
+
 	for archName := range libMg.Archetypes.Iter() {
 		arch, ok := az.archetypes[archName]
 		if !ok {
-			return fmt.Errorf("Architecture.addMg: archetype not found adding archetype `%s` to management group `%s`", archName, libMg.Id)
+			return fmt.Errorf(
+				"Architecture.addMg: archetype not found adding archetype `%s` to management group `%s`",
+				archName,
+				libMg.ID,
+			)
 		}
+
 		mg.archetypes.Add(arch)
 	}
+
 	a.mgs[mg.id] = mg
+
 	return nil
 }

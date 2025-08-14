@@ -37,5 +37,6 @@ func TestValidateError_ErrorPanic(t *testing.T) {
 	}()
 
 	_ = validateErr.Error()
+
 	t.FailNow()
 }

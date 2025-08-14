@@ -18,6 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	eastUSLocation = "eastus"
+)
+
 func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	t.Parallel()
 	// create a new AlzLib instance.
@@ -183,29 +187,29 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 	err := mg.generatePolicyAssignmentAdditionalRoleAssignments()
 
 	// check that there were no errors.
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// check that the additional role assignments were generated correctly.
-	assert.Equal(t, mg.policyRoleAssignments.Cardinality(), 4)
+	assert.Equal(t, 4, mg.policyRoleAssignments.Cardinality())
 
 	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
 		AssignmentName:   *paDef.Name,
-		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
-		Scope:            mg.ResourceId(),
+		RoleDefinitionID: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            mg.ResourceID(),
 	}))
 	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
 		AssignmentName:   *paDef.Name,
-		RoleDefinitionId: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		RoleDefinitionID: pd1.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
 		Scope:            paDef.Properties.Parameters["parameter1"].Value.(string),                                                                                 //nolint:forcetypeassert
 	}))
 	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
 		AssignmentName:   *paSetDef.Name,
-		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
-		Scope:            mg.ResourceId(),
+		RoleDefinitionID: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		Scope:            mg.ResourceID(),
 	}))
 	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
 		AssignmentName:   *paSetDef.Name,
-		RoleDefinitionId: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
+		RoleDefinitionID: pd2.Properties.PolicyRule.(map[string]any)["then"].(map[string]any)["details"].(map[string]any)["roleDefinitionIds"].([]any)[0].(string), //nolint:forcetypeassert
 		Scope:            paSetDef.Properties.Parameters["setparameter1"].Value.(string),                                                                           //nolint:forcetypeassert
 	}))
 }
@@ -220,13 +224,13 @@ func TestModifyPolicyAssignments(t *testing.T) {
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
 				Name: to.Ptr("pa1"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
-					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "changeme")),
+					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pd1")),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIDFmt, "changeme")),
 				},
 				Location: to.Ptr("changeme"),
 			}),
 		},
-		location: "eastus",
+		location: eastUSLocation,
 	}
 	h.mgs["mg1"] = mg
 	pd2mg := make(map[string]mapset.Set[string])
@@ -235,13 +239,14 @@ func TestModifyPolicyAssignments(t *testing.T) {
 
 	err := updatePolicyAsignments(mg, pd2mg, psd2mg)
 	require.NoError(t, err)
-	expected := fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
+
+	expected := fmt.Sprintf(PolicyAssignmentIDFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.PolicyDefinitionID)
-	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	expected = fmt.Sprintf(ManagementGroupIDFmt, "mg1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.Scope)
-	expected = "eastus"
+	expected = eastUSLocation
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Location)
 
 	// Test with multiple policy assignments and policy definitions.
@@ -251,21 +256,21 @@ func TestModifyPolicyAssignments(t *testing.T) {
 			"pa1": assets.NewPolicyAssignment(armpolicy.Assignment{
 				Name: to.Ptr("pa1"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
-					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "changeme")),
+					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pd1")),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIDFmt, "changeme")),
 				},
 				Location: to.Ptr("changeme"),
 			}),
 			"pa2": assets.NewPolicyAssignment(armpolicy.Assignment{
 				Name: to.Ptr("pa2"),
 				Properties: &armpolicy.AssignmentProperties{
-					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicySetDefinitionIdFmt, "changeme", "psd1")),
-					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "changeme")),
+					PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicySetDefinitionIDFmt, "changeme", "psd1")),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIDFmt, "changeme")),
 				},
 				Location: to.Ptr("changeme"),
 			}),
 		},
-		location: "eastus",
+		location: eastUSLocation,
 	}
 	pd2mg = make(map[string]mapset.Set[string])
 	pd2mg["pd1"] = mapset.NewThreadUnsafeSet("mg1")
@@ -273,21 +278,22 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	psd2mg["psd1"] = mapset.NewThreadUnsafeSet("mg1")
 	err = updatePolicyAsignments(mg, pd2mg, psd2mg)
 	require.NoError(t, err)
-	expected = fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa1")
+
+	expected = fmt.Sprintf(PolicyAssignmentIDFmt, "mg1", "pa1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].ID)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.PolicyDefinitionID)
-	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	expected = fmt.Sprintf(ManagementGroupIDFmt, "mg1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Properties.Scope)
-	expected = "eastus"
+	expected = eastUSLocation
 	assert.Equal(t, expected, *mg.policyAssignments["pa1"].Location)
-	expected = fmt.Sprintf(PolicyAssignmentIdFmt, "mg1", "pa2")
+	expected = fmt.Sprintf(PolicyAssignmentIDFmt, "mg1", "pa2")
 	assert.Equal(t, expected, *mg.policyAssignments["pa2"].ID)
-	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
+	expected = fmt.Sprintf(PolicySetDefinitionIDFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa2"].Properties.PolicyDefinitionID)
-	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+	expected = fmt.Sprintf(ManagementGroupIDFmt, "mg1")
 	assert.Equal(t, expected, *mg.policyAssignments["pa2"].Properties.Scope)
-	expected = "eastus"
+	expected = eastUSLocation
 	assert.Equal(t, expected, *mg.policyAssignments["pa2"].Location)
 
 	// Test with invalid policy definition id.
@@ -298,7 +304,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 				Name: to.Ptr("policy1"),
 				Properties: &armpolicy.AssignmentProperties{
 					PolicyDefinitionID: to.Ptr("invalid"),
-					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIdFmt, "mg1")),
+					Scope:              to.Ptr(fmt.Sprintf(ManagementGroupIDFmt, "mg1")),
 				},
 			}),
 		},
@@ -307,7 +313,8 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	pd2mg = make(map[string]mapset.Set[string])
 	psd2mg = make(map[string]mapset.Set[string])
 	err = updatePolicyAsignments(mg, pd2mg, psd2mg)
-	assert.Error(t, err)
+	require.Error(t, err)
+
 	expected = "resource id 'invalid' must start with '/'"
 	assert.ErrorContains(t, err, expected)
 }
@@ -360,7 +367,7 @@ func TestManagementGroupUpdate(t *testing.T) {
 				Assignment: armpolicy.Assignment{
 					Name: to.Ptr("paAtMg1a"),
 					Properties: &armpolicy.AssignmentProperties{
-						PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdDeployedTwice")),
+						PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pdDeployedTwice")),
 					},
 				},
 			},
@@ -373,7 +380,7 @@ func TestManagementGroupUpdate(t *testing.T) {
 					Properties: &armpolicy.SetDefinitionProperties{
 						PolicyDefinitions: []*armpolicy.DefinitionReference{
 							{
-								PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdDeployedTwice")),
+								PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pdDeployedTwice")),
 							},
 						},
 					},
@@ -393,7 +400,7 @@ func TestManagementGroupUpdate(t *testing.T) {
 				Assignment: armpolicy.Assignment{
 					Name: to.Ptr("paAtMg1a"),
 					Properties: &armpolicy.AssignmentProperties{
-						PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdDeployedTwice")),
+						PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pdDeployedTwice")),
 					},
 				},
 			},
@@ -419,11 +426,11 @@ func TestManagementGroupUpdate(t *testing.T) {
 	require.NoError(t, mg1a.update(true))
 
 	// Check that the policy assignments reference the correct policy definitions.
-	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pdDeployedTwice"), *mg1a.policyAssignments["paAtMg1a"].Properties.PolicyDefinitionID)
-	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg2", "pdDeployedTwice"), *mg2.policyAssignments["paAtMg2"].Properties.PolicyDefinitionID)
+	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pdDeployedTwice"), *mg1a.policyAssignments["paAtMg1a"].Properties.PolicyDefinitionID)
+	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIDFmt, "mg2", "pdDeployedTwice"), *mg2.policyAssignments["paAtMg2"].Properties.PolicyDefinitionID)
 
 	// Check that the policy set definitions reference the correct policy definitions.
-	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pdDeployedTwice"), *mg1a.policySetDefinitions["psdWithDefAtParent"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
+	assert.Equal(t, fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pdDeployedTwice"), *mg1a.policySetDefinitions["psdWithDefAtParent"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
 
 	// add another root management group
 	mgOtherRoot := &HierarchyManagementGroup{
@@ -451,7 +458,7 @@ func TestManagementGroupUpdate(t *testing.T) {
 		Assignment: armpolicy.Assignment{
 			Name: to.Ptr("defNotInHierarchy"),
 			Properties: &armpolicy.AssignmentProperties{
-				PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pdOtherRoot")),
+				PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pdOtherRoot")),
 			},
 		},
 	}
@@ -514,9 +521,9 @@ func TestManagementGroupUpdateWithUniqueRoleDefinitions(t *testing.T) {
 	// Check that the role definitions are unique
 	assert.NotEqual(t, *mgRoot.roleDefinitions["rdRoot01"].Name, *mg1.roleDefinitions["rdMg101"].Name, "Role definitions should not have the same ID")
 	assert.NotEqual(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, *mg1.roleDefinitions["rdMg101"].Properties.RoleName, "Role definitions should not have the same ID")
-	assert.NotEqual(t, *mgRoot.roleDefinitions["rdRoot01"].ID, "/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should not have the same ID after update")
+	assert.NotEqual(t, "/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/8a60c97f-9cb6-536b-b5db-9c997ee1de03", *mgRoot.roleDefinitions["rdRoot01"].ID, "Role definitions should not have the same ID after update")
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].ID, fmt.Sprintf("/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/%s", *mgRoot.roleDefinitions["rdRoot01"].Name), "Role definitions should have the same ID after update")
-	assert.NotEqual(t, *mgRoot.roleDefinitions["rdRoot01"].Name, "8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should have the same Name after update")
+	assert.NotEqual(t, "8a60c97f-9cb6-536b-b5db-9c997ee1de03", *mgRoot.roleDefinitions["rdRoot01"].Name, "Role definitions should have the same Name after update")
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, fmt.Sprintf("[ALZ] Application-Owners (%s)", mgRoot.id), "Role definitions should have the same RoleName after update")
 }
 
@@ -576,9 +583,9 @@ func TestManagementGroupUpdateWithNonUniqueRoleDefinitions(t *testing.T) {
 	// Check that the role definitions are still not unique after update
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Name, *mg1.roleDefinitions["rdMg101"].Name, "Role definitions should not have the same ID after update")
 	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, *mg1.roleDefinitions["rdMg101"].Properties.RoleName, "Role definitions should not have the same ID after update")
-	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].ID, "/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should have the same ID after update")
-	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Name, "8a60c97f-9cb6-536b-b5db-9c997ee1de03", "Role definitions should have the same Name after update")
-	assert.Equal(t, *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, "[ALZ] Application-Owners", "Role definitions should have the same RoleName after update")
+	assert.Equal(t, "/providers/Microsoft.Management/managementGroups/mgRoot/providers/Microsoft.Authorization/roleDefinitions/8a60c97f-9cb6-536b-b5db-9c997ee1de03", *mgRoot.roleDefinitions["rdRoot01"].ID, "Role definitions should have the same ID after update")
+	assert.Equal(t, "8a60c97f-9cb6-536b-b5db-9c997ee1de03", *mgRoot.roleDefinitions["rdRoot01"].Name, "Role definitions should have the same Name after update")
+	assert.Equal(t, "[ALZ] Application-Owners", *mgRoot.roleDefinitions["rdRoot01"].Properties.RoleName, "Role definitions should have the same RoleName after update")
 }
 
 func TestModifyPolicyDefinitions(t *testing.T) {
@@ -591,7 +598,8 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 		},
 	}
 	updatePolicyDefinitions(alzmg)
-	expected := fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+
+	expected := fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
 
 	// Test with multiple policy definitions.
@@ -603,9 +611,10 @@ func TestModifyPolicyDefinitions(t *testing.T) {
 		},
 	}
 	updatePolicyDefinitions(alzmg)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd1"].ID)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd2")
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd2")
 	assert.Equal(t, expected, *alzmg.policyDefinitions["pd2"].ID)
 
 	// Test with no policy definitions.
@@ -627,7 +636,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 				Properties: &armpolicy.SetDefinitionProperties{
 					PolicyDefinitions: []*armpolicy.DefinitionReference{
 						{
-							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pd1")),
 						},
 					},
 				},
@@ -638,9 +647,10 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	pd2mg["pd1"] = mapset.NewThreadUnsafeSet("mg1")
 	err := updatePolicySetDefinitions(alzmg, pd2mg)
 	require.NoError(t, err)
-	expected := fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
+
+	expected := fmt.Sprintf(PolicySetDefinitionIDFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
 
 	// Test with multiple policy set definitions and policy definitions.
@@ -651,7 +661,7 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 				Properties: &armpolicy.SetDefinitionProperties{
 					PolicyDefinitions: []*armpolicy.DefinitionReference{
 						{
-							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd1")),
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pd1")),
 						},
 					},
 				},
@@ -660,10 +670,10 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 				Properties: &armpolicy.SetDefinitionProperties{
 					PolicyDefinitions: []*armpolicy.DefinitionReference{
 						{
-							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd2")),
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pd2")),
 						},
 						{
-							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIdFmt, "changeme", "pd3")),
+							PolicyDefinitionID: to.Ptr(fmt.Sprintf(PolicyDefinitionIDFmt, "changeme", "pd3")),
 						},
 					},
 				},
@@ -676,15 +686,15 @@ func TestModifyPolicySetDefinitions(t *testing.T) {
 	pd2mg["pd3"] = mapset.NewThreadUnsafeSet("mg1")
 
 	_ = updatePolicySetDefinitions(alzmg, pd2mg)
-	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd1")
+	expected = fmt.Sprintf(PolicySetDefinitionIDFmt, "mg1", "psd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].ID)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd1")
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd1")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd1"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
-	expected = fmt.Sprintf(PolicySetDefinitionIdFmt, "mg1", "psd2")
+	expected = fmt.Sprintf(PolicySetDefinitionIDFmt, "mg1", "psd2")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].ID)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd2")
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd2")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].Properties.PolicyDefinitions[0].PolicyDefinitionID)
-	expected = fmt.Sprintf(PolicyDefinitionIdFmt, "mg1", "pd3")
+	expected = fmt.Sprintf(PolicyDefinitionIDFmt, "mg1", "pd3")
 	assert.Equal(t, expected, *alzmg.policySetDefinitions["psd2"].Properties.PolicyDefinitions[1].PolicyDefinitionID)
 
 	// Test with no policy set definitions or policy definitions.
@@ -713,10 +723,12 @@ func TestModifyRoleDefinitions(t *testing.T) {
 		},
 	}
 	updateRoleDefinitions(alzmg, true)
-	expected := fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
+
+	expected := fmt.Sprintf(RoleDefinitionIDFmt, "mg1", uuidV5("mg1", "role1"))
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
-	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+
+	expected = fmt.Sprintf(ManagementGroupIDFmt, "mg1")
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
 
 	// Test with multiple role definitions
@@ -740,16 +752,18 @@ func TestModifyRoleDefinitions(t *testing.T) {
 		},
 	}
 	updateRoleDefinitions(alzmg, true)
-	expected = fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role1"))
+
+	expected = fmt.Sprintf(RoleDefinitionIDFmt, "mg1", uuidV5("mg1", "role1"))
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].ID)
 	assert.Len(t, alzmg.roleDefinitions["rd1"].Properties.AssignableScopes, 1)
-	expected = fmt.Sprintf(ManagementGroupIdFmt, "mg1")
+
+	expected = fmt.Sprintf(ManagementGroupIDFmt, "mg1")
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
-	assert.Equal(t, fmt.Sprintf(ManagementGroupIdFmt, "mg1"), *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
-	expected = fmt.Sprintf(RoleDefinitionIdFmt, "mg1", uuidV5("mg1", "role2"))
+	assert.Equal(t, fmt.Sprintf(ManagementGroupIDFmt, "mg1"), *alzmg.roleDefinitions["rd1"].Properties.AssignableScopes[0])
+	expected = fmt.Sprintf(RoleDefinitionIDFmt, "mg1", uuidV5("mg1", "role2"))
 	assert.Equal(t, expected, *alzmg.roleDefinitions["rd2"].ID)
 	assert.Len(t, alzmg.roleDefinitions["rd2"].Properties.AssignableScopes, 1)
-	assert.Equal(t, fmt.Sprintf(ManagementGroupIdFmt, "mg1"), *alzmg.roleDefinitions["rd2"].Properties.AssignableScopes[0])
+	assert.Equal(t, fmt.Sprintf(ManagementGroupIDFmt, "mg1"), *alzmg.roleDefinitions["rd2"].Properties.AssignableScopes[0])
 
 	// Test with no role definitions.
 	alzmg = &HierarchyManagementGroup{
@@ -820,7 +834,7 @@ func TestModifyPolicyAssignment(t *testing.T) {
 					Selectors: []*armpolicy.Selector{
 						{
 							Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
-							In:   to.SliceOfPtrs([]string{"eastus"}...),
+							In:   to.SliceOfPtrs([]string{eastUSLocation}...),
 						},
 					},
 				},
@@ -845,7 +859,7 @@ func TestModifyPolicyAssignment(t *testing.T) {
 				Selectors: []*armpolicy.Selector{
 					{
 						Kind: to.Ptr(armpolicy.SelectorKindResourceLocation),
-						In:   to.SliceOfPtrs([]string{"eastus"}...),
+						In:   to.SliceOfPtrs([]string{eastUSLocation}...),
 					},
 				},
 			},
@@ -854,7 +868,7 @@ func TestModifyPolicyAssignment(t *testing.T) {
 	)
 
 	// Check for errors
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Check if the policy assignment was modified correctly
 	assert.Equal(t, expected, alzmg.policyAssignments["test-policy-assignment"])
@@ -927,10 +941,15 @@ func TestHasParent(t *testing.T) {
 func TestParseArmFunctionInPolicySetParameter(t *testing.T) {
 	set := deployPrivateDnsZonesPolicySetDefinition()
 	ass := deployPrivateDnsZonesPolicyAssignment()
+
 	const subId = "00000000-0000-0000-0000-000000000001"
+
 	const rgName = "myRg"
+
 	const location = "uksouth"
+
 	const locationShort = "uks"
+
 	location2short := map[string]string{location: locationShort}
 	ass.Properties.Parameters["dnsZoneSubscriptionId"] = &armpolicy.ParameterValuesValue{Value: "00000000-0000-0000-0000-000000000001"}
 	ass.Properties.Parameters["dnsZoneResourceGroupName"] = &armpolicy.ParameterValuesValue{Value: "myRg"}
@@ -1276,19 +1295,22 @@ func TestParseArmFunctionInPolicySetParameter(t *testing.T) {
 			fmt.Sprintf("privatelink.%s.backup.windowsazure.com", location2short[location]),
 		},
 	}
+
 	for _, tc := range tcs {
-		result, err := parseArmFunctionInPolicySetParameter(tc.policyDefinitionRef, tc.parameterName, ass, set)
-		assert.NoErrorf(t, err, "error in %s with param %s", tc.policyDefinitionRef, tc.parameterName)
+		result, err := parseArmFunctionInPolicySetParameter(tc.policyDefinitionRef, tc.parameterName, &ass.Assignment, &set.SetDefinition)
+		require.NoErrorf(t, err, "error in %s with param %s", tc.policyDefinitionRef, tc.parameterName)
+
 		if err != nil {
 			t.Logf("ERROR - %s", err.Error())
 			continue
 		}
+
 		expected := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/privateDnsZones/%s", subId, strings.ToLower(rgName), tc.dnsZone)
 		assert.Equal(t, expected, result)
 	}
 }
 
-func deployPrivateDnsZonesPolicySetDefinition() *armpolicy.SetDefinition {
+func deployPrivateDnsZonesPolicySetDefinition() *assets.PolicySetDefinition {
 	source := `{
   "name": "Deploy-Private-DNS-Zones",
   "properties": {
@@ -2963,12 +2985,16 @@ func deployPrivateDnsZonesPolicySetDefinition() *armpolicy.SetDefinition {
   },
   "type": "Microsoft.Authorization/policySetDefinitions"
 }`
-	result := new(armpolicy.SetDefinition)
-	_ = result.UnmarshalJSON([]byte(source))
+
+	result := new(assets.PolicySetDefinition)
+	if err := result.UnmarshalJSON([]byte(source)); err != nil {
+		panic(err)
+	}
+
 	return result
 }
 
-func deployPrivateDnsZonesPolicyAssignment() *armpolicy.Assignment {
+func deployPrivateDnsZonesPolicyAssignment() *assets.PolicyAssignment {
 	source := `{
   "type": "Microsoft.Authorization/policyAssignments",
   "apiVersion": "2022-06-01",
@@ -3195,7 +3221,11 @@ func deployPrivateDnsZonesPolicyAssignment() *armpolicy.Assignment {
     "notScopes": []
   }
 }`
-	result := new(armpolicy.Assignment)
-	_ = result.UnmarshalJSON([]byte(source))
+
+	result := new(assets.PolicyAssignment)
+	if err := result.UnmarshalJSON([]byte(source)); err != nil {
+		panic(err)
+	}
+
 	return result
 }

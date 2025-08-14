@@ -18,16 +18,23 @@ func TestGetReferencedPolicyDefinitionNames(t *testing.T) {
 		Properties: &armpolicy.SetDefinitionProperties{
 			PolicyDefinitions: []*armpolicy.DefinitionReference{
 				{
-					PolicyDefinitionID: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Authorization/policyDefinitions/policy1"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup" +
+							"/providers/Microsoft.Authorization/policyDefinitions/policy1",
+					),
 				},
 				{
-					PolicyDefinitionID: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Authorization/policyDefinitions/policy2"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup" +
+							"/providers/Microsoft.Authorization/policyDefinitions/policy2",
+					),
 				},
 			},
 		},
 	})
 
 	expectedNames := []string{"policy1", "policy2"}
+
 	names, err := psd.ReferencedPolicyDefinitionNames()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -43,25 +50,37 @@ func TestGetPolicyDefinitionReferences(t *testing.T) {
 		Properties: &armpolicy.SetDefinitionProperties{
 			PolicyDefinitions: []*armpolicy.DefinitionReference{
 				{
-					PolicyDefinitionID: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Authorization/policyDefinitions/policy1"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/" +
+							"Microsoft.Authorization/policyDefinitions/policy1",
+					),
 				},
 				{
-					PolicyDefinitionID: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Authorization/policyDefinitions/policy2"),
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/" +
+							"Microsoft.Authorization/policyDefinitions/policy2",
+					),
 				},
 			},
 		},
 	})
 	expectedReferences := []*armpolicy.DefinitionReference{
 		{
-			PolicyDefinitionID: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Authorization/policyDefinitions/policy1"),
+			PolicyDefinitionID: to.Ptr(
+				"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup" +
+					"/providers/Microsoft.Authorization/policyDefinitions/policy1",
+			),
 		},
 		{
-			PolicyDefinitionID: to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Authorization/policyDefinitions/policy2"),
+			PolicyDefinitionID: to.Ptr(
+				"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup" +
+					"/providers/Microsoft.Authorization/policyDefinitions/policy2",
+			),
 		},
 	}
 	references := psd.PolicyDefinitionReferences()
 	assert.NotNil(t, references, "expected references to be non-nil")
-	assert.EqualValues(t, expectedReferences, references)
+	assert.Equal(t, expectedReferences, references)
 }
 
 func TestParameter(t *testing.T) {

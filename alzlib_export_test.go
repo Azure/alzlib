@@ -17,6 +17,7 @@ func TestInitWithLocalOverrideOfAlzLibrary(t *testing.T) {
 	lib1 := alzlib.NewAlzLibraryReference("platform/alz", "2024.07.01")
 	_, err := lib1.Fetch(ctx, "0")
 	require.NoError(t, err)
+
 	lib2 := alzlib.NewCustomLibraryReference("./testdata/overrideAlzLibrary")
 	_, err = lib2.Fetch(ctx, "1")
 	require.NoError(t, err)

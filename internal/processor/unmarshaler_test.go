@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUnmarshalJson(t *testing.T) {
@@ -15,11 +16,12 @@ func TestUnmarshalJson(t *testing.T) {
 	u := newUnmarshaler(data, ext)
 
 	var dst map[string]interface{}
+
 	err := u.unmarshal(&dst)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "John", dst["name"])
-	assert.Equal(t, float64(30), dst["age"])
+	assert.InEpsilon(t, float64(30), dst["age"], 0.01)
 }
 
 func TestUnmarshalYaml(t *testing.T) {
@@ -31,9 +33,10 @@ age: 30
 		u := newUnmarshaler(data, ext)
 
 		var dst map[string]interface{}
+
 		err := u.unmarshal(&dst)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "John", dst["name"])
 		assert.Equal(t, int(30), dst["age"])
 	}

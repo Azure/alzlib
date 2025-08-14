@@ -11,7 +11,12 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-var CheckAllDefinitionsAreReferenced = checker.NewValidatorCheck("All definitions are referenced", checkAllDefinitionsAreReferenced)
+// CheckAllDefinitionsAreReferenced is a validator check that ensures all policy definitions, policy set definitions,
+// and role definitions in the ALZ library are referenced by at least one archetype.
+var CheckAllDefinitionsAreReferenced = checker.NewValidatorCheck(
+	"All definitions are referenced",
+	checkAllDefinitionsAreReferenced,
+)
 
 func checkAllDefinitionsAreReferenced(azany any) error {
 	az, ok := azany.(*alzlib.AlzLib)
@@ -22,17 +27,33 @@ func checkAllDefinitionsAreReferenced(azany any) error {
 	referencedPds := mapset.NewThreadUnsafeSet[string]()
 	referencedPsds := mapset.NewThreadUnsafeSet[string]()
 	referencedRds := mapset.NewThreadUnsafeSet[string]()
+
 	for _, archetypeName := range az.Archetypes() {
 		archetype := az.Archetype(archetypeName) // nolint: errcheck
 		referencedPds = referencedPds.Union(archetype.PolicyDefinitions)
 		referencedPsds = referencedPsds.Union(archetype.PolicySetDefinitions)
 		referencedRds = referencedRds.Union(archetype.RoleDefinitions)
 	}
-	unreferencedPds := mapset.NewThreadUnsafeSet(az.PolicyDefinitions()...).Difference(referencedPds).ToSlice()
-	unreferencedPsds := mapset.NewThreadUnsafeSet(az.PolicySetDefinitions()...).Difference(referencedPsds).ToSlice()
-	unreferencedRds := mapset.NewThreadUnsafeSet(az.RoleDefinitions()...).Difference(referencedRds).ToSlice()
+
+	unreferencedPds := mapset.NewThreadUnsafeSet(az.PolicyDefinitions()...).
+		Difference(referencedPds).
+		ToSlice()
+	unreferencedPsds := mapset.NewThreadUnsafeSet(az.PolicySetDefinitions()...).
+		Difference(referencedPsds).
+		ToSlice()
+	unreferencedRds := mapset.NewThreadUnsafeSet(az.RoleDefinitions()...).
+		Difference(referencedRds).
+		ToSlice()
+
 	if len(unreferencedPds) > 0 || len(unreferencedPsds) > 0 || len(unreferencedRds) > 0 {
-		return fmt.Errorf("checkAllDefinitionsAreReferenced: found unreferenced definitions [policyDefinitions] [policySetDefinitions] [roleDefinitions]: %v, %v, %v", unreferencedPds, unreferencedPsds, unreferencedRds)
+		return fmt.Errorf(
+			"checkAllDefinitionsAreReferenced: found unreferenced definitions "+
+				"[policyDefinitions] [policySetDefinitions] [roleDefinitions]: %v, %v, %v",
+			unreferencedPds,
+			unreferencedPsds,
+			unreferencedRds,
+		)
 	}
+
 	return nil
 }

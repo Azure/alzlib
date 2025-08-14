@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package assets
 
 import (
@@ -29,7 +32,8 @@ type VersionedPolicyCollection[T Versioned] struct {
 
 // GetVersion returns a policy version based on the provided constraint string.
 // If the constraint string is nil, it returns the versionless definition if it exists.
-// If the constraint string is nil and no versionless definition exists, it returns the latest version.
+// If the constraint string is nil and no versionless definition exists, it returns the latest
+// version.
 func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, error) {
 	if constraintStr != nil && *constraintStr == "" {
 		return nil, errors.New("constraint string cannot be empty")
@@ -39,6 +43,7 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 		if c.versionlessDefinition != nil {
 			return c.versionlessDefinition, nil
 		}
+
 		return c.GetVersion(to.Ptr(">= 0.0.*"))
 	}
 
@@ -48,25 +53,32 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 	}
 
 	var resKey *semver.Version
+
 	for v := range maps.Keys(c.versions) {
 		if !constraint.Check(&v) || !semverCheckPrereleaseStrict(&v, constraint) {
 			continue
 		}
+
 		if resKey == nil {
 			resKey = &v
 			continue
 		}
+
 		if v.LessThan(resKey) {
 			continue
 		}
+
 		resKey = &v
 	}
+
 	if resKey == nil {
 		return nil, fmt.Errorf("no version found for constraint %s", *constraintStr)
 	}
+
 	return c.versions[*resKey], nil
 }
 
+// Add adds a new version to the collection.
 func (c *VersionedPolicyCollection[T]) Add(add T) error {
 	if add == nil {
 		return errors.New("cannot add nil policy definition")
@@ -75,12 +87,19 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 	verStr := add.GetVersion()
 	if verStr == nil {
 		if len(c.versions) > 0 {
-			return errors.New("cannot add versionless definition when versioned definitions already exist")
+			return errors.New(
+				"cannot add versionless definition when versioned definitions already exist",
+			)
 		}
+
 		if c.versionlessDefinition != nil {
-			return errors.New("cannot add versionless definition when versionless definition already exists")
+			return errors.New(
+				"cannot add versionless definition when versionless definition already exists",
+			)
 		}
+
 		c.versionlessDefinition = add
+
 		return nil
 	}
 
@@ -92,7 +111,9 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 	}
 
 	if c.versionlessDefinition != nil {
-		return errors.New("cannot add versioned definition when versionless definition(s) already exists")
+		return errors.New(
+			"cannot add versioned definition when versionless definition(s) already exists",
+		)
 	}
 
 	if _, ok := c.versions[*sv]; ok {
@@ -101,10 +122,15 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 
 	for v := range maps.Values(c.versions) {
 		if *v.GetName() != *name {
-			return fmt.Errorf("cannot add with different name than existing version. Add name is `%s`. Existing name is `%s`", *name, *v.GetName())
+			return fmt.Errorf(
+				"cannot add with different name than existing version. Add name is `%s`. Existing name is `%s`",
+				*name,
+				*v.GetName(),
+			)
 		}
 	}
 
 	c.versions[*sv] = add
+
 	return nil
 }

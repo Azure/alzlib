@@ -19,6 +19,7 @@ func TestValidator_Validate(t *testing.T) {
 	validResource := &armpolicy.Definition{
 		Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
 	}
+
 	err := validator.Validate(validResource)
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
@@ -28,6 +29,7 @@ func TestValidator_Validate(t *testing.T) {
 	invalidResource := &armpolicy.Definition{
 		Type: to.Ptr("InvalidType"),
 	}
+
 	err = validator.Validate(invalidResource)
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")

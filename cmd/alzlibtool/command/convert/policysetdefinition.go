@@ -18,7 +18,7 @@ var policysetdefinitionCmd = cobra.Command{
 	Short: "Convert policy set definitions to the format required by alzlib.",
 	Long:  `Reads policy set definitions from the Enterprise-Scale repo and converts to the format required by alzlib.`,
 	Args: cobra.MatchAll(
-		cobra.ExactArgs(2),
+		cobra.ExactArgs(RequiredArgCount),
 	),
 	Run: func(cmd *cobra.Command, args []string) {
 		valid := checker.NewValidator(checks.CheckResourceTypeIsCorrect)

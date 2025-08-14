@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package doc
 
 import (
@@ -14,7 +17,9 @@ func TestAlzlibReadmeMd(t *testing.T) {
 	lib := alzlib.NewAlzLibraryReference("platform/alz", "2024.07.02")
 	_, err := lib.Fetch(ctx, "0")
 	require.NoError(t, err)
+
 	var buf bytes.Buffer
+
 	err = AlzlibReadmeMd(ctx, &buf, lib)
 	t.Log(buf.String())
 	require.NoError(t, err)

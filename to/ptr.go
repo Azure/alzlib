@@ -14,5 +14,6 @@ func SliceOfPtrs[T any](vv ...T) []*T {
 	for i := range vv {
 		slc[i] = Ptr(vv[i])
 	}
+
 	return slc
 }

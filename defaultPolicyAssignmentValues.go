@@ -10,7 +10,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
-// PolicyAssignmentsParameterValues is a map of default names to DefaultPolicyAssignmentValuesValue.
+// DefaultPolicyAssignmentValues is a map of default names to DefaultPolicyAssignmentValuesValue.
 // It is used to map a single value to multiple policy assignments.
 type DefaultPolicyAssignmentValues map[string]DefaultPolicyAssignmentValuesValue
 
@@ -20,6 +20,7 @@ type DefaultPolicyAssignmentValuesValue struct {
 	description           string
 }
 
+// NewDefaultPolicyAssignmentValuesValue creates a new DefaultPolicyAssignmentValues instance.
 func NewDefaultPolicyAssignmentValuesValue(description string) DefaultPolicyAssignmentValuesValue {
 	return DefaultPolicyAssignmentValuesValue{
 		assignment2Parameters: make(map[string]mapset.Set[string]),
@@ -27,16 +28,22 @@ func NewDefaultPolicyAssignmentValuesValue(description string) DefaultPolicyAssi
 	}
 }
 
-// AssignmentParameterComboExists checks if a given assignment name and parameter name combination exists in the DefaultPolicyAssignmentValues.
-// It iterates through each assignment in the DefaultPolicyAssignmentValues and checks if the assignment contains the specified assignment name.
-// If the assignment contains the assignment name, it then checks if the assignment's parameters contain the specified parameter name.
+// AssignmentParameterComboExists checks if a given assignment name and parameter name combination
+// exists in the DefaultPolicyAssignmentValues. It iterates through each assignment in the
+// DefaultPolicyAssignmentValues and checks if the assignment contains the specified assignment
+// name. If the assignment contains the assignment name, it then checks
+// if the assignment's parameters contain the specified parameter name.
 // If the combination exists, it returns true. Otherwise, it returns false.
-func (d DefaultPolicyAssignmentValues) AssignmentParameterComboExists(wantAssignmentName, wantParameterName string) bool {
+func (d DefaultPolicyAssignmentValues) AssignmentParameterComboExists(
+	wantAssignmentName, wantParameterName string,
+) bool {
 	for _, assignment := range d {
-		if parameters, exists := assignment.assignment2Parameters[wantAssignmentName]; exists && parameters.Contains(wantParameterName) {
+		if parameters, exists := assignment.assignment2Parameters[wantAssignmentName]; exists &&
+			parameters.Contains(wantParameterName) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -45,13 +52,18 @@ func (d DefaultPolicyAssignmentValues) AssignmentParameterComboExists(wantAssign
 // If the defaultName does not exist in the DefaultPolicyAssignmentValues, it creates a new entry.
 // If the assignmentName does not exist under the defaultName, it creates a new entry.
 // Finally, it appends the parameterNames to the assignmentName.
-func (d DefaultPolicyAssignmentValues) Add(defaultName, assignmentName, description string, parameterNames ...string) {
+func (d DefaultPolicyAssignmentValues) Add(
+	defaultName, assignmentName, description string,
+	parameterNames ...string,
+) {
 	if _, exists := d[defaultName]; !exists {
 		d[defaultName] = NewDefaultPolicyAssignmentValuesValue(description)
 	}
+
 	if _, exists := d[defaultName].assignment2Parameters[assignmentName]; !exists {
 		d[defaultName].assignment2Parameters[assignmentName] = mapset.NewThreadUnsafeSet[string]()
 	}
+
 	d[defaultName].assignment2Parameters[assignmentName].Append(parameterNames...)
 }
 
@@ -61,6 +73,7 @@ func (d DefaultPolicyAssignmentValuesValue) copy() DefaultPolicyAssignmentValues
 	for k, v := range d.assignment2Parameters {
 		newVal.assignment2Parameters[k] = v.Clone()
 	}
+
 	return newVal
 }
 
@@ -70,18 +83,22 @@ func (d DefaultPolicyAssignmentValuesValue) Assignments() []string {
 	for s := range maps.Keys(d.assignment2Parameters) {
 		result = append(result, s)
 	}
+
 	slices.Sort(result)
+
 	return result
 }
 
-// Assignments returns a sorted list of parameter names.
+// AssignmentParameters returns a sorted list of parameter names.
 func (d DefaultPolicyAssignmentValuesValue) AssignmentParameters(name string) []string {
 	if _, ok := d.assignment2Parameters[name]; !ok {
 		return nil
 	}
+
 	v := d.assignment2Parameters[name]
 	s := v.ToSlice()
 	slices.Sort(s)
+
 	return s
 }
 
@@ -90,6 +107,7 @@ func (d DefaultPolicyAssignmentValuesValue) Description() string {
 	return d.description
 }
 
+// PolicyAssignment2ParameterMap returns the map of assignment names to parameter names.
 func (d DefaultPolicyAssignmentValuesValue) PolicyAssignment2ParameterMap() map[string]mapset.Set[string] {
 	return d.assignment2Parameters
 }

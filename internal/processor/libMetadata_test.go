@@ -46,21 +46,31 @@ func TestLibMetadataUnmarshal(t *testing.T) {
 
 	// Test unmarshaling valid input
 	var actual LibMetadata
+
 	err := json.Unmarshal([]byte(input), &actual)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	assert.EqualValues(t, expected, actual)
+	assert.Equal(t, expected, actual)
 
 	// Test unmarshaling empty input
 	emptyInput := `{}`
 	expectedEmpty := LibMetadata{}
+
 	var actualEmpty LibMetadata
+
 	err = json.Unmarshal([]byte(emptyInput), &actualEmpty)
 	require.NoError(t, err)
 
-	assert.EqualValuesf(t, expectedEmpty, actualEmpty, "Expected %+v, but got %+v", expectedEmpty, actualEmpty)
+	assert.Equalf(
+		t,
+		expectedEmpty,
+		actualEmpty,
+		"Expected %+v, but got %+v",
+		expectedEmpty,
+		actualEmpty,
+	)
 
 	// Test unmarshaling invalid input
 	invalidInput := `
@@ -70,7 +80,9 @@ func TestLibMetadataUnmarshal(t *testing.T) {
     "description": "This is a test",
     "dependencies": "invalid"
   }`
+
 	var actualInvalid LibMetadata
+
 	err = json.Unmarshal([]byte(invalidInput), &actualInvalid)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

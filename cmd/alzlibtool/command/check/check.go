@@ -10,10 +10,10 @@ import (
 // CheckCmd represents the library check command.
 var CheckCmd = cobra.Command{
 	Use:   "check",
-	Short: "Perform validaitons.",
+	Short: "Perform validations.",
 	Long:  `Primarily used as a tool to check the validity of a library member and assets.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		cmd.PrintErrf("%s library command: missing required child command\n", cmd.ErrPrefix())
 		cmd.Usage() // nolint: errcheck
 	},
