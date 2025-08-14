@@ -11,11 +11,17 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync/atomic"
 
 	"github.com/Azure/alzlib/internal/environment"
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/hashicorp/go-getter/v2"
 )
+
+// Instance is used to track the current instance ID.
+// When set by the caller, it prevents collisions in the .alzlib directory.
+var Instance atomic.Uint32
 
 // fetchLibraryWithDependencies takes a library reference, fetches it, and then fetches all of its
 // dependencies. The destination directory is an integer that will be appended to the `.alzlib`
@@ -113,7 +119,8 @@ func FetchAzureLandingZonesLibraryMember(
 // It returns an fs.FS interface to the fetched library to be used in the AlzLib.Init() method.
 func FetchLibraryByGetterString(ctx context.Context, getterString, dstDir string) (fs.FS, error) {
 	baseDir := environment.AlzLibDir()
-	dst := filepath.Join(baseDir, dstDir)
+	instance := strconv.Itoa(int(Instance.Load()))
+	dst := filepath.Join(baseDir, instance, dstDir)
 	client := getter.Client{
 		DisableSymlinks: true,
 	}
