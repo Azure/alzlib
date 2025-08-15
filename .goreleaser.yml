@@ -36,12 +36,12 @@ snapshot:
   version_template: "{{ incpatch .Version }}-next"
 archives:
   - id: alzlibtool
-    format: tar.gz
-    builds:
+    formats: [tar.gz]
+    ids:
       - alzlibtool
     name_template: "alzlibtool_{{ .Os }}_{{ .Arch }}"
     format_overrides:
-      - format: zip
+      - formats: [zip]
         goos: windows
     builds_info:
       group: root
