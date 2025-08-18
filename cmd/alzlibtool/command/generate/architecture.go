@@ -61,8 +61,10 @@ var generateArchitectureBaseCmd = cobra.Command{
 		}
 		// If an output directory is provided, export a filesystem representation and return.
 		outDir, _ := cmd.Flags().GetString("output")
+		escapeARM, _ := cmd.Flags().GetBool("escape-arm")
 		if outDir != "" {
-			if err := deployment.NewFSWriter().Write(cmd.Context(), h, outDir); err != nil {
+			w := deployment.NewFSWriter(deployment.WithEscapeARM(escapeARM))
+			if err := w.Write(cmd.Context(), h, outDir); err != nil {
 				cmd.PrintErrf("%s could not write filesystem output: %v\n", cmd.ErrPrefix(), err)
 				os.Exit(1)
 			}
@@ -97,4 +99,10 @@ func init() {
 			"",
 			"Directory to export the filesystem representation of the hierarchy (per-asset JSON files). "+
 				"If set, JSON is not printed to stdout.")
+
+	generateArchitectureBaseCmd.Flags().
+		Bool(
+			"escape-arm",
+			false,
+			"When exporting to a directory, escape ARM function strings (values starting with '[') by prefixing an extra '['.")
 }

@@ -308,10 +308,6 @@ func ValidatePolicyDefinition(pd *PolicyDefinition) error {
 		pd.Properties.Mode = to.Ptr(policyDefinitionModeDefault)
 	}
 
-	if pd.Properties.Parameters != nil {
-		pd.Properties.Parameters = make(map[string]*armpolicy.ParameterDefinitionsValue)
-	}
-
 	if pd.Properties.Metadata == nil {
 		pd.Properties.Metadata = any(map[string]any{})
 	}

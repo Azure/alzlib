@@ -146,7 +146,8 @@ func TestProcessPolicyAssignmentNoName(t *testing.T) {
 		PolicyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.ErrorContains(t, processPolicyAssignment(res, unmar), "name must not be nil")
+	target := &assets.ErrPropertyMustNotBeNil{}
+	require.ErrorAs(t, processPolicyAssignment(res, unmar), &target)
 }
 
 // TestProcessPolicyDefinitionValid tests the processing of a valid policy definition.

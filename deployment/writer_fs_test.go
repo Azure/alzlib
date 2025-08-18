@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Azure/alzlib"
@@ -87,6 +88,57 @@ func TestFSWriter_ExportsSimple(t *testing.T) {
 	require.Equal(t, "test-pa", *pa.Name)
 }
 
+func TestFSWriter_WithEscapeARM_Toggle(t *testing.T) {
+	h := buildSimpleHierarchy(t)
+
+	// Sanity: pick a file that is likely to contain parameterized strings in testdata/simple
+	outDirNoEsc := t.TempDir()
+	wNoEsc := NewFSWriter() // default: no escaping
+	require.NoError(t, wNoEsc.Write(context.Background(), h, outDirNoEsc))
+
+	outDirEsc := t.TempDir()
+	wEsc := NewFSWriter(WithEscapeARM(true))
+	require.NoError(t, wEsc.Write(context.Background(), h, outDirEsc))
+
+	// Compare one known file content for evidence of escaping behavior.
+	// We'll use the policy assignment which in simple testdata contains some bracketed expressions.
+	paFile := filepath.Join("simple", "test-pa"+fileSuffixPolicyAssignment)
+
+	noEscBytes, err := os.ReadFile(filepath.Join(outDirNoEsc, paFile))
+	require.NoError(t, err)
+
+	escBytes, err := os.ReadFile(filepath.Join(outDirEsc, paFile))
+	require.NoError(t, err)
+
+	// Parse into generic maps and scan for any string starting with "[[" in the escaped output,
+	// which should be strictly more than in the non-escaped output.
+	var noEsc any
+	var esc any
+	require.NoError(t, json.Unmarshal(noEscBytes, &noEsc))
+	require.NoError(t, json.Unmarshal(escBytes, &esc))
+
+	var countStarts func(v any) int
+	countStarts = func(v any) (count int) {
+		switch t := v.(type) {
+		case map[string]any:
+			for _, val := range t {
+				count += countStarts(val)
+			}
+		case []any:
+			for _, e := range t {
+				count += countStarts(e)
+			}
+		case string:
+			if strings.HasPrefix(t, "[[") {
+				count++
+			}
+		}
+		return
+	}
+
+	require.GreaterOrEqual(t, countStarts(esc), countStarts(noEsc))
+}
+
 func TestFSWriter_Cancellation(t *testing.T) {
 	h := buildSimpleHierarchy(t)
 	outDir := t.TempDir()
@@ -158,4 +210,69 @@ func TestWriteJSONFile(t *testing.T) {
 	var dec map[string]any
 	require.NoError(t, json.Unmarshal(b, &dec))
 	require.Equal(t, "y", dec["x"])
+}
+
+func TestAddArmFunctionEscaping_MapSimple(t *testing.T) {
+	t.Parallel()
+
+	v := map[string]any{
+		"a": "[concat('foo','bar')]",
+		"b": "nope",
+		"c": 123,
+		"d": true,
+		"e": nil,
+	}
+
+	require.NoError(t, addArmFunctionEscaping(v))
+
+	require.Equal(t, "[[concat('foo','bar')]", v["a"])
+	require.Equal(t, "nope", v["b"])
+	require.Equal(t, 123, v["c"])
+	require.Equal(t, true, v["d"])
+	require.Nil(t, v["e"])
+}
+
+func TestAddArmFunctionEscaping_Nested(t *testing.T) {
+	t.Parallel()
+
+	v := map[string]any{
+		"outer": []any{
+			"[subscription().id]",
+			map[string]any{
+				"inner":    "[resourceGroup().name]",
+				"innerOK":  "text",
+				"innerNum": 42,
+			},
+		},
+	}
+
+	require.NoError(t, addArmFunctionEscaping(v))
+
+	outer := v["outer"].([]any)
+	require.Equal(t, "[[subscription().id]", outer[0])
+
+	inner := outer[1].(map[string]any)
+	require.Equal(t, "[[resourceGroup().name]", inner["inner"])
+	require.Equal(t, "text", inner["innerOK"])
+	require.Equal(t, 42, inner["innerNum"])
+}
+
+func TestAddArmFunctionEscaping_SliceRoot(t *testing.T) {
+	t.Parallel()
+
+	v := []any{
+		"[parameters('p1')]",
+		"plain",
+		5,
+		map[string]any{"k": "[deployment().name]"},
+	}
+
+	require.NoError(t, addArmFunctionEscaping(v))
+
+	require.Equal(t, "[[parameters('p1')]", v[0])
+	require.Equal(t, "plain", v[1])
+	require.Equal(t, 5, v[2])
+
+	m := v[3].(map[string]any)
+	require.Equal(t, "[[deployment().name]", m["k"])
 }

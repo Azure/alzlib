@@ -16,7 +16,7 @@ func TestCheckDefaultsGood(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	ctx := context.Background()
 	lib := alzlib.NewCustomLibraryReference("testdata/defaultsgood")
-	_, err := lib.Fetch(ctx, "0")
+	_, err := lib.Fetch(ctx, t.Name())
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
 	require.NoError(t, checkDefaults(az))
@@ -26,7 +26,7 @@ func TestCheckDefaultsAssignmentNotPresent(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	ctx := context.Background()
 	lib := alzlib.NewCustomLibraryReference("testdata/defaultsassignmentnotpresent")
-	_, err := lib.Fetch(ctx, "0")
+	_, err := lib.Fetch(ctx, t.Name())
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
 	assert.ErrorContains(
@@ -40,7 +40,7 @@ func TestCheckDefaultsParameterNotPresent(t *testing.T) {
 	az := alzlib.NewAlzLib(nil)
 	ctx := context.Background()
 	lib := alzlib.NewCustomLibraryReference("testdata/defaultsparameternotpresent")
-	_, err := lib.Fetch(ctx, "0")
+	_, err := lib.Fetch(ctx, t.Name())
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
 	assert.ErrorContains(

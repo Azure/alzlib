@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/internal/processor"
 )
 
@@ -28,10 +27,28 @@ type HierarchyWriter interface {
 }
 
 // FSWriter writes a Hierarchy to the local filesystem.
-type FSWriter struct{}
+type FSWriter struct {
+	escapeARM bool
+}
 
-// NewFSWriter creates a new filesystem writer.
-func NewFSWriter() *FSWriter { return &FSWriter{} }
+// FSWriterOption configures FSWriter behavior.
+type FSWriterOption func(*FSWriter)
+
+// WithEscapeARM enables or disables escaping of ARM function expressions in string values
+// by prefixing an extra '['. When enabled, JSON is materialized to generic maps/slices and
+// processed recursively before writing.
+func WithEscapeARM(enabled bool) FSWriterOption {
+	return func(w *FSWriter) { w.escapeARM = enabled }
+}
+
+// NewFSWriter creates a new filesystem writer with optional configuration.
+func NewFSWriter(opts ...FSWriterOption) *FSWriter {
+	w := &FSWriter{}
+	for _, opt := range opts {
+		opt(w)
+	}
+	return w
+}
 
 const (
 	fileSuffixPolicyAssignment    = "." + processor.PolicyAssignmentFileType + ".json"
@@ -137,14 +154,7 @@ func (w *FSWriter) writePolicyAssignments(ctx context.Context, dir string, mg *H
 		return nil
 	}
 
-	list := make([]*assets.PolicyAssignment, 0, len(m))
-	for _, v := range m {
-		list = append(list, v)
-	}
-
-	sort.Slice(list, func(i, j int) bool { return derefString(list[i].Name, "") < derefString(list[j].Name, "") })
-
-	for _, pa := range list {
+	for _, pa := range m {
 		if err := ctxErr(ctx); err != nil {
 			return err
 		}
@@ -152,7 +162,7 @@ func (w *FSWriter) writePolicyAssignments(ctx context.Context, dir string, mg *H
 		assetName := derefString(pa.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicyAssignment)
-		if err := writeJSONFile(file, pa); err != nil {
+		if err := w.writeJSONFileMaybeEscaped(ctx, file, pa); err != nil {
 			return fmt.Errorf("writing policy assignment %q: %w", assetName, err)
 		}
 	}
@@ -166,14 +176,7 @@ func (w *FSWriter) writePolicyDefinitions(ctx context.Context, dir string, mg *H
 		return nil
 	}
 
-	list := make([]*assets.PolicyDefinition, 0, len(m))
-	for _, v := range m {
-		list = append(list, v)
-	}
-
-	sort.Slice(list, func(i, j int) bool { return derefString(list[i].Name, "") < derefString(list[j].Name, "") })
-
-	for _, pd := range list {
+	for _, pd := range m {
 		if err := ctxErr(ctx); err != nil {
 			return err
 		}
@@ -181,7 +184,7 @@ func (w *FSWriter) writePolicyDefinitions(ctx context.Context, dir string, mg *H
 		assetName := derefString(pd.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicyDefinition)
-		if err := writeJSONFile(file, pd); err != nil {
+		if err := w.writeJSONFileMaybeEscaped(ctx, file, pd); err != nil {
 			return fmt.Errorf("writing policy definition %q: %w", assetName, err)
 		}
 	}
@@ -195,14 +198,7 @@ func (w *FSWriter) writePolicySetDefinitions(ctx context.Context, dir string, mg
 		return nil
 	}
 
-	list := make([]*assets.PolicySetDefinition, 0, len(m))
-	for _, v := range m {
-		list = append(list, v)
-	}
-
-	sort.Slice(list, func(i, j int) bool { return derefString(list[i].Name, "") < derefString(list[j].Name, "") })
-
-	for _, psd := range list {
+	for _, psd := range m {
 		if err := ctxErr(ctx); err != nil {
 			return err
 		}
@@ -210,7 +206,7 @@ func (w *FSWriter) writePolicySetDefinitions(ctx context.Context, dir string, mg
 		assetName := derefString(psd.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicySetDefinition)
-		if err := writeJSONFile(file, psd); err != nil {
+		if err := w.writeJSONFileMaybeEscaped(ctx, file, psd); err != nil {
 			return fmt.Errorf("writing policy set definition %q: %w", assetName, err)
 		}
 	}
@@ -224,14 +220,7 @@ func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *Hie
 		return nil
 	}
 
-	list := make([]*assets.RoleDefinition, 0, len(m))
-	for _, v := range m {
-		list = append(list, v)
-	}
-
-	sort.Slice(list, func(i, j int) bool { return derefString(list[i].Name, "") < derefString(list[j].Name, "") })
-
-	for _, rd := range list {
+	for _, rd := range m {
 		if err := ctxErr(ctx); err != nil {
 			return err
 		}
@@ -239,7 +228,7 @@ func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *Hie
 		assetName := derefString(rd.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixRoleDefinition)
-		if err := writeJSONFile(file, rd); err != nil {
+		if err := w.writeJSONFileMaybeEscaped(ctx, file, rd); err != nil {
 			return fmt.Errorf("writing role definition %q: %w", assetName, err)
 		}
 	}
@@ -248,8 +237,6 @@ func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *Hie
 }
 
 // Helpers
-
-// Note: sorting is now done on slices built from map values; helpers removed.
 
 func derefString(p *string, fallback string) string {
 	if p == nil || *p == "" {
@@ -335,6 +322,70 @@ func writeJSONFile(finalPath string, v any) error {
 
 	if err := os.Chmod(finalPath, filePerm); err != nil {
 		return fmt.Errorf("chmod final for %q: %w", finalPath, err)
+	}
+
+	return nil
+}
+
+// writeJSONFileMaybeEscaped writes v as JSON to finalPath. When the writer is configured
+// with escapeARM=true, it first materializes v into generic JSON types (map[string]any/[]any),
+// applies addArmFunctionEscaping to escape ARM function expressions, and then writes the result.
+func (w *FSWriter) writeJSONFileMaybeEscaped(ctx context.Context, finalPath string, v any) error {
+	if err := ctxErr(ctx); err != nil {
+		return err
+	}
+	if !w.escapeARM {
+		return writeJSONFile(finalPath, v)
+	}
+
+	// Marshal to JSON then unmarshal into interface{} to obtain maps/slices for traversal.
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("marshal for escaping: %w", err)
+	}
+	var m any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return fmt.Errorf("unmarshal for escaping: %w", err)
+	}
+	if err := addArmFunctionEscaping(m); err != nil {
+		return fmt.Errorf("escape ARM functions: %w", err)
+	}
+	return writeJSONFile(finalPath, m)
+}
+func addArmFunctionEscaping(v any) error {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, val := range t {
+			switch vv := val.(type) {
+			case string:
+				// If the string starts with [ (open bracket),
+				// add an extra [ to escape ARM template function evaluation.
+				if strings.HasPrefix(vv, "[") {
+					t[k] = "[[" + vv[1:]
+					continue
+				}
+			case map[string]any, []any:
+				if err := addArmFunctionEscaping(vv); err != nil {
+					return err
+				}
+			}
+		}
+	case []any:
+		for i, elem := range t {
+			switch e := elem.(type) {
+			case string:
+				if strings.HasPrefix(e, "[") {
+					t[i] = "[[" + e[1:]
+					continue
+				}
+			case map[string]any, []any:
+				if err := addArmFunctionEscaping(e); err != nil {
+					return err
+				}
+			}
+		}
+	default:
+		// other scalar types (bool, float64, nil, json.Number, etc.) are ignored
 	}
 
 	return nil
