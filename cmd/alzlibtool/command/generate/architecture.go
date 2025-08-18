@@ -63,6 +63,7 @@ var generateArchitectureBaseCmd = cobra.Command{
 		for i, mgName := range h.ManagementGroupNames() {
 			output[i] = h.ManagementGroup(mgName)
 		}
+
 		outputBytes, err := json.Marshal(output)
 		if err != nil {
 			cmd.PrintErrf("%s could not marshal output: %v\n", cmd.ErrPrefix(), err)

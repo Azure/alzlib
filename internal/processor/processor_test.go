@@ -11,7 +11,6 @@ import (
 	"text/template"
 
 	"github.com/Azure/alzlib/assets"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -156,7 +155,7 @@ func TestProcessPolicyDefinitionValid(t *testing.T) {
 
 	sampleData := getSamplePolicyDefinition()
 	res := &Result{
-		PolicyDefinitions: make(map[string]*armpolicy.Definition),
+		PolicyDefinitions: make(map[string]*assets.PolicyDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicyDefinition(res, unmar))
@@ -180,13 +179,14 @@ func TestProcessPolicyDefinitionNoName(t *testing.T) {
 
 	sampleData := getSamplePolicyDefinition_noName()
 	res := &Result{
-		PolicyDefinitions: make(map[string]*armpolicy.Definition),
+		PolicyDefinitions: make(map[string]*assets.PolicyDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.ErrorIs(
+	target := &assets.ErrPropertyLength{}
+	assert.ErrorAs(
 		t,
 		processPolicyDefinition(res, unmar),
-		ErrNoNameProvided,
+		&target,
 	)
 }
 
@@ -196,7 +196,7 @@ func TestProcessSetPolicyDefinitionValid(t *testing.T) {
 
 	sampleData := getSamplePolicySetDefinition()
 	res := &Result{
-		PolicySetDefinitions: make(map[string]*armpolicy.SetDefinition),
+		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicySetDefinition(res, unmar))
@@ -216,13 +216,14 @@ func TestProcessPolicySetDefinitionNoName(t *testing.T) {
 
 	sampleData := getSamplePolicySetDefinition_noName()
 	res := &Result{
-		PolicySetDefinitions: make(map[string]*armpolicy.SetDefinition),
+		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.ErrorIs(
+	target := &assets.ErrPropertyMustNotBeNil{}
+	assert.ErrorAs(
 		t,
 		processPolicySetDefinition(res, unmar),
-		ErrNoNameProvided,
+		&target,
 	)
 }
 
@@ -263,7 +264,7 @@ func TestProcessRoleDefinitionWithDataActions(t *testing.T) {
 
 	sampleData := getSampleRoleDefinitionWithDataActions()
 	res := &Result{
-		RoleDefinitions: make(map[string]*armauthorization.RoleDefinition),
+		RoleDefinitions: make(map[string]*assets.RoleDefinition),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processRoleDefinition(res, unmar))
