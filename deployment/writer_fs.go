@@ -47,6 +47,7 @@ func NewFSWriter(opts ...FSWriterOption) *FSWriter {
 	for _, opt := range opts {
 		opt(w)
 	}
+
 	return w
 }
 
@@ -334,6 +335,7 @@ func (w *FSWriter) writeJSONFileMaybeEscaped(ctx context.Context, finalPath stri
 	if err := ctxErr(ctx); err != nil {
 		return err
 	}
+
 	if !w.escapeARM {
 		return writeJSONFile(finalPath, v)
 	}
@@ -343,13 +345,16 @@ func (w *FSWriter) writeJSONFileMaybeEscaped(ctx context.Context, finalPath stri
 	if err != nil {
 		return fmt.Errorf("marshal for escaping: %w", err)
 	}
+
 	var m any
 	if err := json.Unmarshal(b, &m); err != nil {
 		return fmt.Errorf("unmarshal for escaping: %w", err)
 	}
+
 	if err := addArmFunctionEscaping(m); err != nil {
 		return fmt.Errorf("escape ARM functions: %w", err)
 	}
+
 	return writeJSONFile(finalPath, m)
 }
 func addArmFunctionEscaping(v any) error {

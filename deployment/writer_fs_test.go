@@ -112,12 +112,16 @@ func TestFSWriter_WithEscapeARM_Toggle(t *testing.T) {
 
 	// Parse into generic maps and scan for any string starting with "[[" in the escaped output,
 	// which should be strictly more than in the non-escaped output.
-	var noEsc any
-	var esc any
+	var (
+		noEsc any
+		esc   any
+	)
+
 	require.NoError(t, json.Unmarshal(noEscBytes, &noEsc))
 	require.NoError(t, json.Unmarshal(escBytes, &esc))
 
 	var countStarts func(v any) int
+
 	countStarts = func(v any) (count int) {
 		switch t := v.(type) {
 		case map[string]any:
@@ -133,6 +137,7 @@ func TestFSWriter_WithEscapeARM_Toggle(t *testing.T) {
 				count++
 			}
 		}
+
 		return
 	}
 
