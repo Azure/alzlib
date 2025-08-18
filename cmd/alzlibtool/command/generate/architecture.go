@@ -59,6 +59,16 @@ var generateArchitectureBaseCmd = cobra.Command{
 			cmd.PrintErrf("%s could not generate architecture: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
+		// If an output directory is provided, export a filesystem representation and return.
+		outDir, _ := cmd.Flags().GetString("output")
+		if outDir != "" {
+			if err := deployment.NewFSWriter().Write(cmd.Context(), h, outDir); err != nil {
+				cmd.PrintErrf("%s could not write filesystem output: %v\n", cmd.ErrPrefix(), err)
+				os.Exit(1)
+			}
+			cmd.Printf("filesystem export written to %s\n", outDir)
+			return
+		}
 		output := make([]*deployment.HierarchyManagementGroup, len(h.ManagementGroupNames()))
 		for i, mgName := range h.ManagementGroupNames() {
 			output[i] = h.ManagementGroup(mgName)
@@ -80,4 +90,11 @@ func init() {
 			"The root management group id to use for the deployment.")
 	generateArchitectureBaseCmd.Flags().
 		StringP("location", "l", "northeurope", "The location to use for the deployment.")
+	generateArchitectureBaseCmd.Flags().
+		StringP(
+			"output",
+			"o",
+			"",
+			"Directory to export the filesystem representation of the hierarchy (per-asset JSON files). "+
+				"If set, JSON is not printed to stdout.")
 }
