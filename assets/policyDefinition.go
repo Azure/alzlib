@@ -7,10 +7,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+)
+
+const (
+	// PolicyDefinitionDisplayNameMaxLength is the maximum length of the display name for a policy definition.
+	PolicyDefinitionDisplayNameMaxLength = 128
+	// PolicyDefinitionDescriptionMaxLength is the maximum length of the description for a policy definition.
+	PolicyDefinitionDescriptionMaxLength = 512
+	// PolicyDefinitionNameMaxLength is the maximum length of the name for a policy definition.
+	PolicyDefinitionNameMaxLength = 64
+	// policyDefinitionModeDefault is the default mode for a policy definition.
+	policyDefinitionModeDefault = "all"
 )
 
 // PolicyDefinition is a wrapper around armpolicy.Definition that provides additional methods
@@ -22,6 +34,17 @@ type PolicyDefinition struct {
 // NewPolicyDefinition creates a new PolicyDefinition from an armpolicy.Definition.
 func NewPolicyDefinition(pd armpolicy.Definition) *PolicyDefinition {
 	return &PolicyDefinition{pd}
+}
+
+// NewPolicyDefinitionValidate creates a new PolicyDefinition instance and validates it.
+func NewPolicyDefinitionValidate(pd armpolicy.Definition) (*PolicyDefinition, error) {
+	pdObj := &PolicyDefinition{Definition: pd}
+
+	if err := ValidatePolicyDefinition(pdObj); err != nil {
+		return nil, err
+	}
+
+	return pdObj, nil
 }
 
 // policyDefinitionRule represents the opinionated rule section of a policy definition.
@@ -210,4 +233,95 @@ func normalizeRoleDefinitionID(id string) (string, error) {
 	}
 
 	return fmt.Sprintf("/providers/Microsoft.Authorization/roleDefinitions/%s", resID.Name), nil
+}
+
+// ValidatePolicyDefinition performs validation checks on the policy definition.
+// To reduce the risk of nil pointer dereferences, it will create empty values for optional fields.
+func ValidatePolicyDefinition(pd *PolicyDefinition) error {
+	if pd == nil {
+		return NewErrPropertyMustNotBeNil("PolicyDefinition")
+	}
+
+	if pd.Name == nil {
+		return NewErrPropertyMustNotBeNil("name")
+	}
+
+	if *pd.Name == "" ||
+		utf8.RuneCountInString(*pd.Name) > PolicyDefinitionNameMaxLength {
+		return NewErrPropertyLength(
+			"name",
+			1,
+			PolicyDefinitionNameMaxLength,
+			utf8.RuneCountInString(*pd.Name),
+		)
+	}
+
+	if pd.Properties == nil {
+		return NewErrPropertyMustNotBeNil("properties")
+	}
+
+	if pd.Properties.Description == nil {
+		return NewErrPropertyMustNotBeNil("properties.description")
+	}
+
+	if pd.Properties.DisplayName == nil {
+		return NewErrPropertyMustNotBeNil("properties.displayName")
+	}
+
+	if pd.Properties.Parameters == nil {
+		pd.Properties.Parameters = make(map[string]*armpolicy.ParameterDefinitionsValue)
+	}
+
+	if pd.Properties.DisplayName == nil {
+		return NewErrPropertyMustNotBeNil("properties.displayName")
+	}
+
+	if pd.Properties.Description == nil {
+		return NewErrPropertyMustNotBeNil("properties.description")
+	}
+
+	if pd.Properties.PolicyRule == nil {
+		return NewErrPropertyMustNotBeNil("properties.policyRule")
+	}
+
+	if *pd.Properties.Description == "" ||
+		utf8.RuneCountInString(*pd.Properties.Description) > PolicyDefinitionDescriptionMaxLength {
+		return NewErrPropertyLength(
+			"properties.description",
+			1,
+			PolicyDefinitionDescriptionMaxLength,
+			utf8.RuneCountInString(*pd.Properties.Description),
+		)
+	}
+
+	if *pd.Properties.DisplayName == "" ||
+		utf8.RuneCountInString(*pd.Properties.DisplayName) > PolicyDefinitionDisplayNameMaxLength {
+		return NewErrPropertyLength(
+			"properties.displayName",
+			1,
+			PolicyDefinitionDisplayNameMaxLength,
+			utf8.RuneCountInString(*pd.Properties.DisplayName),
+		)
+	}
+
+	if pd.Properties.Mode == nil {
+		pd.Properties.Mode = to.Ptr(policyDefinitionModeDefault)
+	}
+
+	if pd.Properties.Metadata == nil {
+		pd.Properties.Metadata = any(map[string]any{})
+	}
+
+	return nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for type PolicySetDefinition.
+// It performs validity checks on mandatory fields as well as some validation checks on certain
+// fields.
+func (pd *PolicyDefinition) UnmarshalJSON(data []byte) error {
+	if err := pd.Definition.UnmarshalJSON(data); err != nil {
+		return fmt.Errorf("PolicyDefinition.UnmarshalJSON: %w", err)
+	}
+
+	return ValidatePolicyDefinition(pd)
 }

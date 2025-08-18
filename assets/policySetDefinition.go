@@ -17,6 +17,8 @@ const (
 	PolicySetDefinitionDisplayNameMaxLength = 128
 	// PolicySetDefinitionDescriptionMaxLength is the maximum length of the description for a policy set definition.
 	PolicySetDefinitionDescriptionMaxLength = 512
+	// PolicySetDefinitionNameMaxLength is the maximum length of the name for a policy set definition.
+	PolicySetDefinitionNameMaxLength = 64
 	// policySetDefinitionCollectionCapacity is the initial capacity for collections in a policy set definition.
 	policySetDefinitionCollectionCapacity = 20
 )
@@ -29,6 +31,16 @@ type PolicySetDefinition struct {
 // NewPolicySetDefinition creates a new PolicySetDefinition from an armpolicy.SetDefinition.
 func NewPolicySetDefinition(psd armpolicy.SetDefinition) *PolicySetDefinition {
 	return &PolicySetDefinition{psd}
+}
+
+// NewPolicySetDefinitionValidate creates a new PolicySetDefinition instance and validates it.
+func NewPolicySetDefinitionValidate(psd armpolicy.SetDefinition) (*PolicySetDefinition, error) {
+	psdObj := &PolicySetDefinition{psd}
+	if err := ValidatePolicySetDefinition(psdObj); err != nil {
+		return nil, fmt.Errorf("NewPolicySetDefinitionValidate: %w", err)
+	}
+
+	return psdObj, nil
 }
 
 // ReferencedPolicyDefinitionNames returns the names of the policy definitions referenced by the policy set definition.
@@ -78,23 +90,31 @@ func (psd *PolicySetDefinition) Parameter(name string) *armpolicy.ParameterDefin
 // To reduce the risk of nil pointer dereferences, it will create empty values for optional fields.
 func ValidatePolicySetDefinition(psd *PolicySetDefinition) error {
 	if psd == nil {
-		return errors.New("ValidatePolicySetDefinition: policy set definition is nil")
+		return NewErrPropertyMustNotBeNil("PolicySetDefinition")
 	}
 
 	if psd.Name == nil {
-		return errors.New("ValidatePolicySetDefinition: name must not be nil")
+		return NewErrPropertyMustNotBeNil("name")
+	}
+
+	if *psd.Name == "" || utf8.RuneCountInString(*psd.Name) > PolicySetDefinitionNameMaxLength {
+		return fmt.Errorf(
+			"ValidatePolicySetDefinition: name length is %d, must be between 1 and %d",
+			utf8.RuneCountInString(*psd.Name),
+			PolicySetDefinitionNameMaxLength,
+		)
 	}
 
 	if psd.Properties == nil {
-		return errors.New("ValidatePolicySetDefinition: properties must not be nil")
+		return NewErrPropertyMustNotBeNil("properties")
 	}
 
 	if psd.Properties.Description == nil {
-		return errors.New("ValidatePolicySetDefinition: description must not be nil")
+		return NewErrPropertyMustNotBeNil("properties.description")
 	}
 
 	if psd.Properties.DisplayName == nil {
-		return errors.New("ValidatePolicySetDefinition: display name must not be nil")
+		return NewErrPropertyMustNotBeNil("properties.displayName")
 	}
 
 	if psd.Properties.Parameters == nil {
@@ -102,28 +122,30 @@ func ValidatePolicySetDefinition(psd *PolicySetDefinition) error {
 	}
 
 	if psd.Properties.DisplayName == nil {
-		return errors.New("ValidatePolicySetDefinition: display name must not be nil")
+		return NewErrPropertyMustNotBeNil("properties.displayName")
 	}
 
 	if psd.Properties.Description == nil {
-		return errors.New("ValidatePolicySetDefinition: description must not be nil")
+		return NewErrPropertyMustNotBeNil("properties.description")
 	}
 
 	if *psd.Properties.Description == "" ||
 		utf8.RuneCountInString(*psd.Properties.Description) > PolicySetDefinitionDescriptionMaxLength {
-		return fmt.Errorf(
-			"ValidatePolicySetDefinition: description length is %d, must be between 1 and %d",
-			utf8.RuneCountInString(*psd.Properties.Description),
+		return NewErrPropertyLength(
+			"properties.description",
+			1,
 			PolicySetDefinitionDescriptionMaxLength,
+			utf8.RuneCountInString(*psd.Properties.Description),
 		)
 	}
 
 	if *psd.Properties.DisplayName == "" ||
 		utf8.RuneCountInString(*psd.Properties.DisplayName) > PolicySetDefinitionDisplayNameMaxLength {
-		return fmt.Errorf(
-			"ValidatePolicySetDefinition: display name length is %d, must be between 1 and %d",
-			utf8.RuneCountInString(*psd.Properties.DisplayName),
+		return NewErrPropertyLength(
+			"properties.displayName",
+			1,
 			PolicySetDefinitionDisplayNameMaxLength,
+			utf8.RuneCountInString(*psd.Properties.DisplayName),
 		)
 	}
 

@@ -844,7 +844,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 			)
 		}
 
-		az.policyDefinitions[k] = assets.NewPolicyDefinition(*v)
+		az.policyDefinitions[k] = v
 	}
 
 	for k, v := range res.PolicySetDefinitions {
@@ -855,7 +855,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 			)
 		}
 
-		az.policySetDefinitions[k] = assets.NewPolicySetDefinition(*v)
+		az.policySetDefinitions[k] = v
 	}
 
 	for k, v := range res.PolicyAssignments {
@@ -877,7 +877,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 			)
 		}
 
-		az.roleDefinitions[k] = assets.NewRoleDefinition(*v)
+		az.roleDefinitions[k] = v
 	}
 
 	return nil

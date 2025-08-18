@@ -130,7 +130,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					Description: to.Ptr("Valid Description"),
 				},
 			},
-			expectedErr: "name must not be nil",
+			expectedErr: "property 'name' must not be nil",
 		},
 		{
 			name: "Empty Name",
@@ -151,7 +151,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			assignment: armpolicy.Assignment{
 				Name: to.Ptr("validName"),
 			},
-			expectedErr: "properties must not be nil",
+			expectedErr: "property 'properties' must not be nil",
 		},
 		{
 			name: "Nil PolicyDefinitionID",
@@ -162,7 +162,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					Description: to.Ptr("Valid Description"),
 				},
 			},
-			expectedErr: "policy definition ID must not be nil",
+			expectedErr: "property 'properties.policyDefinitionID' must not be nil",
 		},
 		{
 			name: "Nil DisplayName",
@@ -175,7 +175,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					Description: to.Ptr("Valid Description"),
 				},
 			},
-			expectedErr: "display name must not be nil",
+			expectedErr: "property 'properties.displayName' must not be nil",
 		},
 		{
 			name: "Empty DisplayName",
@@ -189,7 +189,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					Description: to.Ptr("Valid Description"),
 				},
 			},
-			expectedErr: "display name length is 0, must be between 1 and 128",
+			expectedErr: "property 'properties.displayName' length must be between 1 and 128, but is 0",
 		},
 		{
 			name: "Nil Description",
@@ -202,7 +202,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					DisplayName: to.Ptr("Valid Display Name"),
 				},
 			},
-			expectedErr: "description must not be nil",
+			expectedErr: "property 'properties.description' must not be nil",
 		},
 		{
 			name: "Empty Description",
@@ -216,7 +216,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					Description: to.Ptr(""),
 				},
 			},
-			expectedErr: "description length is 0, must be between 1 and 512",
+			expectedErr: "property 'properties.description' length must be between 1 and 512, but is 0",
 		},
 	}
 

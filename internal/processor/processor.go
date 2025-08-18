@@ -15,20 +15,26 @@ import (
 
 	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/internal/environment"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
 // These are the file prefixes for the resource types.
 const (
-	architectureDefinitionSuffix = ".+\\.alz_architecture_definition\\.(?:json|yaml|yml)$"
-	archetypeDefinitionSuffix    = ".+\\.alz_archetype_definition\\.(?:json|yaml|yml)$"
-	archetypeOverrideSuffix      = ".+\\.alz_archetype_override\\.(?:json|yaml|yml)$"
-	policyAssignmentSuffix       = ".+\\.alz_policy_assignment\\.(?:json|yaml|yml)$"
-	policyDefinitionSuffix       = ".+\\.alz_policy_definition\\.(?:json|yaml|yml)$"
-	policySetDefinitionSuffix    = ".+\\.alz_policy_set_definition\\.(?:json|yaml|yml)$"
-	roleDefinitionSuffix         = ".+\\.alz_role_definition\\.(?:json|yaml|yml)$"
-	policyDefaultValueFileName   = "^alz_policy_default_values\\.(?:json|yaml|yml)$"
+	PolicyAssignmentFileType       = "alz_policy_assignment"
+	PolicyDefinitionFileType       = "alz_policy_definition"
+	PolicySetDefinitionFileType    = "alz_policy_set_definition"
+	RoleDefinitionFileType         = "alz_role_definition"
+	ArchitectureDefinitionFileType = "alz_architecture_definition"
+	ArchetypeDefinitionFileType    = "alz_archetype_definition"
+	ArchetypeOverrideFileType      = "alz_archetype_override"
+	PolicyDefaultValuesFileType    = "alz_policy_default_values"
+	architectureDefinitionSuffix   = ".+\\." + ArchitectureDefinitionFileType + "\\.(?:json|yaml|yml)$"
+	archetypeDefinitionSuffix      = ".+\\." + ArchetypeDefinitionFileType + "\\.(?:json|yaml|yml)$"
+	archetypeOverrideSuffix        = ".+\\." + ArchetypeOverrideFileType + "\\.(?:json|yaml|yml)$"
+	policyAssignmentSuffix         = ".+\\." + PolicyAssignmentFileType + "\\.(?:json|yaml|yml)$"
+	policyDefinitionSuffix         = ".+\\." + PolicyDefinitionFileType + "\\.(?:json|yaml|yml)$"
+	policySetDefinitionSuffix      = ".+\\." + PolicySetDefinitionFileType + "\\.(?:json|yaml|yml)$"
+	roleDefinitionSuffix           = ".+\\." + RoleDefinitionFileType + "\\.(?:json|yaml|yml)$"
+	policyDefaultValueFileName     = "^" + PolicyDefaultValuesFileType + "\\.(?:json|yaml|yml)$"
 )
 
 const (
@@ -80,10 +86,10 @@ func NewErrorUnmarshaling(detail string) error {
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
-	PolicyDefinitions                   map[string]*armpolicy.Definition
-	PolicySetDefinitions                map[string]*armpolicy.SetDefinition
+	PolicyDefinitions                   map[string]*assets.PolicyDefinition
+	PolicySetDefinitions                map[string]*assets.PolicySetDefinition
 	PolicyAssignments                   map[string]*assets.PolicyAssignment
-	RoleDefinitions                     map[string]*armauthorization.RoleDefinition
+	RoleDefinitions                     map[string]*assets.RoleDefinition
 	LibArchetypes                       map[string]*LibArchetype
 	LibArchetypeOverrides               map[string]*LibArchetypeOverride
 	LibDefaultPolicyValues              map[string]*LibDefaultPolicyValuesDefaults
@@ -95,10 +101,10 @@ type Result struct {
 // NewResult creates a new Result struct with initialized maps for each resource type.
 func NewResult() *Result {
 	return &Result{
-		PolicyDefinitions:                   make(map[string]*armpolicy.Definition),
-		PolicySetDefinitions:                make(map[string]*armpolicy.SetDefinition),
+		PolicyDefinitions:                   make(map[string]*assets.PolicyDefinition),
+		PolicySetDefinitions:                make(map[string]*assets.PolicySetDefinition),
 		PolicyAssignments:                   make(map[string]*assets.PolicyAssignment),
-		RoleDefinitions:                     make(map[string]*armauthorization.RoleDefinition),
+		RoleDefinitions:                     make(map[string]*assets.RoleDefinition),
 		LibArchetypes:                       make(map[string]*LibArchetype),
 		LibArchetypeOverrides:               make(map[string]*LibArchetypeOverride),
 		LibDefaultPolicyValues:              make(map[string]*LibDefaultPolicyValuesDefaults),
@@ -367,9 +373,9 @@ func processPolicyAssignment(res *Result, unmar unmarshaler) error {
 }
 
 // processPolicyAssignment is a processFunc that reads the policy_definition
-// bytes, processes, then adds the created armpolicy.Definition to the result.
+// bytes, processes, then adds the created assets.PolicyDefinition to the result.
 func processPolicyDefinition(res *Result, unmar unmarshaler) error {
-	pd := new(armpolicy.Definition)
+	pd := new(assets.PolicyDefinition)
 	if err := unmar.unmarshal(pd); err != nil {
 		return errors.Join(NewErrorUnmarshaling("policy definition"), err)
 	}
@@ -388,9 +394,9 @@ func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 }
 
 // processPolicyAssignment is a processFunc that reads the policy_set_definition
-// bytes, processes, then adds the created armpolicy.SetDefinition to the result.
+// bytes, processes, then adds the created assets.PolicySetDefinition to the result.
 func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
-	psd := new(armpolicy.SetDefinition)
+	psd := new(assets.PolicySetDefinition)
 	if err := unmar.unmarshal(psd); err != nil {
 		return errors.Join(NewErrorUnmarshaling("policy set definition"), err)
 	}
@@ -414,7 +420,7 @@ func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 // definition may be
 // deployed at multiple scopes.
 func processRoleDefinition(res *Result, unmar unmarshaler) error {
-	rd := new(armauthorization.RoleDefinition)
+	rd := new(assets.RoleDefinition)
 	if err := unmar.unmarshal(rd); err != nil {
 		return errors.Join(NewErrorUnmarshaling("role definition"), err)
 	}
