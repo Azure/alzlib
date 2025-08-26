@@ -28,17 +28,19 @@ type HierarchyWriter interface {
 
 // FSWriter writes a Hierarchy to the local filesystem.
 type FSWriter struct {
-	escapeARM bool
+	alzBicepMode bool
 }
 
 // FSWriterOption configures FSWriter behavior.
 type FSWriterOption func(*FSWriter)
 
-// WithEscapeARM enables or disables escaping of ARM function expressions in string values
-// by prefixing an extra '['. When enabled, JSON is materialized to generic maps/slices and
-// processed recursively before writing.
-func WithEscapeARM(enabled bool) FSWriterOption {
-	return func(w *FSWriter) { w.escapeARM = enabled }
+// WithAlzBicepMode is a highly opinionated export configuration.
+// It enables escaping of ARM function expressions in string values
+// by prefixing an extra '['.
+// It double escapes ARM expressions in PolicySetDefinitions.
+// It also replaces
+func WithAlzBicepMode(enabled bool) FSWriterOption {
+	return func(w *FSWriter) { w.alzBicepMode = enabled }
 }
 
 // NewFSWriter creates a new filesystem writer with optional configuration.
@@ -163,8 +165,16 @@ func (w *FSWriter) writePolicyAssignments(ctx context.Context, dir string, mg *H
 		assetName := derefString(pa.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicyAssignment)
-		if err := w.writeJSONFileMaybeEscaped(ctx, file, pa); err != nil {
-			return fmt.Errorf("writing policy assignment %q: %w", assetName, err)
+
+		if w.alzBicepMode {
+			if err := writeJSONFileEscaped(ctx, file, pa, 1); err != nil {
+				return fmt.Errorf("writing policy assignment %q: %w", assetName, err)
+			}
+			continue
+		}
+
+		if err := writeJSONFile(file, pa); err != nil {
+			return fmt.Errorf("writing policy set definition %q: %w", assetName, err)
 		}
 	}
 
@@ -185,7 +195,15 @@ func (w *FSWriter) writePolicyDefinitions(ctx context.Context, dir string, mg *H
 		assetName := derefString(pd.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicyDefinition)
-		if err := w.writeJSONFileMaybeEscaped(ctx, file, pd); err != nil {
+
+		if w.alzBicepMode {
+			if err := writeJSONFileEscaped(ctx, file, pd, 1); err != nil {
+				return fmt.Errorf("writing policy definition %q: %w", assetName, err)
+			}
+			continue
+		}
+
+		if err := writeJSONFile(file, pd); err != nil {
 			return fmt.Errorf("writing policy definition %q: %w", assetName, err)
 		}
 	}
@@ -207,7 +225,15 @@ func (w *FSWriter) writePolicySetDefinitions(ctx context.Context, dir string, mg
 		assetName := derefString(psd.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicySetDefinition)
-		if err := w.writeJSONFileMaybeEscaped(ctx, file, psd); err != nil {
+
+		if w.alzBicepMode {
+			if err := writeJSONFileEscaped(ctx, file, psd, 2); err != nil {
+				return fmt.Errorf("writing policy set definition %q: %w", assetName, err)
+			}
+			continue
+		}
+
+		if err := writeJSONFile(file, psd); err != nil {
 			return fmt.Errorf("writing policy set definition %q: %w", assetName, err)
 		}
 	}
@@ -229,7 +255,15 @@ func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *Hie
 		assetName := derefString(rd.Name, "")
 
 		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixRoleDefinition)
-		if err := w.writeJSONFileMaybeEscaped(ctx, file, rd); err != nil {
+
+		if w.alzBicepMode {
+			if err := writeJSONFileEscaped(ctx, file, rd, 1); err != nil {
+				return fmt.Errorf("writing role definition %q: %w", assetName, err)
+			}
+			continue
+		}
+
+		if err := writeJSONFile(file, rd); err != nil {
 			return fmt.Errorf("writing role definition %q: %w", assetName, err)
 		}
 	}
@@ -274,7 +308,7 @@ func sanitizeFilename(s string) string {
 
 func ctxErr(ctx context.Context) error {
 	if ctx == nil {
-		return nil
+		panic("context is nil, use context.Background() or context.TODO()")
 	}
 
 	select {
@@ -331,17 +365,13 @@ func writeJSONFile(finalPath string, v any) error {
 // writeJSONFileMaybeEscaped writes v as JSON to finalPath. When the writer is configured
 // with escapeARM=true, it first materializes v into generic JSON types (map[string]any/[]any),
 // applies addArmFunctionEscaping to escape ARM function expressions, and then writes the result.
-func (w *FSWriter) writeJSONFileMaybeEscaped(ctx context.Context, finalPath string, v any) error {
+func writeJSONFileEscaped(ctx context.Context, finalPath string, v json.Marshaler, iterations int) error {
 	if err := ctxErr(ctx); err != nil {
 		return err
 	}
 
-	if !w.escapeARM {
-		return writeJSONFile(finalPath, v)
-	}
-
 	// Marshal to JSON then unmarshal into interface{} to obtain maps/slices for traversal.
-	b, err := json.Marshal(v)
+	b, err := v.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("marshal for escaping: %w", err)
 	}
@@ -351,12 +381,31 @@ func (w *FSWriter) writeJSONFileMaybeEscaped(ctx context.Context, finalPath stri
 		return fmt.Errorf("unmarshal for escaping: %w", err)
 	}
 
-	if err := addArmFunctionEscaping(m); err != nil {
-		return fmt.Errorf("escape ARM functions: %w", err)
+	for i := range iterations {
+		if err := addArmFunctionEscaping(m); err != nil {
+			return fmt.Errorf("escape ARM functions (iteration %d): %w", i, err)
+		}
 	}
 
 	return writeJSONFile(finalPath, m)
 }
+
+// marshaller2Any converts any to JSON and back to any.
+func marshaller2Any(v json.Marshaler) (any, error) {
+	// Marshal to JSON then unmarshal into any to obtain maps/slices for traversal.
+	b, err := v.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("marshal for escaping: %w", err)
+	}
+
+	var m any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, fmt.Errorf("unmarshal for escaping: %w", err)
+	}
+
+	return m, nil
+}
+
 func addArmFunctionEscaping(v any) error {
 	switch t := v.(type) {
 	case map[string]any:

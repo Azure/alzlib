@@ -63,7 +63,7 @@ var generateArchitectureBaseCmd = cobra.Command{
 		outDir, _ := cmd.Flags().GetString("output")
 		escapeARM, _ := cmd.Flags().GetBool("escape-arm")
 		if outDir != "" {
-			w := deployment.NewFSWriter(deployment.WithEscapeARM(escapeARM))
+			w := deployment.NewFSWriter(deployment.WithAlzBicepMode(escapeARM))
 			if err := w.Write(cmd.Context(), h, outDir); err != nil {
 				cmd.PrintErrf("%s could not write filesystem output: %v\n", cmd.ErrPrefix(), err)
 				os.Exit(1)

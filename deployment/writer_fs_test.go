@@ -97,7 +97,7 @@ func TestFSWriter_WithEscapeARM_Toggle(t *testing.T) {
 	require.NoError(t, wNoEsc.Write(context.Background(), h, outDirNoEsc))
 
 	outDirEsc := t.TempDir()
-	wEsc := NewFSWriter(WithEscapeARM(true))
+	wEsc := NewFSWriter(WithAlzBicepMode(true))
 	require.NoError(t, wEsc.Write(context.Background(), h, outDirEsc))
 
 	// Compare one known file content for evidence of escaping behavior.
@@ -188,7 +188,6 @@ func TestSanitizeFilename(t *testing.T) {
 func TestCtxErr(t *testing.T) {
 	t.Parallel()
 
-	require.NoError(t, ctxErr(nil)) //nolint:staticcheck
 	require.NoError(t, ctxErr(context.Background()))
 
 	ctx, cancel := context.WithCancel(context.Background())
