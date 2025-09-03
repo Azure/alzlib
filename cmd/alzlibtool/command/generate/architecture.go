@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +37,7 @@ var generateArchitectureBaseCmd = cobra.Command{
 			os.Exit(1)
 		}
 		az := alzlib.NewAlzLib(nil)
-		cred, err := azidentity.NewDefaultAzureCredential(nil)
+		cred, err := auth.NewToken()
 		if err != nil {
 			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)

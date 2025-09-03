@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,7 +107,7 @@ func TestPolicyRoleAssignmentsWithComplexFunctions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := auth.NewToken()
 	require.NoError(t, err)
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func TestInvalidParent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := auth.NewToken()
 	require.NoError(t, err)
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestExistsChildOnNotExistParent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := auth.NewToken()
 	require.NoError(t, err)
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
 	require.NoError(t, err)
