@@ -4,7 +4,6 @@
 package assets
 
 import (
-	"errors"
 	"fmt"
 	"unicode/utf8"
 
@@ -108,11 +107,11 @@ func (pa *PolicyAssignment) UnmarshalJSON(data []byte) error {
 // To reduce the risk of nil pointer dereferences, it will create empty values for optional fields.
 func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 	if pa == nil {
-		return errors.New("ValidatePolicyAssignment: policy assignment is nil")
+		return NewErrPropertyMustNotBeNil("PolicyAssignment")
 	}
 
 	if pa.Name == nil {
-		return errors.New("ValidatePolicyAssignment: name must not be nil")
+		return NewErrPropertyMustNotBeNil("name")
 	}
 
 	if *pa.Name == "" || utf8.RuneCountInString(*pa.Name) > PolicyAssignmentNameMaxLength {
@@ -124,36 +123,38 @@ func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 	}
 
 	if pa.Properties == nil {
-		return errors.New("ValidatePolicyAssignment: properties must not be nil")
+		return NewErrPropertyMustNotBeNil("properties")
 	}
 
 	if pa.Properties.PolicyDefinitionID == nil {
-		return errors.New("ValidatePolicyAssignment: policy definition ID must not be nil")
+		return NewErrPropertyMustNotBeNil("properties.policyDefinitionID")
 	}
 
 	if pa.Properties.DisplayName == nil {
-		return errors.New("ValidatePolicyAssignment: display name must not be nil")
+		return NewErrPropertyMustNotBeNil("properties.displayName")
 	}
 
 	if *pa.Properties.DisplayName == "" ||
 		utf8.RuneCountInString(*pa.Properties.DisplayName) > PolicyAssignmentDisplayNameMaxLength {
-		return fmt.Errorf(
-			"ValidatePolicyAssignment: display name length is %d, must be between 1 and %d",
-			utf8.RuneCountInString(*pa.Properties.DisplayName),
+		return NewErrPropertyLength(
+			"properties.displayName",
+			1,
 			PolicyAssignmentDisplayNameMaxLength,
+			utf8.RuneCountInString(*pa.Properties.DisplayName),
 		)
 	}
 
 	if pa.Properties.Description == nil {
-		return errors.New("ValidatePolicyAssignment: description must not be nil")
+		return NewErrPropertyMustNotBeNil("properties.description")
 	}
 
 	if *pa.Properties.Description == "" ||
 		utf8.RuneCountInString(*pa.Properties.Description) > PolicyAssignmentDescriptionMaxLength {
-		return fmt.Errorf(
-			"ValidatePolicyAssignment: description length is %d, must be between 1 and %d",
-			utf8.RuneCountInString(*pa.Properties.Description),
+		return NewErrPropertyLength(
+			"properties.description",
+			1,
 			PolicyAssignmentDescriptionMaxLength,
+			utf8.RuneCountInString(*pa.Properties.Description),
 		)
 	}
 

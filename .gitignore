@@ -35,3 +35,5 @@ coverage.html
 
 # goreleaser files
 dist/
+
+.vscode/mcp.json

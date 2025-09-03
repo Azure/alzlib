@@ -5,7 +5,9 @@ package generate
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
@@ -59,10 +61,38 @@ var generateArchitectureBaseCmd = cobra.Command{
 			cmd.PrintErrf("%s could not generate architecture: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
+		// If an output directory is provided, export a filesystem representation and return.
+		outDir, _ := cmd.Flags().GetString("output")
+		if outDir != "" {
+			opts := deployment.FSWriterOptions{}
+			if b, _ := cmd.Flags().GetBool("for-alz-bicep"); b {
+				opts = deployment.FSWriterOptions{
+					ArmEscapePolicyDefinitions:    1,
+					ArmEscapePolicySetDefinitions: 2, //nolint:mnd
+					ArmEscapeRoleDefinitions:      1,
+					ArmEscapePolicyAssignments:    1,
+					PolicySetOptions: deployment.FSWriterPolicySetOptions{
+						CustomPolicyDefinitionReferencesUpdate: true,
+						CustomPolicyDefinitionReferenceRegExp: regexp.MustCompile(
+							fmt.Sprintf(`(?i)^/providers/Microsoft\.Management/managementGroups/%s`, args[1]),
+						),
+						CustomPolicyDefinitionReferenceReplaceValue: "{customPolicyDefinitionScopeId}",
+					},
+				}
+			}
+			w := deployment.NewFSWriter(opts)
+			if err := w.Write(cmd.Context(), h, outDir); err != nil {
+				cmd.PrintErrf("%s could not write filesystem output: %v\n", cmd.ErrPrefix(), err)
+				os.Exit(1)
+			}
+			cmd.Printf("filesystem export written to %s\n", outDir)
+			return
+		}
 		output := make([]*deployment.HierarchyManagementGroup, len(h.ManagementGroupNames()))
 		for i, mgName := range h.ManagementGroupNames() {
 			output[i] = h.ManagementGroup(mgName)
 		}
+
 		outputBytes, err := json.Marshal(output)
 		if err != nil {
 			cmd.PrintErrf("%s could not marshal output: %v\n", cmd.ErrPrefix(), err)
@@ -79,4 +109,17 @@ func init() {
 			"The root management group id to use for the deployment.")
 	generateArchitectureBaseCmd.Flags().
 		StringP("location", "l", "northeurope", "The location to use for the deployment.")
+	generateArchitectureBaseCmd.Flags().
+		StringP(
+			"output",
+			"o",
+			"",
+			"Directory to export the filesystem representation of the hierarchy (per-asset JSON files). "+
+				"If set, JSON is not printed to stdout.")
+
+	generateArchitectureBaseCmd.Flags().
+		Bool(
+			"for-alz-bicep",
+			false,
+			"When exporting to a directory, add custom ARM escaping and other transformations specific to ALZ Bicep.")
 }
