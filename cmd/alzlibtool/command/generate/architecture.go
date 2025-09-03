@@ -117,12 +117,6 @@ func init() {
 
 	generateArchitectureBaseCmd.Flags().
 		Bool(
-			"escape-arm",
-			false,
-			"When exporting to a directory, escape ARM function strings (values starting with '[') by prefixing an extra '['.")
-
-	generateArchitectureBaseCmd.Flags().
-		Bool(
 			"for-alz-bicep",
 			false,
 			"When exporting to a directory, add custom ARM escaping and other transformations specific to ALZ Bicep.")

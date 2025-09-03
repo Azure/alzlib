@@ -175,7 +175,7 @@ func (w *FSWriter) writePolicyDefinitions(ctx context.Context, dir string, mg *H
 
 	for _, pa := range m {
 		// we don't need to safely dereference the name because the assets package does this for us
-		if err := writeAsset(ctx, *pa.Name, dir, string(fileSuffixPolicyDefinition), pa, w.opts.ArmEscapePolicyAssignments); err != nil {
+		if err := writeAsset(ctx, *pa.Name, dir, string(fileSuffixPolicyDefinition), pa, w.opts.ArmEscapePolicyDefinitions); err != nil {
 			return err
 		}
 	}
@@ -199,7 +199,7 @@ func (w *FSWriter) writePolicySetDefinitions(ctx context.Context, dir string, mg
 		}
 
 		// we don't need to safely dereference the name because the assets package does this for us
-		if err := writeAsset(ctx, *psd.Name, dir, string(fileSuffixPolicySetDefinition), psd, w.opts.ArmEscapePolicyAssignments); err != nil {
+		if err := writeAsset(ctx, *psd.Name, dir, string(fileSuffixPolicySetDefinition), psd, w.opts.ArmEscapePolicySetDefinitions); err != nil {
 			return err
 		}
 	}
@@ -212,7 +212,7 @@ func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *Hie
 
 	for _, rd := range m {
 		// we don't need to safely dereference the name because the assets package does this for us
-		if err := writeAsset(ctx, *rd.Name, dir, fileSuffixRoleDefinition, rd, w.opts.ArmEscapePolicyAssignments); err != nil {
+		if err := writeAsset(ctx, *rd.Name, dir, fileSuffixRoleDefinition, rd, w.opts.ArmEscapeRoleDefinitions); err != nil {
 			return err
 		}
 	}
