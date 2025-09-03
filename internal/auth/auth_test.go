@@ -29,6 +29,7 @@ func TestGetFirstSetEnvVar_FirstSetReturnsValue(t *testing.T) {
 
 func TestGetFirstSetEnvVar_SecondUsedWhenFirstEmpty(t *testing.T) {
 	_ = os.Unsetenv("TEST_AUTH_VAR_1")
+
 	t.Setenv("TEST_AUTH_VAR_2", "second")
 
 	if got := getFirstSetEnvVar("TEST_AUTH_VAR_1", "TEST_AUTH_VAR_2"); got != "second" {
