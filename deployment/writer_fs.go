@@ -34,18 +34,28 @@ type FSWriter struct {
 	opts FSWriterOptions
 }
 
+// FSWriterOptions defines options for the filesystem writer.
 type FSWriterOptions struct {
-	ArmEscapePolicyDefinitions    uint                     // number of times to escape ARM expressions in policy definitions
-	ArmEscapePolicySetDefinitions uint                     // number of times to escape ARM expressions in policy set definitions
-	ArmEscapeRoleDefinitions      uint                     // number of times to escape ARM expressions in role definitions
-	ArmEscapePolicyAssignments    uint                     // number of times to escape ARM expressions in policy assignments
-	PolicySetOptions              FSWriterPolicySetOptions // options for customization of policy set definitions
+	// number of times to escape ARM expressions in policy definitions
+	ArmEscapePolicyDefinitions uint
+	// number of times to escape ARM expressions in policy set definitions
+	ArmEscapePolicySetDefinitions uint
+	// number of times to escape ARM expressions in role definitions
+	ArmEscapeRoleDefinitions uint
+	// number of times to escape ARM expressions in policy assignments
+	ArmEscapePolicyAssignments uint
+	// options for customization of policy set definitions
+	PolicySetOptions FSWriterPolicySetOptions
 }
 
+// FSWriterPolicySetOptions defines options for the policy set definitions.
 type FSWriterPolicySetOptions struct {
-	CustomPolicyDefinitionReferencesUpdate      bool           // if true, replaces custom policy definition references in policy set definitions
-	CustomPolicyDefinitionReferenceRegExp       *regexp.Regexp // regular expression to match custom policy definition references
-	CustomPolicyDefinitionReferenceReplaceValue string         // value to replace custom policy definition references
+	// if true, replaces custom policy definition references in policy set definitions
+	CustomPolicyDefinitionReferencesUpdate bool
+	// regular expression to match custom policy definition references
+	CustomPolicyDefinitionReferenceRegExp *regexp.Regexp
+	// value to replace custom policy definition references
+	CustomPolicyDefinitionReferenceReplaceValue string
 }
 
 // NewFSWriter creates a new filesystem writer with optional configuration.
@@ -162,7 +172,14 @@ func (w *FSWriter) writePolicyAssignments(ctx context.Context, dir string, mg *H
 
 	for _, pa := range m {
 		// we don't need to safely dereference the name because the assets package does this for us
-		if err := writeAsset(ctx, *pa.Name, dir, fileSuffixPolicyAssignment, pa, w.opts.ArmEscapePolicyAssignments); err != nil {
+		if err := writeAsset(
+			ctx,
+			*pa.Name,
+			dir,
+			fileSuffixPolicyAssignment,
+			pa,
+			w.opts.ArmEscapePolicyAssignments,
+		); err != nil {
 			return err
 		}
 	}
@@ -175,7 +192,14 @@ func (w *FSWriter) writePolicyDefinitions(ctx context.Context, dir string, mg *H
 
 	for _, pa := range m {
 		// we don't need to safely dereference the name because the assets package does this for us
-		if err := writeAsset(ctx, *pa.Name, dir, string(fileSuffixPolicyDefinition), pa, w.opts.ArmEscapePolicyDefinitions); err != nil {
+		if err := writeAsset(
+			ctx,
+			*pa.Name,
+			dir,
+			string(fileSuffixPolicyDefinition),
+			pa,
+			w.opts.ArmEscapePolicyDefinitions,
+		); err != nil {
 			return err
 		}
 	}
@@ -199,7 +223,13 @@ func (w *FSWriter) writePolicySetDefinitions(ctx context.Context, dir string, mg
 		}
 
 		// we don't need to safely dereference the name because the assets package does this for us
-		if err := writeAsset(ctx, *psd.Name, dir, string(fileSuffixPolicySetDefinition), psd, w.opts.ArmEscapePolicySetDefinitions); err != nil {
+		if err := writeAsset(
+			ctx,
+			*psd.Name,
+			dir,
+			string(fileSuffixPolicySetDefinition),
+			psd, w.opts.ArmEscapePolicySetDefinitions,
+		); err != nil {
 			return err
 		}
 	}
@@ -212,7 +242,14 @@ func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *Hie
 
 	for _, rd := range m {
 		// we don't need to safely dereference the name because the assets package does this for us
-		if err := writeAsset(ctx, *rd.Name, dir, fileSuffixRoleDefinition, rd, w.opts.ArmEscapeRoleDefinitions); err != nil {
+		if err := writeAsset(
+			ctx,
+			*rd.Name,
+			dir,
+			fileSuffixRoleDefinition,
+			rd,
+			w.opts.ArmEscapeRoleDefinitions,
+		); err != nil {
 			return err
 		}
 	}
@@ -243,6 +280,7 @@ func writeAsset[T any](ctx context.Context, name, dir, suffix string, asset T, e
 		if err := writeJSONFileEscaped(ctx, file, asset, escapeIterations); err != nil {
 			return fmt.Errorf("writing asset %q: %w", name, err)
 		}
+
 		return nil
 	}
 

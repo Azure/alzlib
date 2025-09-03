@@ -68,12 +68,14 @@ var generateArchitectureBaseCmd = cobra.Command{
 			if b, _ := cmd.Flags().GetBool("for-alz-bicep"); b {
 				opts = deployment.FSWriterOptions{
 					ArmEscapePolicyDefinitions:    1,
-					ArmEscapePolicySetDefinitions: 2,
+					ArmEscapePolicySetDefinitions: 2, //nolint:mnd
 					ArmEscapeRoleDefinitions:      1,
 					ArmEscapePolicyAssignments:    1,
 					PolicySetOptions: deployment.FSWriterPolicySetOptions{
-						CustomPolicyDefinitionReferencesUpdate:      true,
-						CustomPolicyDefinitionReferenceRegExp:       regexp.MustCompile(fmt.Sprintf(`(?i)^/providers/Microsoft\.Management/managementGroups/%s`, args[1])),
+						CustomPolicyDefinitionReferencesUpdate: true,
+						CustomPolicyDefinitionReferenceRegExp: regexp.MustCompile(
+							fmt.Sprintf(`(?i)^/providers/Microsoft\.Management/managementGroups/%s`, args[1]),
+						),
 						CustomPolicyDefinitionReferenceReplaceValue: "{customPolicyDefinitionScopeId}",
 					},
 				}

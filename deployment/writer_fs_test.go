@@ -274,7 +274,7 @@ func TestAddArmFunctionEscaping_SliceRoot(t *testing.T) {
 	require.Equal(t, "[[deployment().name]", m["k"])
 }
 
-// Helper for tests in this file
+// Helper for tests in this file.
 func toPtr[T any](t T) *T { return &t }
 
 func TestUpdatePolicyDefinitionReferences(t *testing.T) {
@@ -291,7 +291,9 @@ func TestUpdatePolicyDefinitionReferences(t *testing.T) {
 		if pdrefs[0].PolicyDefinitionID == nil {
 			t.Fatalf("expected non-nil PolicyDefinitionID after update")
 		}
+
 		got := *pdrefs[0].PolicyDefinitionID
+
 		want := "/subscriptions/0000/resourceGroups/rg/providers/Microsoft.Authorization/policyDefinitions/REPLACED"
 		if got != want {
 			t.Fatalf("unexpected result\ngot:  %s\nwant: %s", got, want)
@@ -326,7 +328,9 @@ func TestUpdatePolicyDefinitionReferences(t *testing.T) {
 		if pdrefs[0].PolicyDefinitionID == nil {
 			t.Fatalf("expected non-nil PolicyDefinitionID after update")
 		}
+
 		got := *pdrefs[0].PolicyDefinitionID
+
 		want := "prefix/Z-middle/Z-suffix"
 		if got != want {
 			t.Fatalf("unexpected multiple replacement\ngot:  %s\nwant: %s", got, want)
