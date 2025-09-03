@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -51,7 +52,7 @@ func TestFSWriter_ExportsSimple(t *testing.T) {
 	h := buildSimpleHierarchy(t)
 
 	outDir := t.TempDir()
-	w := NewFSWriter()
+	w := NewFSWriter(FSWriterOptions{})
 	require.NoError(t, w.Write(context.Background(), h, outDir))
 
 	// Expect root MG directories from simple architecture
@@ -93,11 +94,16 @@ func TestFSWriter_WithEscapeARM_Toggle(t *testing.T) {
 
 	// Sanity: pick a file that is likely to contain parameterized strings in testdata/simple
 	outDirNoEsc := t.TempDir()
-	wNoEsc := NewFSWriter() // default: no escaping
+	wNoEsc := NewFSWriter(FSWriterOptions{}) // default: no escaping
 	require.NoError(t, wNoEsc.Write(context.Background(), h, outDirNoEsc))
 
 	outDirEsc := t.TempDir()
-	wEsc := NewFSWriter(WithAlzBicepMode(true))
+	wEsc := NewFSWriter(FSWriterOptions{
+		ArmEscapePolicyDefinitions:    1,
+		ArmEscapePolicySetDefinitions: 1,
+		ArmEscapeRoleDefinitions:      1,
+		ArmEscapePolicyAssignments:    1,
+	})
 	require.NoError(t, wEsc.Write(context.Background(), h, outDirEsc))
 
 	// Compare one known file content for evidence of escaping behavior.
@@ -147,26 +153,13 @@ func TestFSWriter_WithEscapeARM_Toggle(t *testing.T) {
 func TestFSWriter_Cancellation(t *testing.T) {
 	h := buildSimpleHierarchy(t)
 	outDir := t.TempDir()
-	w := NewFSWriter()
+	w := NewFSWriter(FSWriterOptions{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
 	err := w.Write(ctx, h, outDir)
 	require.Error(t, err)
-}
-
-func TestDerefString(t *testing.T) {
-	t.Parallel()
-
-	var nilPtr *string
-	require.Equal(t, "fallback", derefString(nilPtr, "fallback"))
-
-	empty := ""
-	require.Equal(t, "fallback", derefString(&empty, "fallback"))
-
-	val := "value"
-	require.Equal(t, "value", derefString(&val, "fallback"))
 }
 
 func TestSanitizeFilename(t *testing.T) {
@@ -279,4 +272,64 @@ func TestAddArmFunctionEscaping_SliceRoot(t *testing.T) {
 
 	m := v[3].(map[string]any)
 	require.Equal(t, "[[deployment().name]", m["k"])
+}
+
+// Helper for tests in this file
+func toPtr[T any](t T) *T { return &t }
+
+func TestUpdatePolicyDefinitionReferences(t *testing.T) {
+	t.Run("replaces matching substring", func(t *testing.T) {
+		original := "/subscriptions/0000/resourceGroups/rg/providers/Microsoft.Authorization/policyDefinitions/customPolicy123"
+		pdrefs := []*armpolicy.DefinitionReference{
+			{PolicyDefinitionID: toPtr(original)},
+		}
+
+		re := regexp.MustCompile(`customPolicy\d+`)
+
+		updatePolicyDefinitionReferences(pdrefs, re, "REPLACED")
+
+		if pdrefs[0].PolicyDefinitionID == nil {
+			t.Fatalf("expected non-nil PolicyDefinitionID after update")
+		}
+		got := *pdrefs[0].PolicyDefinitionID
+		want := "/subscriptions/0000/resourceGroups/rg/providers/Microsoft.Authorization/policyDefinitions/REPLACED"
+		if got != want {
+			t.Fatalf("unexpected result\ngot:  %s\nwant: %s", got, want)
+		}
+	})
+
+	t.Run("ignores nil PolicyDefinitionID", func(t *testing.T) {
+		pdrefs := []*armpolicy.DefinitionReference{
+			{PolicyDefinitionID: nil},
+		}
+
+		re := regexp.MustCompile(`customPolicy\d+`)
+
+		// Should not panic and should leave the nil as nil.
+		updatePolicyDefinitionReferences(pdrefs, re, "X")
+
+		if pdrefs[0].PolicyDefinitionID != nil {
+			t.Fatalf("expected PolicyDefinitionID to remain nil")
+		}
+	})
+
+	t.Run("replaces multiple occurrences", func(t *testing.T) {
+		original := "prefix/customPolicy1-middle/customPolicy2-suffix"
+		pdrefs := []*armpolicy.DefinitionReference{
+			{PolicyDefinitionID: toPtr(original)},
+		}
+
+		re := regexp.MustCompile(`customPolicy\d+`)
+
+		updatePolicyDefinitionReferences(pdrefs, re, "Z")
+
+		if pdrefs[0].PolicyDefinitionID == nil {
+			t.Fatalf("expected non-nil PolicyDefinitionID after update")
+		}
+		got := *pdrefs[0].PolicyDefinitionID
+		want := "prefix/Z-middle/Z-suffix"
+		if got != want {
+			t.Fatalf("unexpected multiple replacement\ngot:  %s\nwant: %s", got, want)
+		}
+	})
 }

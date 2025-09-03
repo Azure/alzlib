@@ -10,10 +10,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Azure/alzlib/internal/processor"
+	"github.com/Azure/alzlib/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
 // HierarchyWriter writes a Hierarchy to a target location.
@@ -28,26 +31,27 @@ type HierarchyWriter interface {
 
 // FSWriter writes a Hierarchy to the local filesystem.
 type FSWriter struct {
-	alzBicepMode bool
+	opts FSWriterOptions
 }
 
-// FSWriterOption configures FSWriter behavior.
-type FSWriterOption func(*FSWriter)
+type FSWriterOptions struct {
+	ArmEscapePolicyDefinitions    uint                     // number of times to escape ARM expressions in policy definitions
+	ArmEscapePolicySetDefinitions uint                     // number of times to escape ARM expressions in policy set definitions
+	ArmEscapeRoleDefinitions      uint                     // number of times to escape ARM expressions in role definitions
+	ArmEscapePolicyAssignments    uint                     // number of times to escape ARM expressions in policy assignments
+	PolicySetOptions              FSWriterPolicySetOptions // options for customization of policy set definitions
+}
 
-// WithAlzBicepMode is a highly opinionated export configuration.
-// It enables escaping of ARM function expressions in string values
-// by prefixing an extra '['.
-// It double escapes ARM expressions in PolicySetDefinitions.
-// It also replaces
-func WithAlzBicepMode(enabled bool) FSWriterOption {
-	return func(w *FSWriter) { w.alzBicepMode = enabled }
+type FSWriterPolicySetOptions struct {
+	CustomPolicyDefinitionReferencesUpdate      bool           // if true, replaces custom policy definition references in policy set definitions
+	CustomPolicyDefinitionReferenceRegExp       *regexp.Regexp // regular expression to match custom policy definition references
+	CustomPolicyDefinitionReferenceReplaceValue string         // value to replace custom policy definition references
 }
 
 // NewFSWriter creates a new filesystem writer with optional configuration.
-func NewFSWriter(opts ...FSWriterOption) *FSWriter {
-	w := &FSWriter{}
-	for _, opt := range opts {
-		opt(w)
+func NewFSWriter(opt FSWriterOptions) *FSWriter {
+	w := &FSWriter{
+		opts: opt,
 	}
 
 	return w
@@ -94,7 +98,7 @@ func (w *FSWriter) Write(ctx context.Context, h *Hierarchy, outDir string) error
 		}
 	}
 
-	sort.Strings(rootNames)
+	slices.Sort(rootNames)
 
 	for _, root := range rootNames {
 		if err := w.writeMgmtGroupRecursive(ctx, h, root, outDir); err != nil {
@@ -140,7 +144,9 @@ func (w *FSWriter) writeMgmtGroupRecursive(ctx context.Context, h *Hierarchy, mg
 
 	// Recurse into children: stable order by child name
 	children := mg.Children()
-	sort.Slice(children, func(i, j int) bool { return children[i].Name() < children[j].Name() })
+	slices.SortFunc(children, func(a, b *HierarchyManagementGroup) int {
+		return strings.Compare(a.Name(), b.Name())
+	})
 
 	for _, child := range children {
 		if err := w.writeMgmtGroupRecursive(ctx, h, child.Name(), dir); err != nil {
@@ -153,28 +159,11 @@ func (w *FSWriter) writeMgmtGroupRecursive(ctx context.Context, h *Hierarchy, mg
 
 func (w *FSWriter) writePolicyAssignments(ctx context.Context, dir string, mg *HierarchyManagementGroup) error {
 	m := mg.PolicyAssignmentMap()
-	if len(m) == 0 {
-		return nil
-	}
 
 	for _, pa := range m {
-		if err := ctxErr(ctx); err != nil {
+		// we don't need to safely dereference the name because the assets package does this for us
+		if err := writeAsset(ctx, *pa.Name, dir, fileSuffixPolicyAssignment, pa, w.opts.ArmEscapePolicyAssignments); err != nil {
 			return err
-		}
-
-		assetName := derefString(pa.Name, "")
-
-		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicyAssignment)
-
-		if w.alzBicepMode {
-			if err := writeJSONFileEscaped(ctx, file, pa, 1); err != nil {
-				return fmt.Errorf("writing policy assignment %q: %w", assetName, err)
-			}
-			continue
-		}
-
-		if err := writeJSONFile(file, pa); err != nil {
-			return fmt.Errorf("writing policy set definition %q: %w", assetName, err)
 		}
 	}
 
@@ -183,28 +172,11 @@ func (w *FSWriter) writePolicyAssignments(ctx context.Context, dir string, mg *H
 
 func (w *FSWriter) writePolicyDefinitions(ctx context.Context, dir string, mg *HierarchyManagementGroup) error {
 	m := mg.PolicyDefinitionsMap()
-	if len(m) == 0 {
-		return nil
-	}
 
-	for _, pd := range m {
-		if err := ctxErr(ctx); err != nil {
+	for _, pa := range m {
+		// we don't need to safely dereference the name because the assets package does this for us
+		if err := writeAsset(ctx, *pa.Name, dir, string(fileSuffixPolicyDefinition), pa, w.opts.ArmEscapePolicyAssignments); err != nil {
 			return err
-		}
-
-		assetName := derefString(pd.Name, "")
-
-		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicyDefinition)
-
-		if w.alzBicepMode {
-			if err := writeJSONFileEscaped(ctx, file, pd, 1); err != nil {
-				return fmt.Errorf("writing policy definition %q: %w", assetName, err)
-			}
-			continue
-		}
-
-		if err := writeJSONFile(file, pd); err != nil {
-			return fmt.Errorf("writing policy definition %q: %w", assetName, err)
 		}
 	}
 
@@ -218,23 +190,17 @@ func (w *FSWriter) writePolicySetDefinitions(ctx context.Context, dir string, mg
 	}
 
 	for _, psd := range m {
-		if err := ctxErr(ctx); err != nil {
+		if w.opts.PolicySetOptions.CustomPolicyDefinitionReferencesUpdate {
+			updatePolicyDefinitionReferences(
+				psd.Properties.PolicyDefinitions,
+				w.opts.PolicySetOptions.CustomPolicyDefinitionReferenceRegExp,
+				w.opts.PolicySetOptions.CustomPolicyDefinitionReferenceReplaceValue,
+			)
+		}
+
+		// we don't need to safely dereference the name because the assets package does this for us
+		if err := writeAsset(ctx, *psd.Name, dir, string(fileSuffixPolicySetDefinition), psd, w.opts.ArmEscapePolicyAssignments); err != nil {
 			return err
-		}
-
-		assetName := derefString(psd.Name, "")
-
-		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixPolicySetDefinition)
-
-		if w.alzBicepMode {
-			if err := writeJSONFileEscaped(ctx, file, psd, 2); err != nil {
-				return fmt.Errorf("writing policy set definition %q: %w", assetName, err)
-			}
-			continue
-		}
-
-		if err := writeJSONFile(file, psd); err != nil {
-			return fmt.Errorf("writing policy set definition %q: %w", assetName, err)
 		}
 	}
 
@@ -243,28 +209,11 @@ func (w *FSWriter) writePolicySetDefinitions(ctx context.Context, dir string, mg
 
 func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *HierarchyManagementGroup) error {
 	m := mg.RoleDefinitionsMap()
-	if len(m) == 0 {
-		return nil
-	}
 
 	for _, rd := range m {
-		if err := ctxErr(ctx); err != nil {
+		// we don't need to safely dereference the name because the assets package does this for us
+		if err := writeAsset(ctx, *rd.Name, dir, fileSuffixRoleDefinition, rd, w.opts.ArmEscapePolicyAssignments); err != nil {
 			return err
-		}
-
-		assetName := derefString(rd.Name, "")
-
-		file := filepath.Join(dir, sanitizeFilename(assetName)+fileSuffixRoleDefinition)
-
-		if w.alzBicepMode {
-			if err := writeJSONFileEscaped(ctx, file, rd, 1); err != nil {
-				return fmt.Errorf("writing role definition %q: %w", assetName, err)
-			}
-			continue
-		}
-
-		if err := writeJSONFile(file, rd); err != nil {
-			return fmt.Errorf("writing role definition %q: %w", assetName, err)
 		}
 	}
 
@@ -273,12 +222,35 @@ func (w *FSWriter) writeRoleDefinitions(ctx context.Context, dir string, mg *Hie
 
 // Helpers
 
-func derefString(p *string, fallback string) string {
-	if p == nil || *p == "" {
-		return fallback
+func updatePolicyDefinitionReferences(pdrefs []*armpolicy.DefinitionReference, re *regexp.Regexp, replace string) {
+	for _, pdref := range pdrefs {
+		if pdref.PolicyDefinitionID == nil {
+			continue
+		}
+
+		oldPolicyDefID := *pdref.PolicyDefinitionID
+		pdref.PolicyDefinitionID = to.Ptr(re.ReplaceAllString(oldPolicyDefID, replace))
+	}
+}
+
+func writeAsset[T any](ctx context.Context, name, dir, suffix string, asset T, escapeIterations uint) error {
+	if err := ctxErr(ctx); err != nil {
+		return err
 	}
 
-	return *p
+	file := filepath.Join(dir, sanitizeFilename(name)+suffix)
+	if escapeIterations > 0 {
+		if err := writeJSONFileEscaped(ctx, file, asset, escapeIterations); err != nil {
+			return fmt.Errorf("writing asset %q: %w", name, err)
+		}
+		return nil
+	}
+
+	if err := writeJSONFile(file, asset); err != nil {
+		return fmt.Errorf("writing asset %q: %w", name, err)
+	}
+
+	return nil
 }
 
 func sanitizeFilename(s string) string {
@@ -365,13 +337,13 @@ func writeJSONFile(finalPath string, v any) error {
 // writeJSONFileMaybeEscaped writes v as JSON to finalPath. When the writer is configured
 // with escapeARM=true, it first materializes v into generic JSON types (map[string]any/[]any),
 // applies addArmFunctionEscaping to escape ARM function expressions, and then writes the result.
-func writeJSONFileEscaped(ctx context.Context, finalPath string, v json.Marshaler, iterations int) error {
+func writeJSONFileEscaped(ctx context.Context, finalPath string, v any, iterations uint) error {
 	if err := ctxErr(ctx); err != nil {
 		return err
 	}
 
 	// Marshal to JSON then unmarshal into interface{} to obtain maps/slices for traversal.
-	b, err := v.MarshalJSON()
+	b, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("marshal for escaping: %w", err)
 	}
@@ -388,22 +360,6 @@ func writeJSONFileEscaped(ctx context.Context, finalPath string, v json.Marshale
 	}
 
 	return writeJSONFile(finalPath, m)
-}
-
-// marshaller2Any converts any to JSON and back to any.
-func marshaller2Any(v json.Marshaler) (any, error) {
-	// Marshal to JSON then unmarshal into any to obtain maps/slices for traversal.
-	b, err := v.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("marshal for escaping: %w", err)
-	}
-
-	var m any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, fmt.Errorf("unmarshal for escaping: %w", err)
-	}
-
-	return m, nil
 }
 
 func addArmFunctionEscaping(v any) error {

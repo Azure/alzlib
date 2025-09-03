@@ -5,7 +5,9 @@ package generate
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
@@ -61,9 +63,22 @@ var generateArchitectureBaseCmd = cobra.Command{
 		}
 		// If an output directory is provided, export a filesystem representation and return.
 		outDir, _ := cmd.Flags().GetString("output")
-		escapeARM, _ := cmd.Flags().GetBool("escape-arm")
 		if outDir != "" {
-			w := deployment.NewFSWriter(deployment.WithAlzBicepMode(escapeARM))
+			opts := deployment.FSWriterOptions{}
+			if b, _ := cmd.Flags().GetBool("for-alz-bicep"); b {
+				opts = deployment.FSWriterOptions{
+					ArmEscapePolicyDefinitions:    1,
+					ArmEscapePolicySetDefinitions: 2,
+					ArmEscapeRoleDefinitions:      1,
+					ArmEscapePolicyAssignments:    1,
+					PolicySetOptions: deployment.FSWriterPolicySetOptions{
+						CustomPolicyDefinitionReferencesUpdate:      true,
+						CustomPolicyDefinitionReferenceRegExp:       regexp.MustCompile(fmt.Sprintf(`(?i)^/providers/Microsoft\.Management/managementGroups/%s`, args[1])),
+						CustomPolicyDefinitionReferenceReplaceValue: "",
+					},
+				}
+			}
+			w := deployment.NewFSWriter(opts)
 			if err := w.Write(cmd.Context(), h, outDir); err != nil {
 				cmd.PrintErrf("%s could not write filesystem output: %v\n", cmd.ErrPrefix(), err)
 				os.Exit(1)
@@ -105,4 +120,10 @@ func init() {
 			"escape-arm",
 			false,
 			"When exporting to a directory, escape ARM function strings (values starting with '[') by prefixing an extra '['.")
+
+	generateArchitectureBaseCmd.Flags().
+		Bool(
+			"for-alz-bicep",
+			false,
+			"When exporting to a directory, add custom ARM escaping and other transformations specific to ALZ Bicep.")
 }
