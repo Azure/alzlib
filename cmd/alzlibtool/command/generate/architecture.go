@@ -74,7 +74,7 @@ var generateArchitectureBaseCmd = cobra.Command{
 					PolicySetOptions: deployment.FSWriterPolicySetOptions{
 						CustomPolicyDefinitionReferencesUpdate:      true,
 						CustomPolicyDefinitionReferenceRegExp:       regexp.MustCompile(fmt.Sprintf(`(?i)^/providers/Microsoft\.Management/managementGroups/%s`, args[1])),
-						CustomPolicyDefinitionReferenceReplaceValue: "",
+						CustomPolicyDefinitionReferenceReplaceValue: "{customPolicyDefinitionScopeId}",
 					},
 				}
 			}
