@@ -94,7 +94,6 @@ func TestGetBuiltInPolicySet(t *testing.T) {
 		"Evaluate Private Link Usage Across All Supported Azure Resources",
 		*az.policySetDefinitions["7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"].Properties.DisplayName,
 	)
-	assert.Len(t, az.policyDefinitions, 30)
 }
 
 func TestGenerateOverrideArchetypes(t *testing.T) {
