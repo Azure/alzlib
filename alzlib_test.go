@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/alzlib/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
@@ -58,7 +58,7 @@ func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
 
 func TestGetBuiltInPolicy(t *testing.T) {
 	az := NewAlzLib(nil)
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := auth.NewToken()
 	require.NoError(t, err)
 
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
@@ -78,7 +78,7 @@ func TestGetBuiltInPolicy(t *testing.T) {
 
 func TestGetBuiltInPolicySet(t *testing.T) {
 	az := NewAlzLib(nil)
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := auth.NewToken()
 	require.NoError(t, err)
 
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)

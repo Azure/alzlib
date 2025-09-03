@@ -20,6 +20,28 @@ permissions:
   id-token: write
 
 jobs:
+  build32bit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        name: checkout
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        name: setup go
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: go build
+        run: |
+          go mod download
+          go build -v ./...
+        env:
+          GOOS: linux
+          GOARCH: '386'
+
   test:
     environment: test
     strategy:

@@ -1,12 +1,13 @@
 module github.com/Azure/alzlib
 
-go 1.24.6
+go 1.25.0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2 v2.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy v0.10.0
+	github.com/Azure/entrauth v0.0.0-20250819004238-dc2a3f58cbb7
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/brunoga/deep v1.2.4
 	github.com/deckarep/golang-set/v2 v2.6.0

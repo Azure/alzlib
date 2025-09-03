@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/Azure/alzlib"
+	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/alzlib/internal/tools/checker"
 	"github.com/Azure/alzlib/internal/tools/checks"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +22,7 @@ var libraryCmd = cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		az := alzlib.NewAlzLib(nil)
-		creds, err := azidentity.NewDefaultAzureCredential(nil)
+		creds, err := auth.NewToken()
 		if err != nil {
 			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)

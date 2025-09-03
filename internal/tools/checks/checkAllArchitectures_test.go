@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +19,7 @@ func TestCheckAllArchitectures(t *testing.T) {
 	lib := alzlib.NewAlzLibraryReference("platform/alz", "2024.03.03")
 	_, err := lib.Fetch(ctx, "0")
 	require.NoError(t, err)
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := auth.NewToken()
 	require.NoError(t, err)
 	cf, err := armpolicy.NewClientFactory("", cred, nil)
 	require.NoError(t, err)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
@@ -22,7 +22,7 @@ func Example_deploymentNewHierarchy() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := auth.NewToken()
 	if err != nil {
 		fmt.Println(err)
 		return
