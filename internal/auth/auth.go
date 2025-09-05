@@ -19,9 +19,10 @@ var environmentToCloud = map[string]cloud.Configuration{
 	"china":        cloud.AzureChina,
 }
 
-// NewToken creates a new Entra token credential.
-// It uses well-known Terraform ARM environment variables to configure the token acquisition.
-func NewToken() (azcore.TokenCredential, error) {
+// GetCloudFromEnv retrieves the Azure cloud configuration based on environment variables.
+// It checks the ARM_ENVIRONMENT and AZURE_ENVIRONMENT variables to determine the appropriate cloud.
+// If neither variable is set or recognized, it defaults to AzurePublic.
+func GetCloudFromEnv() cloud.Configuration {
 	cld := cloud.AzurePublic
 
 	if env := getFirstSetEnvVar("ARM_ENVIRONMENT", "AZURE_ENVIRONMENT"); env != "" {
@@ -30,10 +31,16 @@ func NewToken() (azcore.TokenCredential, error) {
 		}
 	}
 
+	return cld
+}
+
+// NewToken creates a new Entra token credential.
+// It uses well-known Terraform ARM environment variables to configure the token acquisition.
+func NewToken() (azcore.TokenCredential, error) {
 	opts := aztfauth.Option{
 		UseAzureCLI: true,
 		ClientOptions: azcore.ClientOptions{
-			Cloud: cld,
+			Cloud: GetCloudFromEnv(),
 		},
 	}
 
