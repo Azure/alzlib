@@ -5,6 +5,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/Azure/alzlib/cmd/alzlibtool/command/check"
@@ -14,12 +15,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "dev"
+var (
+	version = "dev"
+	// commit holds the git commit hash injected at build time via ldflags.
+	commit = ""
+)
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:     "alzlibtool",
-	Version: version,
+	Version: fmt.Sprintf("%s (commit: %s)", version, commit),
 	Short:   "A cli tool for working with alzlib libraries",
 	Long: `A cli tool for working with alzlib libraries.
 
