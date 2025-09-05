@@ -10,6 +10,8 @@ import (
 	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/alzlib/internal/tools/checker"
 	"github.com/Azure/alzlib/internal/tools/checks"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +29,11 @@ var libraryCmd = cobra.Command{
 			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
-		cf, err := armpolicy.NewClientFactory("", creds, nil)
+		cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
+			ClientOptions: policy.ClientOptions{
+				Cloud: auth.GetCloudFromEnv(),
+			},
+		})
 		if err != nil {
 			cmd.PrintErrf("%s could not create Azure policy client factory: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)

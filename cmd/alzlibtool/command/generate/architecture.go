@@ -12,6 +12,8 @@ import (
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/deployment"
 	"github.com/Azure/alzlib/internal/auth"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -28,8 +30,8 @@ var generateArchitectureBaseCmd = cobra.Command{
 		`This enables deployment with a tool of your choosing.`,
 	Args: cobra.ExactArgs(RequiredArchitectureArgs),
 	Run: func(cmd *cobra.Command, args []string) {
-		thislib := alzlib.NewCustomLibraryReference(args[0])
-		alllibs, err := thislib.FetchWithDependencies(cmd.Context())
+		thisLib := alzlib.NewCustomLibraryReference(args[0])
+		allLibs, err := thisLib.FetchWithDependencies(cmd.Context())
 		if err != nil {
 			cmd.PrintErrf(
 				"%s could not fetch all libraries with dependencies: %v\n",
@@ -39,18 +41,22 @@ var generateArchitectureBaseCmd = cobra.Command{
 			os.Exit(1)
 		}
 		az := alzlib.NewAlzLib(nil)
-		cred, err := auth.NewToken()
+		creds, err := auth.NewToken()
 		if err != nil {
 			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
-		cf, err := armpolicy.NewClientFactory("", cred, nil)
+		cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
+			ClientOptions: policy.ClientOptions{
+				Cloud: auth.GetCloudFromEnv(),
+			},
+		})
 		if err != nil {
 			cmd.PrintErrf("%s could not add client to alzlib: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
 		az.AddPolicyClient(cf)
-		if err := az.Init(cmd.Context(), alllibs...); err != nil {
+		if err := az.Init(cmd.Context(), allLibs...); err != nil {
 			cmd.PrintErrf("%s could not initialize alzlib: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
