@@ -116,9 +116,9 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 		)
 	}
 
-	if _, ok := c.versions[*sv]; ok {
-		return fmt.Errorf("version %s for %s already exists", *verStr, *name)
-	}
+	// if _, ok := c.versions[*sv]; ok {
+	// 	return fmt.Errorf("version %s for %s already exists", *verStr, *name)
+	// }
 
 	for v := range maps.Values(c.versions) {
 		if *v.GetName() != *name {
@@ -133,4 +133,22 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 	c.versions[*sv] = add
 
 	return nil
+}
+
+// Exists checks if a version or versionless definition exists in the collection.
+// If version is nil, it checks for the existence of a versionless definition.
+// You must supply a exact semver version string to check for a specific version.
+// If you want to supply a version constraint, use GetVersion instead.
+func (c *VersionedPolicyCollection[T]) Exists(version *string) bool {
+	if version == nil {
+		return c.versionlessDefinition != nil
+	}
+
+	sv, err := semver.StrictNewVersion(*version)
+	if err != nil {
+		return false
+	}
+
+	_, ok := c.versions[*sv]
+	return ok
 }

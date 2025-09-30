@@ -13,6 +13,7 @@ type PolicySetDefinitionVersions = VersionedPolicyCollection[*PolicySetDefinitio
 // NewPolicySetDefinitionVersions creates a collection of PolicySetDefinitionVersion.
 func NewPolicySetDefinitionVersions() *PolicySetDefinitionVersions {
 	return &PolicySetDefinitionVersions{
-		versions: make(map[semver.Version]*PolicySetDefinitionVersion),
+		versions:              make(map[semver.Version]*PolicySetDefinitionVersion),
+		versionlessDefinition: nil,
 	}
 }

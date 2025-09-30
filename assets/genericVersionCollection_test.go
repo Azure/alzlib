@@ -53,10 +53,11 @@ func TestVersionedPolicyCollection_Add_DuplicateSemVer(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
 	version := testVersion100
 	policy1 := fakePolicyDefinitionVersioned("Policy1", version)
-	policy2 := fakePolicyDefinitionVersioned("Policy2", version)
+	policy2 := fakePolicyDefinitionVersioned("Policy1", version)
 
 	require.NoError(t, pdvs.Add(policy1))
-	require.ErrorContains(t, pdvs.Add(policy2), "version "+testVersion100+" for Policy2 already exists")
+	require.NoError(t, pdvs.Add(policy2))
+	assert.Len(t, pdvs.versions, 1)
 }
 
 func TestVersionedPolicyCollection_Add_MixVersionedAndVersionless(t *testing.T) {
@@ -218,6 +219,57 @@ func TestVersionedPolicyCollection_GetVersion_WildcardConstraint(t *testing.T) {
 	got, err := pdvs.GetVersion(&constr)
 	require.Error(t, err)
 	assert.Nil(t, got)
+}
+
+func TestVersionedPolicyCollection_Exists(t *testing.T) {
+	t.Run("returns true when versionless definition present", func(t *testing.T) {
+		pdvs := NewPolicyDefinitionVersions()
+		versionless := fakePolicyDefinitionVersionless("PolicyVersionless")
+		require.NoError(t, pdvs.Add(versionless))
+
+		assert.True(t, pdvs.Exists(nil))
+	})
+
+	t.Run("returns false when versionless definition missing", func(t *testing.T) {
+		pdvs := NewPolicyDefinitionVersions()
+
+		assert.False(t, pdvs.Exists(nil))
+	})
+
+	t.Run("returns true when exact version exists", func(t *testing.T) {
+		pdvs := NewPolicyDefinitionVersions()
+		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
+		require.NoError(t, pdvs.Add(policy))
+
+		assert.True(t, pdvs.Exists(to.Ptr(testVersion100)))
+	})
+
+	t.Run("returns false when version missing", func(t *testing.T) {
+		pdvs := NewPolicyDefinitionVersions()
+		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
+		require.NoError(t, pdvs.Add(policy))
+
+		missingVersion := "1.0.1"
+		assert.False(t, pdvs.Exists(&missingVersion))
+	})
+
+	t.Run("returns false when version string invalid", func(t *testing.T) {
+		pdvs := NewPolicyDefinitionVersions()
+		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
+		require.NoError(t, pdvs.Add(policy))
+
+		invalidVersion := "1.0.*"
+		assert.False(t, pdvs.Exists(&invalidVersion))
+	})
+
+	t.Run("returns false when version string invalid with minor", func(t *testing.T) {
+		pdvs := NewPolicyDefinitionVersions()
+		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
+		require.NoError(t, pdvs.Add(policy))
+
+		invalidVersion := "1.*.*"
+		assert.False(t, pdvs.Exists(&invalidVersion))
+	})
 }
 
 func fakePolicyDefinitionVersioned(name string, version string) *PolicyDefinitionVersion {

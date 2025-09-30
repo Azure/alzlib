@@ -156,20 +156,22 @@ func TestProcessPolicyDefinitionValid(t *testing.T) {
 
 	sampleData := getSamplePolicyDefinition()
 	res := &Result{
-		PolicyDefinitions: make(map[string]*assets.PolicyDefinition),
+		PolicyDefinitionVersions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicyDefinition(res, unmar))
-	assert.Len(t, res.PolicyDefinitions, 1)
+	assert.Len(t, res.PolicyDefinitionVersions, 1)
+	pdv, err := res.PolicyDefinitionVersions["Append-AppService-httpsonly"].GetVersion(nil)
+	require.NoError(t, err)
 	assert.Equal(
 		t,
 		"Append-AppService-httpsonly",
-		*res.PolicyDefinitions["Append-AppService-httpsonly"].Name,
+		*pdv.Name,
 	)
 	assert.Equal(
 		t,
 		armpolicy.PolicyTypeCustom,
-		*res.PolicyDefinitions["Append-AppService-httpsonly"].Properties.PolicyType,
+		*pdv.Properties.PolicyType,
 	)
 }
 
@@ -180,7 +182,7 @@ func TestProcessPolicyDefinitionNoName(t *testing.T) {
 
 	sampleData := getSamplePolicyDefinition_noName()
 	res := &Result{
-		PolicyDefinitions: make(map[string]*assets.PolicyDefinition),
+		PolicyDefinitionVersions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyLength{}
@@ -197,16 +199,18 @@ func TestProcessSetPolicyDefinitionValid(t *testing.T) {
 
 	sampleData := getSamplePolicySetDefinition()
 	res := &Result{
-		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinition),
+		PolicySetDefinitionVersions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicySetDefinition(res, unmar))
-	assert.Len(t, res.PolicySetDefinitions, 1)
-	assert.Equal(t, "Deploy-MDFC-Config", *res.PolicySetDefinitions["Deploy-MDFC-Config"].Name)
+	assert.Len(t, res.PolicySetDefinitionVersions, 1)
+	psdv, err := res.PolicySetDefinitionVersions["Deploy-MDFC-Config"].GetVersion(nil)
+	require.NoError(t, err)
+	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
 	assert.Equal(
 		t,
 		armpolicy.PolicyTypeCustom,
-		*res.PolicySetDefinitions["Deploy-MDFC-Config"].Properties.PolicyType,
+		*psdv.Properties.PolicyType,
 	)
 }
 
@@ -217,7 +221,7 @@ func TestProcessPolicySetDefinitionNoName(t *testing.T) {
 
 	sampleData := getSamplePolicySetDefinition_noName()
 	res := &Result{
-		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinition),
+		PolicySetDefinitionVersions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyMustNotBeNil{}

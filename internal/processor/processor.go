@@ -86,8 +86,8 @@ func NewErrorUnmarshaling(detail string) error {
 
 // Result is the structure that gets built by scanning the library files.
 type Result struct {
-	PolicyDefinitions                   map[string]*assets.PolicyDefinition
-	PolicySetDefinitions                map[string]*assets.PolicySetDefinition
+	PolicyDefinitionVersions            map[string]*assets.PolicyDefinitionVersions
+	PolicySetDefinitionVersions         map[string]*assets.PolicySetDefinitionVersions
 	PolicyAssignments                   map[string]*assets.PolicyAssignment
 	RoleDefinitions                     map[string]*assets.RoleDefinition
 	LibArchetypes                       map[string]*LibArchetype
@@ -101,8 +101,8 @@ type Result struct {
 // NewResult creates a new Result struct with initialized maps for each resource type.
 func NewResult() *Result {
 	return &Result{
-		PolicyDefinitions:                   make(map[string]*assets.PolicyDefinition),
-		PolicySetDefinitions:                make(map[string]*assets.PolicySetDefinition),
+		PolicyDefinitionVersions:            make(map[string]*assets.PolicyDefinitionVersions),
+		PolicySetDefinitionVersions:         make(map[string]*assets.PolicySetDefinitionVersions),
 		PolicyAssignments:                   make(map[string]*assets.PolicyAssignment),
 		RoleDefinitions:                     make(map[string]*assets.RoleDefinition),
 		LibArchetypes:                       make(map[string]*LibArchetype),
@@ -375,7 +375,7 @@ func processPolicyAssignment(res *Result, unmar unmarshaler) error {
 // processPolicyAssignment is a processFunc that reads the policy_definition
 // bytes, processes, then adds the created assets.PolicyDefinition to the result.
 func processPolicyDefinition(res *Result, unmar unmarshaler) error {
-	pd := new(assets.PolicyDefinition)
+	pd := new(assets.PolicyDefinitionVersion)
 	if err := unmar.unmarshal(pd); err != nil {
 		return errors.Join(NewErrorUnmarshaling("policy definition"), err)
 	}
@@ -384,11 +384,21 @@ func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 		return NewErrNoNameProvided("policy definition")
 	}
 
-	if _, exists := res.PolicyDefinitions[*pd.Name]; exists {
-		return NewErrResourceAlreadyExists("policy definition", *pd.Name)
+	if pdv, exists := res.PolicyDefinitionVersions[*pd.Name]; exists {
+		if pdv.Exists(pd.GetVersion()) {
+			ver := "(no version)"
+			if pd.GetVersion() != nil {
+				ver = *pd.GetVersion()
+			}
+			return NewErrResourceAlreadyExists("policy definition (version)", fmt.Sprintf("%s for %s already exists", ver, *pd.Name))
+		}
 	}
 
-	res.PolicyDefinitions[*pd.Name] = pd
+	if _, ok := res.PolicyDefinitionVersions[*pd.Name]; !ok {
+		res.PolicyDefinitionVersions[*pd.Name] = assets.NewPolicyDefinitionVersions()
+	}
+
+	res.PolicyDefinitionVersions[*pd.Name].Add(pd)
 
 	return nil
 }
@@ -396,7 +406,7 @@ func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 // processPolicyAssignment is a processFunc that reads the policy_set_definition
 // bytes, processes, then adds the created assets.PolicySetDefinition to the result.
 func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
-	psd := new(assets.PolicySetDefinition)
+	psd := new(assets.PolicySetDefinitionVersion)
 	if err := unmar.unmarshal(psd); err != nil {
 		return errors.Join(NewErrorUnmarshaling("policy set definition"), err)
 	}
@@ -405,11 +415,21 @@ func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 		return NewErrNoNameProvided("policy set definition")
 	}
 
-	if _, exists := res.PolicySetDefinitions[*psd.Name]; exists {
-		return NewErrResourceAlreadyExists("policy set definition", *psd.Name)
+	if psdv, exists := res.PolicySetDefinitionVersions[*psd.Name]; exists {
+		if psdv.Exists(psd.GetVersion()) {
+			ver := "(no version)"
+			if psd.GetVersion() != nil {
+				ver = *psd.GetVersion()
+			}
+			return NewErrResourceAlreadyExists("policy set definition (version)", fmt.Sprintf("%s for %s already exists", ver, *psd.Name))
+		}
 	}
 
-	res.PolicySetDefinitions[*psd.Name] = psd
+	if _, ok := res.PolicySetDefinitionVersions[*psd.Name]; !ok {
+		res.PolicySetDefinitionVersions[*psd.Name] = assets.NewPolicySetDefinitionVersions()
+	}
+
+	res.PolicySetDefinitionVersions[*psd.Name].Add(psd)
 
 	return nil
 }

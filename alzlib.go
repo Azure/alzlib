@@ -37,8 +37,10 @@ type AlzLib struct {
 	archetypes                    map[string]*Archetype
 	architectures                 map[string]*Architecture
 	policyAssignments             map[string]*assets.PolicyAssignment
-	policyDefinitions             map[string]*assets.PolicyDefinition
-	policySetDefinitions          map[string]*assets.PolicySetDefinition
+	policyDefinitions             map[string]*assets.PolicyDefinition // Deprecated, use policyDefinitionVersions
+	policyDefinitionVersions      map[string]*assets.PolicyDefinitionVersions
+	policySetDefinitions          map[string]*assets.PolicySetDefinition // Deprecated, use policySetDefinitionVersions
+	policySetDefinitionVersions   map[string]*assets.PolicySetDefinitionVersions
 	roleDefinitions               map[string]*assets.RoleDefinition
 	defaultPolicyAssignmentValues DefaultPolicyAssignmentValues
 	metadata                      []*Metadata
@@ -79,7 +81,9 @@ func NewAlzLib(opts *Options) *AlzLib {
 		architectures:                 make(map[string]*Architecture),
 		policyAssignments:             make(map[string]*assets.PolicyAssignment),
 		policyDefinitions:             make(map[string]*assets.PolicyDefinition),
+		policyDefinitionVersions:      make(map[string]*assets.PolicyDefinitionVersions),
 		policySetDefinitions:          make(map[string]*assets.PolicySetDefinition),
+		policySetDefinitionVersions:   make(map[string]*assets.PolicySetDefinitionVersions),
 		roleDefinitions:               make(map[string]*assets.RoleDefinition),
 		metadata:                      make([]*Metadata, 0, InitialMetadataSliceCapacity),
 		defaultPolicyAssignmentValues: make(DefaultPolicyAssignmentValues),
