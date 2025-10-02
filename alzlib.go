@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -37,9 +38,7 @@ type AlzLib struct {
 	archetypes                    map[string]*Archetype
 	architectures                 map[string]*Architecture
 	policyAssignments             map[string]*assets.PolicyAssignment
-	policyDefinitions             map[string]*assets.PolicyDefinition // Deprecated, use policyDefinitionVersions
 	policyDefinitionVersions      map[string]*assets.PolicyDefinitionVersions
-	policySetDefinitions          map[string]*assets.PolicySetDefinition // Deprecated, use policySetDefinitionVersions
 	policySetDefinitionVersions   map[string]*assets.PolicySetDefinitionVersions
 	roleDefinitions               map[string]*assets.RoleDefinition
 	defaultPolicyAssignmentValues DefaultPolicyAssignmentValues
@@ -80,9 +79,7 @@ func NewAlzLib(opts *Options) *AlzLib {
 		archetypes:                    make(map[string]*Archetype),
 		architectures:                 make(map[string]*Architecture),
 		policyAssignments:             make(map[string]*assets.PolicyAssignment),
-		policyDefinitions:             make(map[string]*assets.PolicyDefinition),
 		policyDefinitionVersions:      make(map[string]*assets.PolicyDefinitionVersions),
-		policySetDefinitions:          make(map[string]*assets.PolicySetDefinition),
 		policySetDefinitionVersions:   make(map[string]*assets.PolicySetDefinitionVersions),
 		roleDefinitions:               make(map[string]*assets.RoleDefinition),
 		metadata:                      make([]*Metadata, 0, InitialMetadataSliceCapacity),
@@ -143,35 +140,28 @@ func (az *AlzLib) AddPolicyAssignments(pas ...*assets.PolicyAssignment) error {
 }
 
 // AddPolicyDefinitions adds policy definitions to the AlzLib struct.
-func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
+func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinitionVersion) error {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 
+	var merr error
 	for _, pd := range pds {
 		if pd == nil || pd.Name == nil || *pd.Name == "" {
 			continue
 		}
 
-		if _, exists := az.policyDefinitions[*pd.Name]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf(
-				"Alzlib.AddPolicyAssignments: policy definition with name %s already exists and allow overwrite not set",
-				*pd.Name,
-			)
+		if pdvc, exists := az.policyDefinitionVersions[*pd.Name]; exists {
+			multierror.Append(merr, pdvc.Upsert(pdvc, az.Options.AllowOverwrite))
+			continue
 		}
 
-		cpy, err := deep.Copy(pd)
-		if err != nil {
-			return fmt.Errorf(
-				"Alzlib.AddPolicyAssignments: error making deep copy of policy definition %s: %w",
-				*pd.Name,
-				err,
-			)
-		}
-
-		az.policyDefinitions[*pd.Name] = cpy
+		cpy := deep.MustCopy(pd)
+		pdvc := assets.NewPolicyDefinitionVersions()
+		pdvc.Add(cpy, az.Options.AllowOverwrite) // nolint:errcheck
+		az.policyDefinitionVersions[*pd.Name] = pdvc
 	}
 
-	return nil
+	return merr
 }
 
 // AddPolicySetDefinitions adds policy set definitions to the AlzLib struct.
@@ -258,8 +248,8 @@ func (az *AlzLib) PolicyDefinitions() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 
-	result := make([]string, 0, len(az.policyDefinitions))
-	for k := range az.policyDefinitions {
+	result := make([]string, 0, len(az.policyDefinitionVersions))
+	for k := range az.policyDefinitionVersions {
 		result = append(result, k)
 	}
 
@@ -273,8 +263,8 @@ func (az *AlzLib) PolicySetDefinitions() []string {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 
-	result := make([]string, 0, len(az.policySetDefinitions))
-	for k := range az.policySetDefinitions {
+	result := make([]string, 0, len(az.policySetDefinitionVersions))
+	for k := range az.policySetDefinitionVersions {
 		result = append(result, k)
 	}
 
@@ -386,24 +376,39 @@ func (az *AlzLib) Architecture(name string) *Architecture {
 }
 
 // PolicyDefinitionExists returns true if the policy definition name exists in the AlzLib struct.
-func (az *AlzLib) PolicyDefinitionExists(name string) bool {
+func (az *AlzLib) PolicyDefinitionExists(name string, version *string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 
-	_, exists := az.policyDefinitions[name]
+	pdvc, exists := az.policyDefinitionVersions[name]
+	if !exists {
+		return false
+	}
 
-	return exists
+	pdv, err := pdvc.GetVersionStrict(version)
+	if err != nil {
+		return false
+	}
+
+	return pdv != nil
 }
 
-// PolicySetDefinitionExists returns true if the policy set definition name exists in the AlzLib
+// PolicySetDefinitionExists returns true if the policy set definition name and version exists in the AlzLib
 // struct.
-func (az *AlzLib) PolicySetDefinitionExists(name string) bool {
+func (az *AlzLib) PolicySetDefinitionExists(name string, version *string) bool {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 
-	_, exists := az.policySetDefinitions[name]
+	psdvc, exists := az.policySetDefinitionVersions[name]
+	if !exists {
+		return false
+	}
+	psdv, err := psdvc.GetVersionStrict(version)
+	if err != nil {
+		return false
+	}
 
-	return exists
+	return psdv != nil
 }
 
 // PolicyAssignmentExists returns true if the policy assignment exists name in the AlzLib struct.
@@ -426,50 +431,64 @@ func (az *AlzLib) RoleDefinitionExists(name string) bool {
 	return exists
 }
 
-// PolicyDefinition returns a deep copy of the requested policy definition.
+// PolicyDefinition returns a deep copy of the requested policy definition version.
 // This is safe to modify without affecting the original.
-func (az *AlzLib) PolicyDefinition(name string) *assets.PolicyDefinition {
+func (az *AlzLib) PolicyDefinition(name string, version *string) *assets.PolicyDefinitionVersion {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 
-	pd, ok := az.policyDefinitions[name]
+	pd, ok := az.policyDefinitionVersions[name]
 	if !ok {
 		return nil
 	}
 
-	return deep.MustCopy(pd)
+	pdv, err := pd.GetVersionStrict(version)
+	if err != nil {
+		return nil
+	}
+
+	return deep.MustCopy(pdv)
 }
 
 // SetAssignPermissionsOnDefinitionParameter sets the AssignPermissions metadata field to true for
-// the definition and
-// parameter with the given name.
-func (az *AlzLib) SetAssignPermissionsOnDefinitionParameter(definitionName, parameterName string) {
+// the definition and parameter with the given name.
+func (az *AlzLib) SetAssignPermissionsOnDefinitionParameter(definitionName string, definitionVersion *string, parameterName string) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 
-	definition, ok := az.policyDefinitions[definitionName]
+	definition, ok := az.policyDefinitionVersions[definitionName]
 	if !ok {
 		return
 	}
 
-	definition.SetAssignPermissionsOnParameter(parameterName)
+	pd, err := definition.GetVersionStrict(definitionVersion)
+	if err != nil {
+		return
+	}
+
+	pd.SetAssignPermissionsOnParameter(parameterName)
 }
 
 // UnsetAssignPermissionsOnDefinitionParameter removes the AssignPermissions metadata field to true
 // for the definition
 // and parameter with the given name.
 func (az *AlzLib) UnsetAssignPermissionsOnDefinitionParameter(
-	definitionName, parameterName string,
+	definitionName string, definitionVersion *string, parameterName string,
 ) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 
-	definition, ok := az.policyDefinitions[definitionName]
+	definition, ok := az.policyDefinitionVersions[definitionName]
 	if !ok {
 		return
 	}
 
-	definition.UnsetAssignPermissionsOnParameter(parameterName)
+	pd, err := definition.GetVersionStrict(definitionVersion)
+	if err != nil {
+		return
+	}
+
+	pd.UnsetAssignPermissionsOnParameter(parameterName)
 }
 
 // PolicyAssignment returns a deep copy of the requested policy assignment.
@@ -488,16 +507,21 @@ func (az *AlzLib) PolicyAssignment(name string) *assets.PolicyAssignment {
 
 // PolicySetDefinition returns a deep copy of the requested policy set definition.
 // This is safe to modify without affecting the original.
-func (az *AlzLib) PolicySetDefinition(name string) *assets.PolicySetDefinition {
+func (az *AlzLib) PolicySetDefinition(name string, version *string) *assets.PolicySetDefinitionVersion {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 
-	psd, ok := az.policySetDefinitions[name]
+	psd, ok := az.policySetDefinitionVersions[name]
 	if !ok {
 		return nil
 	}
 
-	return deep.MustCopy(psd)
+	psdv, err := psd.GetVersionStrict(version)
+	if err != nil {
+		return nil
+	}
+
+	return deep.MustCopy(psdv)
 }
 
 // RoleDefinition returns a deep copy of the requested role definition.
@@ -840,26 +864,27 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) erro
 
 // addPolicyAndRoleAssets adds the results of a processed library to the AlzLib.
 func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
-	for k, v := range res.PolicyDefinitions {
-		if _, exists := az.policyDefinitions[k]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf(
-				"Alzlib.addProcessedResult: policy definition %s already exists in the library",
-				k,
-			)
+	var merr error
+	for k, v := range res.PolicyDefinitionVersions {
+		if pdv, exists := az.policyDefinitionVersions[k]; exists {
+			multierror.Append(merr, v.Upsert(pdv, az.Options.AllowOverwrite))
+			continue
 		}
-
-		az.policyDefinitions[k] = v
+		az.policyDefinitionVersions[k] = v
+	}
+	if merr != nil {
+		return fmt.Errorf("Alzlib.addProcessedResult: error adding policy definition versions: %w", merr)
 	}
 
-	for k, v := range res.PolicySetDefinitions {
-		if _, exists := az.policySetDefinitions[k]; exists && !az.Options.AllowOverwrite {
-			return fmt.Errorf(
-				"Alzlib.addProcessedResult: policy definition %s already exists in the library",
-				k,
-			)
+	for k, v := range res.PolicySetDefinitionVersions {
+		if psdv, exists := az.policySetDefinitionVersions[k]; exists {
+			multierror.Append(merr, v.Upsert(psdv, az.Options.AllowOverwrite))
+			continue
 		}
-
-		az.policySetDefinitions[k] = v
+		az.policySetDefinitionVersions[k] = v
+	}
+	if merr != nil {
+		return fmt.Errorf("Alzlib.addProcessedResult: error adding policy set definition versions: %w", merr)
 	}
 
 	for k, v := range res.PolicyAssignments {

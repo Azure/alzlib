@@ -7,6 +7,8 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
+
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +25,7 @@ func TestVersionedPolicyCollection_Add_VersionlessFirst(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
 	name := testPolicyName
 	policy := fakePolicyDefinitionVersionless(name)
-	require.NoError(t, pdvs.Add(policy))
+	require.NoError(t, pdvs.Add(policy, false))
 	assert.Equal(t, policy, pdvs.versionlessDefinition)
 }
 
@@ -32,7 +34,7 @@ func TestVersionedPolicyCollection_Add_VersionedFirst(t *testing.T) {
 	name := testPolicyName
 	version := testVersion100
 	policy := fakePolicyDefinitionVersioned(name, version)
-	require.NoError(t, pdvs.Add(policy))
+	require.NoError(t, pdvs.Add(policy, false))
 
 	found := false
 
@@ -55,8 +57,8 @@ func TestVersionedPolicyCollection_Add_DuplicateSemVer(t *testing.T) {
 	policy1 := fakePolicyDefinitionVersioned("Policy1", version)
 	policy2 := fakePolicyDefinitionVersioned("Policy1", version)
 
-	require.NoError(t, pdvs.Add(policy1))
-	require.NoError(t, pdvs.Add(policy2))
+	require.NoError(t, pdvs.Add(policy1, false))
+	require.NoError(t, pdvs.Add(policy2, false))
 	assert.Len(t, pdvs.versions, 1)
 }
 
@@ -67,14 +69,14 @@ func TestVersionedPolicyCollection_Add_MixVersionedAndVersionless(t *testing.T) 
 
 	t.Run("versioned first", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
-		require.NoError(t, pdvs.Add(versioned))
-		require.ErrorContains(t, pdvs.Add(versionless), "versioned definitions already exist")
+		require.NoError(t, pdvs.Add(versioned, false))
+		require.ErrorContains(t, pdvs.Add(versionless, false), "versioned definitions already exist")
 	})
 
 	t.Run("versionless first", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
-		require.NoError(t, pdvs.Add(versionless))
-		require.ErrorContains(t, pdvs.Add(versioned), "versionless definition(s) already exists")
+		require.NoError(t, pdvs.Add(versionless, false))
+		require.ErrorContains(t, pdvs.Add(versioned, false), "versionless definition(s) already exists")
 	})
 }
 
@@ -83,12 +85,12 @@ func TestVersionedPolicyCollection_Add_InvalidVersionString(t *testing.T) {
 	name := testPolicyName
 	version := "not-a-semver"
 	policy := fakePolicyDefinitionVersioned(name, version)
-	require.ErrorContains(t, pdvs.Add(policy), "invalid version string")
+	require.ErrorContains(t, pdvs.Add(policy, false), "invalid version string")
 }
 
 func TestVersionedPolicyCollection_Add_NilPolicyOrProperties(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
-	require.Error(t, pdvs.Add(nil))
+	require.Error(t, pdvs.Add(nil, false))
 }
 
 func TestVersionedPolicyCollection_Add_DifferentName(t *testing.T) {
@@ -96,10 +98,10 @@ func TestVersionedPolicyCollection_Add_DifferentName(t *testing.T) {
 	policy1 := fakePolicyDefinitionVersioned("Policy1", testVersion100)
 	policy2 := fakePolicyDefinitionVersioned("Policy2", "1.0.1")
 
-	require.NoError(t, pdvs.Add(policy1))
+	require.NoError(t, pdvs.Add(policy1, false))
 	require.ErrorContains(
 		t,
-		pdvs.Add(policy2),
+		pdvs.Add(policy2, false),
 		"cannot add with different name than existing version.",
 	)
 }
@@ -108,7 +110,7 @@ func TestVersionedPolicyCollection_GetVersion_Versionless(t *testing.T) {
 	pdvs := NewPolicyDefinitionVersions()
 	name := "PolicyVersionless"
 	versionless := fakePolicyDefinitionVersionless(name)
-	require.NoError(t, pdvs.Add(versionless))
+	require.NoError(t, pdvs.Add(versionless, false))
 
 	t.Run("nil version constraint", func(t *testing.T) {
 		got, err := pdvs.GetVersion(nil)
@@ -138,8 +140,8 @@ func TestVersionedPolicyCollection_GetVersion_Versioned(t *testing.T) {
 	policy1 := fakePolicyDefinitionVersioned(name, v1)
 	policy2 := fakePolicyDefinitionVersioned(name, v2)
 
-	require.NoError(t, pdvs.Add(policy1))
-	require.NoError(t, pdvs.Add(policy2))
+	require.NoError(t, pdvs.Add(policy1, false))
+	require.NoError(t, pdvs.Add(policy2, false))
 
 	t.Run("major + minor match", func(t *testing.T) {
 		got, err := pdvs.GetVersion(to.Ptr("1.0.*"))
@@ -200,7 +202,7 @@ func TestVersionedPolicyCollection_GetVersion_InvalidConstraint(t *testing.T) {
 	name := policyVersionedName
 	v1 := testVersion100
 	policy := fakePolicyDefinitionVersioned(name, v1)
-	require.NoError(t, pdvs.Add(policy))
+	require.NoError(t, pdvs.Add(policy, false))
 
 	constr := "not-a-semver"
 	got, err := pdvs.GetVersion(&constr)
@@ -213,7 +215,7 @@ func TestVersionedPolicyCollection_GetVersion_WildcardConstraint(t *testing.T) {
 	name := policyVersionedName
 	v1 := testVersion100
 	policy := fakePolicyDefinitionVersioned(name, v1)
-	require.NoError(t, pdvs.Add(policy))
+	require.NoError(t, pdvs.Add(policy, false))
 
 	constr := "1.*.0"
 	got, err := pdvs.GetVersion(&constr)
@@ -225,7 +227,7 @@ func TestVersionedPolicyCollection_Exists(t *testing.T) {
 	t.Run("returns true when versionless definition present", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
 		versionless := fakePolicyDefinitionVersionless("PolicyVersionless")
-		require.NoError(t, pdvs.Add(versionless))
+		require.NoError(t, pdvs.Add(versionless, false))
 
 		assert.True(t, pdvs.Exists(nil))
 	})
@@ -239,7 +241,7 @@ func TestVersionedPolicyCollection_Exists(t *testing.T) {
 	t.Run("returns true when exact version exists", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
 		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
-		require.NoError(t, pdvs.Add(policy))
+		require.NoError(t, pdvs.Add(policy, false))
 
 		assert.True(t, pdvs.Exists(to.Ptr(testVersion100)))
 	})
@@ -247,7 +249,7 @@ func TestVersionedPolicyCollection_Exists(t *testing.T) {
 	t.Run("returns false when version missing", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
 		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
-		require.NoError(t, pdvs.Add(policy))
+		require.NoError(t, pdvs.Add(policy, false))
 
 		missingVersion := "1.0.1"
 		assert.False(t, pdvs.Exists(&missingVersion))
@@ -256,7 +258,7 @@ func TestVersionedPolicyCollection_Exists(t *testing.T) {
 	t.Run("returns false when version string invalid", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
 		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
-		require.NoError(t, pdvs.Add(policy))
+		require.NoError(t, pdvs.Add(policy, false))
 
 		invalidVersion := "1.0.*"
 		assert.False(t, pdvs.Exists(&invalidVersion))
@@ -265,7 +267,7 @@ func TestVersionedPolicyCollection_Exists(t *testing.T) {
 	t.Run("returns false when version string invalid with minor", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
 		policy := fakePolicyDefinitionVersioned(policyVersionedName, testVersion100)
-		require.NoError(t, pdvs.Add(policy))
+		require.NoError(t, pdvs.Add(policy, false))
 
 		invalidVersion := "1.*.*"
 		assert.False(t, pdvs.Exists(&invalidVersion))
@@ -293,4 +295,119 @@ func fakePolicyDefinitionVersionless(name string) *PolicyDefinitionVersion {
 			},
 		},
 	}
+}
+
+func TestVersionedPolicyCollection_Upsert_VersionedDefinitions(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	c2 := NewPolicyDefinitionVersions()
+
+	v1 := "1.0.0"
+	v2 := "2.0.0"
+	p1 := fakePolicyDefinitionVersioned("foo", v1)
+	p2 := fakePolicyDefinitionVersioned("foo", v2)
+	require.NoError(t, c1.Add(p1, false))
+	require.NoError(t, c2.Add(p2, false))
+
+	err := c1.Upsert(c2, false)
+	assert.NoError(t, err)
+	sv, errVer := semver.NewVersion(v2)
+	require.NoError(t, errVer)
+	got, ok := c1.versions[*sv]
+	assert.True(t, ok)
+	assert.Equal(t, v2, *got.GetVersion())
+}
+
+func TestVersionedPolicyCollection_Upsert_OverwriteVersioned(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	c2 := NewPolicyDefinitionVersions()
+
+	v := "1.0.0"
+	p1 := fakePolicyDefinitionVersioned("foo", v)
+	p2 := fakePolicyDefinitionVersioned("foo", v)
+	require.NoError(t, c1.Add(p1, false))
+	require.NoError(t, c2.Add(p2, false))
+
+	err := c1.Upsert(c2, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
+
+	err2 := c1.Upsert(c2, true)
+	require.NoError(t, err2)
+	sv, errVer := semver.NewVersion(v)
+	require.NoError(t, errVer)
+	got, ok := c1.versions[*sv]
+	assert.True(t, ok)
+	assert.Equal(t, v, *got.GetVersion())
+}
+
+func TestVersionedPolicyCollection_Upsert_VersionlessDefinitions(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	c2 := NewPolicyDefinitionVersions()
+
+	p := fakePolicyDefinitionVersionless("foo")
+	require.NoError(t, c2.Add(p, false))
+
+	err := c1.Upsert(c2, false)
+	assert.NoError(t, err)
+	assert.NotNil(t, c1.versionlessDefinition)
+	assert.Equal(t, "foo", *c1.versionlessDefinition.GetName())
+}
+
+func TestVersionedPolicyCollection_Upsert_VersionlessConflict(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	c2 := NewPolicyDefinitionVersions()
+
+	p1 := fakePolicyDefinitionVersionless("foo")
+	p2 := fakePolicyDefinitionVersionless("bar")
+	require.NoError(t, c1.Add(p1, false))
+	require.NoError(t, c2.Add(p2, false))
+
+	err := c1.Upsert(c2, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot merge versionless definitions")
+
+	err2 := c1.Upsert(c2, true)
+	assert.NoError(t, err2)
+	assert.Equal(t, "bar", *c1.versionlessDefinition.GetName())
+}
+
+func TestVersionedPolicyCollection_Upsert_VersionlessWithVersionedTarget(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	c2 := NewPolicyDefinitionVersions()
+
+	v := "1.0.0"
+	p := fakePolicyDefinitionVersioned("foo", v)
+	require.NoError(t, c1.Add(p, false))
+	require.NoError(t, c2.Add(fakePolicyDefinitionVersionless("foo"), false))
+
+	err := c1.Upsert(c2, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot merge versionless definitions when versioned definitions already exist")
+}
+
+func TestVersionedPolicyCollection_Upsert_VersionedWithVersionlessTarget(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	c2 := NewPolicyDefinitionVersions()
+
+	require.NoError(t, c1.Add(fakePolicyDefinitionVersionless("foo"), false))
+	v := "1.0.0"
+	p := fakePolicyDefinitionVersioned("foo", v)
+	require.NoError(t, c2.Add(p, false))
+
+	err := c1.Upsert(c2, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot merge versioned definitions when versionless definition already exists")
+}
+
+func TestVersionedPolicyCollection_Upsert_NilInput(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	err := c1.Upsert(nil, false)
+	assert.NoError(t, err)
+}
+
+func TestVersionedPolicyCollection_Upsert_EmptyInput(t *testing.T) {
+	c1 := NewPolicyDefinitionVersions()
+	c2 := NewPolicyDefinitionVersions()
+	err := c1.Upsert(c2, false)
+	assert.NoError(t, err)
 }
