@@ -54,15 +54,6 @@ func (psd *PolicySetDefinitionVersion) ReferencedPolicyDefinitionNames() ([]stri
 	return names, nil
 }
 
-// PolicyDefinitionReferences returns the policy definition references for the policy set definition.
-func (psd *PolicySetDefinitionVersion) PolicyDefinitionReferences() []*armpolicy.DefinitionReference {
-	if psd == nil || psd.Properties == nil || psd.Properties.PolicyDefinitions == nil {
-		return nil
-	}
-
-	return psd.Properties.PolicyDefinitions
-}
-
 // Parameter returns the parameter definition for the given name.
 func (psd *PolicySetDefinitionVersion) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
 	if psd == nil || psd.Properties == nil || psd.Properties.Parameters == nil {

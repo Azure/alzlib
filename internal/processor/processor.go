@@ -398,7 +398,7 @@ func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 		res.PolicyDefinitionVersions[*pd.Name] = assets.NewPolicyDefinitionVersions()
 	}
 
-	res.PolicyDefinitionVersions[*pd.Name].Add(pd)
+	res.PolicyDefinitionVersions[*pd.Name].Add(pd, false)
 
 	return nil
 }
@@ -429,7 +429,7 @@ func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 		res.PolicySetDefinitionVersions[*psd.Name] = assets.NewPolicySetDefinitionVersions()
 	}
 
-	res.PolicySetDefinitionVersions[*psd.Name].Add(psd)
+	res.PolicySetDefinitionVersions[*psd.Name].Add(psd, false)
 
 	return nil
 }
