@@ -4,6 +4,7 @@
 package assets
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"unicode/utf8"
@@ -32,6 +33,26 @@ func NewPolicySetDefinitionVersionValidate(psd armpolicy.SetDefinitionVersion) (
 	}
 
 	return psdObj, nil
+}
+
+// NewPolicySetDefinitionVersionFromSetDefinitionValidate creates a new PolicySetDefinitionVersion from an
+// armpolicy.SetDefinition and validates it.
+func NewPolicySetDefinitionVersionFromSetDefinitionValidate(pd armpolicy.SetDefinition) (*PolicySetDefinitionVersion, error) {
+	bs, err := json.Marshal(pd)
+	if err != nil {
+		return nil, err
+	}
+
+	var psdv *PolicySetDefinitionVersion
+	if err := json.Unmarshal(bs, &psdv); err != nil {
+		return nil, err
+	}
+
+	if err := ValidatePolicySetDefinitionVersion(psdv); err != nil {
+		return nil, err
+	}
+
+	return psdv, nil
 }
 
 // ReferencedPolicyDefinitionNames returns the names of the policy definitions referenced by the policy set definition.

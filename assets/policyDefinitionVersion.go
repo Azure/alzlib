@@ -36,6 +36,26 @@ func NewPolicyDefinitionVersionValidate(pd armpolicy.DefinitionVersion) (*Policy
 	return pdObj, nil
 }
 
+// NewPolicyDefinitionVersionFromDefinition creates a new PolicyDefinitionVersion from an
+// armpolicy.Definition and validates it.
+func NewPolicyDefinitionVersionFromDefinitionValidate(pd armpolicy.Definition) (*PolicyDefinitionVersion, error) {
+	bs, err := json.Marshal(pd)
+	if err != nil {
+		return nil, err
+	}
+
+	var pdv *PolicyDefinitionVersion
+	if err := json.Unmarshal(bs, &pdv); err != nil {
+		return nil, err
+	}
+
+	if err := ValidatePolicyDefinitionVersion(pdv); err != nil {
+		return nil, err
+	}
+
+	return pdv, nil
+}
+
 // RoleDefinitionResourceIDs returns the role definition ids referenced in a policy definition
 // if they exist.
 // We marshall the policyRule as JSON and then unmarshal into a custom type.

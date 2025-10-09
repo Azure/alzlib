@@ -627,7 +627,9 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInReq
 		switch strings.ToLower(req.ResourceID.ResourceType.Type) {
 		case "policydefinitions":
 			if !az.PolicyDefinitionExists(req.ResourceID.Name, req.Version) {
-				policyDefsToGet.Add(req)
+				if ok := policyDefsToGetKeys.Add(req.String()); ok {
+					policyDefsToGet = append(policyDefsToGet, req)
+				}
 			}
 		case "policysetdefinitions":
 			// If the set is not present, OR if the set contains referenced definitions that are not
@@ -635,7 +637,9 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInReq
 			// add it to the list of set defs to get.
 			exists := az.PolicySetDefinitionExists(req.ResourceID.Name, req.Version)
 			if !exists {
-				policySetDefsToGet.Add(req)
+				if ok := policySetDefsToGetKeys.Add(req.String()); ok {
+					policySetDefsToGet = append(policySetDefsToGet, req)
+				}
 				continue
 			}
 
@@ -667,10 +671,13 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInReq
 				}
 
 				if !az.PolicyDefinitionExists(subResID.Name, ref.DefinitionVersion) {
-					policyDefsToGet.Add(BuiltInRequest{
+					subReq := BuiltInRequest{
 						ResourceID: subResID,
 						Version:    ref.DefinitionVersion,
-					})
+					}
+					if ok := policyDefsToGetKeys.Add(subReq.String()); ok {
+						policyDefsToGet = append(policyDefsToGet, subReq)
+					}
 				}
 			}
 
@@ -684,8 +691,8 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInReq
 
 	// Add the referenced built-in definitions and set definitions to the AlzLib struct
 	// so that we can use the data to determine the correct role assignments at scope.
-	if policyDefsToGet.Cardinality() != 0 {
-		if err := az.getBuiltInPolicies(ctx, policyDefsToGet.ToSlice()); err != nil {
+	if policyDefsToGetKeys.Cardinality() != 0 {
+		if err := az.getBuiltInPolicies(ctx, policyDefsToGet); err != nil {
 			return fmt.Errorf(
 				"Alzlib.GetDefinitionsFromAzure: error getting built-in policy definitions: %w",
 				err,
@@ -693,8 +700,8 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInReq
 		}
 	}
 
-	if policySetDefsToGet.Cardinality() != 0 {
-		if err := az.getBuiltInPolicySets(ctx, policySetDefsToGet.ToSlice()); err != nil {
+	if policySetDefsToGetKeys.Cardinality() != 0 {
+		if err := az.getBuiltInPolicySets(ctx, policySetDefsToGet); err != nil {
 			return fmt.Errorf(
 				"Alzlib.GetDefinitionsFromAzure: error getting built-in policy set definitions: %w",
 				err,
@@ -740,31 +747,61 @@ func (az *AlzLib) AssignmentReferencedDefinitionHasParameter(
 
 // getBuiltInPolicies retrieves the built-in policy definitions with the given names
 // and adds them to the AlzLib struct.
-func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error {
+func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest) error {
 	if az.clients.policyClient == nil {
 		return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
 	}
 
-	pdclient := az.clients.policyClient.NewDefinitionVersionsClient()
+	versionedClient := az.clients.policyClient.NewDefinitionVersionsClient()
+	client := az.clients.policyClient.NewDefinitionsClient()
 
-	for _, name := range names {
-		if az.PolicyDefinitionExists(name) {
+	for _, req := range reqs {
+		if az.PolicyDefinitionExists(req.ResourceID.Name, req.Version) {
 			continue
 		}
 
-		resp, err := pdclient.GetBuiltIn(ctx, name, nil)
+		if req.Version == nil {
+			resp, err := client.GetBuiltIn(ctx, req.ResourceID.Name, nil)
+			pdv, err := assets.NewPolicyDefinitionVersionFromDefinitionValidate(resp.Definition)
+			if err != nil {
+				return fmt.Errorf(
+					"Alzlib.getBuiltInPolicies: error converting versionless built-in policy definition to versioned: %s: %w",
+					req.ResourceID.Name,
+					err,
+				)
+			}
+			if err := az.AddPolicyDefinitions(pdv); err != nil {
+				return fmt.Errorf(
+					"Alzlib.getBuiltInPolicies: error adding built-in policy definition %s: %w",
+					req.ResourceID.Name,
+					err,
+				)
+			}
+			continue
+		}
+
+		resp, err := versionedClient.GetBuiltIn(ctx, req.ResourceID.Name, *req.Version, nil)
 		if err != nil {
 			return fmt.Errorf(
 				"Alzlib.getBuiltInPolicies: error getting built-in policy definition %s: %w",
-				name,
+				req.String(),
 				err,
 			)
 		}
 
-		if err := az.AddPolicyDefinitions(assets.NewPolicyDefinitionVersion(resp.Definition)); err != nil {
+		pdv, err := assets.NewPolicyDefinitionVersionValidate(resp.DefinitionVersion)
+		if err != nil {
+			return fmt.Errorf(
+				"Alzlib.getBuiltInPolicies: error validating built-in policy definition %s: %w",
+				req.String(),
+				err,
+			)
+		}
+
+		if err := az.AddPolicyDefinitions(pdv); err != nil {
 			return fmt.Errorf(
 				"Alzlib.getBuiltInPolicies: error adding built-in policy definition %s: %w",
-				name,
+				req.String(),
 				err,
 			)
 		}
@@ -775,80 +812,111 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, names []string) error 
 
 // getBuiltInPolicySets retrieves the built-in policy set definitions with the given names
 // and adds them to the AlzLib struct.
-func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, names []string) error {
+func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInRequest) error {
 	if az.clients.policyClient == nil {
 		return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
 	}
 
 	// We need to keep track of the names we've processed
 	// so that we can get the policy definitions referenced within them.
-	processedNames := make([]string, 0, len(names))
+	processedRequests := make([]BuiltInRequest, 0, len(reqs))
 
-	psclient := az.clients.policyClient.NewSetDefinitionVersionsClient()
+	versionedClient := az.clients.policyClient.NewSetDefinitionVersionsClient()
+	client := az.clients.policyClient.NewSetDefinitionsClient()
 
-	for _, name := range names {
-		if az.PolicySetDefinitionExists(name) {
+	for _, req := range reqs {
+		if az.PolicySetDefinitionExists(req.ResourceID.Name, req.Version) {
 			continue
 		}
 
-		resp, err := psclient.GetBuiltIn(ctx, name, nil)
+		if req.Version == nil {
+			resp, err := client.GetBuiltIn(ctx, req.ResourceID.Name, nil)
+			if err != nil {
+				return fmt.Errorf(
+					"Alzlib.getBuiltInPolicySets: error getting built-in policy set definition %s: %w",
+					req.ResourceID.Name,
+					err,
+				)
+			}
+			psdv, err := assets.NewPolicySetDefinitionVersionFromSetDefinitionValidate(resp.SetDefinition)
+			if err != nil {
+				return fmt.Errorf(
+					"Alzlib.getBuiltInPolicySets: error converting versionless built-in policy set definition to versioned: %s: %w",
+					req.ResourceID.Name,
+					err,
+				)
+			}
+			if err := az.AddPolicySetDefinitions(psdv); err != nil {
+				return fmt.Errorf(
+					"Alzlib.getBuiltInPolicySets: error adding built-in policy set definition %s: %w",
+					req.ResourceID.Name,
+					err,
+				)
+			}
+			processedRequests = append(processedRequests, req)
+			continue
+		}
+
+		resp, err := versionedClient.GetBuiltIn(ctx, req.ResourceID.Name, *req.Version, nil)
 		if err != nil {
 			return fmt.Errorf(
 				"Alzlib.getBuiltInPolicySets: error getting built-in policy set definition %s: %w",
-				name,
+				req.String(),
 				err,
 			)
 		}
 		// Add set definition to the AlzLib.
-		if err := az.AddPolicySetDefinitions(assets.NewPolicySetDefinition(resp.SetDefinition)); err != nil {
+		psdv, err := assets.NewPolicySetDefinitionVersionValidate(resp.SetDefinitionVersion)
+		if err != nil {
+			return fmt.Errorf(
+				"Alzlib.getBuiltInPolicySets: error validating built-in policy set definition %s: %w",
+				req.String(),
+				err,
+			)
+		}
+		if err := az.AddPolicySetDefinitions(psdv); err != nil {
 			return fmt.Errorf(
 				"Alzlib.getBuiltInPolicySets: error adding built-in policy set definition %s: %w",
-				name,
+				req.String(),
 				err,
 			)
 		}
 
-		processedNames = append(processedNames, name)
+		processedRequests = append(processedRequests, req)
 	}
 
 	// Get the policy definitions for newly added policy set definitions.
-	defnames := make([]string, 0)
+	defReqs := make([]BuiltInRequest, 0)
 
-	for _, name := range processedNames {
-		def := az.PolicySetDefinition(name)
+	for _, req := range processedRequests {
+		def := az.PolicySetDefinition(req.ResourceID.Name, req.Version)
 
-		refs := def.PolicyDefinitionReferences()
-		if refs == nil {
-			return fmt.Errorf(
-				"Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition `%s`. "+
-					"Either the policy set definition does not exist or cannot get policy definition references",
-				name,
-			)
-		}
-
-		for _, ref := range refs {
+		for _, ref := range def.Properties.PolicyDefinitions {
 			resID, err := arm.ParseResourceID(*ref.PolicyDefinitionID)
 			if err != nil {
 				if ref.PolicyDefinitionID == nil {
 					return fmt.Errorf(
 						"Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition `%s`: "+
 							"policy definition ID is nil",
-						name,
+						req.String(),
 					)
 				}
 
 				return fmt.Errorf(
 					"Alzlib.getBuiltInPolicySets: error parsing resource id `%s` referenced in policy set `%s`",
 					*ref.PolicyDefinitionID,
-					name,
+					req.String(),
 				)
 			}
-
-			defnames = append(defnames, resID.Name)
+			pdReq := BuiltInRequest{
+				ResourceID: resID,
+				Version:    ref.DefinitionVersion,
+			}
+			defReqs = append(defReqs, pdReq)
 		}
 	}
 
-	if err := az.getBuiltInPolicies(ctx, defnames); err != nil {
+	if err := az.getBuiltInPolicies(ctx, defReqs); err != nil {
 		return fmt.Errorf(
 			"Alzlib.getBuiltInPolicySets: error getting new built-in policy definitions referenced by policy sets: %w",
 			err,
@@ -976,7 +1044,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 		arch := NewArchetype(v.Name)
 
 		for pd := range v.PolicyDefinitions.Iter() {
-			if _, ok := az.policyDefinitions[pd]; !ok {
+			if _, ok := az.policyDefinitionVersions[pd]; !ok {
 				return fmt.Errorf(
 					"Alzlib.generateArchetypes: error processing archetype %s, policy definition %s does not exist in the library",
 					k,
@@ -988,7 +1056,7 @@ func (az *AlzLib) generateArchetypes(res *processor.Result) error {
 		}
 
 		for psd := range v.PolicySetDefinitions.Iter() {
-			if _, ok := az.policySetDefinitions[psd]; !ok {
+			if _, ok := az.policySetDefinitionVersions[psd]; !ok {
 				return fmt.Errorf(
 					"Alzlib.generateArchetypes: error processing archetype %s, policy set definition %s does not exist in the library",
 					k,
@@ -1073,7 +1141,7 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 		}
 
 		for pd := range ovr.PolicyDefinitionsToAdd.Iter() {
-			if _, ok := az.policyDefinitions[pd]; !ok {
+			if _, ok := az.policyDefinitionVersions[pd]; !ok {
 				return fmt.Errorf(
 					"Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, "+
 						"policy definition `%s` does not exist in the library",
@@ -1084,7 +1152,7 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 		}
 
 		for pd := range ovr.PolicyDefinitionsToRemove.Iter() {
-			if _, ok := az.policyDefinitions[pd]; !ok {
+			if _, ok := az.policyDefinitionVersions[pd]; !ok {
 				return fmt.Errorf(
 					"Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, "+
 						"policy definition `%s` does not exist in the library",
@@ -1095,7 +1163,7 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 		}
 
 		for psd := range ovr.PolicySetDefinitionsToAdd.Iter() {
-			if _, ok := az.policySetDefinitions[psd]; !ok {
+			if _, ok := az.policySetDefinitionVersions[psd]; !ok {
 				return fmt.Errorf(
 					"Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, "+
 						"policy set definition `%s` does not exist in the library",
@@ -1106,7 +1174,7 @@ func (az *AlzLib) generateOverrideArchetypes(res *processor.Result) error {
 		}
 
 		for psd := range ovr.PolicySetDefinitionsToRemove.Iter() {
-			if _, ok := az.policySetDefinitions[psd]; !ok {
+			if _, ok := az.policySetDefinitionVersions[psd]; !ok {
 				return fmt.Errorf(
 					"Alzlib.generateOverrideArchetypes: error processing override archetype `%s`, "+
 						"policy set definition `%s` does not exist in the library",
