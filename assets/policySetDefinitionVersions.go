@@ -8,12 +8,12 @@ import (
 )
 
 // PolicySetDefinitionVersions represents a version collection of a policy set definitions.
-type PolicySetDefinitionVersions = VersionedPolicyCollection[*PolicySetDefinitionVersion]
+type PolicySetDefinitionVersions = VersionedPolicyCollection[*PolicySetDefinition]
 
-// NewPolicySetDefinitionVersions creates a collection of PolicySetDefinitionVersion.
+// NewPolicySetDefinitionVersions creates a collection of PolicySetDefinition.
 func NewPolicySetDefinitionVersions() *PolicySetDefinitionVersions {
 	return &PolicySetDefinitionVersions{
-		versions:              make(map[semver.Version]*PolicySetDefinitionVersion),
+		versions:              make(map[semver.Version]*PolicySetDefinition),
 		versionlessDefinition: nil,
 	}
 }

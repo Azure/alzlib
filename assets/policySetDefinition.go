@@ -4,6 +4,7 @@
 package assets
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"unicode/utf8"
@@ -41,6 +42,42 @@ func NewPolicySetDefinitionValidate(psd armpolicy.SetDefinition) (*PolicySetDefi
 	}
 
 	return psdObj, nil
+}
+
+// NewPolicySetDefinitionValidate creates a new PolicySetDefinitionVersion instance and validates it.
+func NewPolicySetDefinitionFromVersionValidate(psd armpolicy.SetDefinitionVersion) (*PolicySetDefinition, error) {
+	if psd.ID == nil || *psd.ID == "" {
+		return nil, errors.New("NewPolicySetDefinitionFromVersionValidate: policy set definition ID must be set")
+	}
+
+	if psd.Properties == nil {
+		return nil, errors.New("NewPolicySetDefinitionFromVersionValidate: policy set definition properties must be set")
+	}
+
+	if psd.Properties.Version == nil || *psd.Properties.Version == "" {
+		return nil, errors.New("NewPolicySetDefinitionFromVersionValidate: policy set definition version must be set")
+	}
+
+	resID, err := arm.ParseResourceID(*psd.ID)
+	if err != nil {
+		return nil, fmt.Errorf("NewPolicySetDefinitionFromVersionValidate: parsing resource ID %s: %w", *psd.ID, err)
+	}
+
+	policyName := resID.Parent.Name
+
+	jsonBytes, err := json.Marshal(psd)
+	if err != nil {
+		return nil, fmt.Errorf("NewPolicySetDefinitionFromVersionValidate: marshalling policy set definition version: %w", err)
+	}
+
+	var psdDef armpolicy.SetDefinition
+	if err := json.Unmarshal(jsonBytes, &psdDef); err != nil {
+		return nil, fmt.Errorf("NewPolicySetDefinitionFromVersionValidate: unmarshalling to policy set definition: %w", err)
+	}
+
+	psdDef.Name = &policyName
+
+	return NewPolicySetDefinitionValidate(psdDef)
 }
 
 // ReferencedPolicyDefinitionNames returns the names of the policy definitions referenced by the policy set definition.
@@ -84,6 +121,25 @@ func (psd *PolicySetDefinition) Parameter(name string) *armpolicy.ParameterDefin
 	}
 
 	return ret
+}
+
+// GetVersion returns the version of the policy definition, if it exists.
+// If the version is not set, it returns nil.
+func (psd *PolicySetDefinition) GetVersion() *string {
+	if psd == nil || psd.Properties == nil {
+		return nil
+	}
+
+	return psd.Properties.Version
+}
+
+// GetName returns the name of the policy definition version.
+func (psd *PolicySetDefinition) GetName() *string {
+	if psd == nil {
+		return nil
+	}
+
+	return psd.Name
 }
 
 // ValidatePolicySetDefinition performs validation checks on the policy set definition.

@@ -17,7 +17,7 @@ import (
 
 // VersionedTypes is a type constraint for versioned policy types.
 type VersionedTypes interface {
-	*PolicyDefinitionVersion | *PolicySetDefinitionVersion
+	*PolicyDefinition | *PolicySetDefinition
 }
 
 // Versioned is an interface for versioned policy types.

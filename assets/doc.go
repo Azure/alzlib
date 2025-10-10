@@ -6,6 +6,6 @@
 // such as versioning and metadata handling for policy set definitions.
 //
 // Use the constructor functions to create instances of the types
-// defined in this package, such as NewPolicySetDefinitionVersion,
-// NewRoleDefinition, and NewPolicySetDefinitionVersions.
+// defined in this package, such as NewPolicySetDefinition,
+// NewRoleDefinition, and NewPolicySetDefinitions.
 package assets

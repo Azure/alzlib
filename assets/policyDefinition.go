@@ -47,6 +47,61 @@ func NewPolicyDefinitionValidate(pd armpolicy.Definition) (*PolicyDefinition, er
 	return pdObj, nil
 }
 
+// NewPolicyDefinitionFromVersionValidate creates a new PolicyDefinition instance from a versioned policy definition.
+func NewPolicyDefinitionFromVersionValidate(pd armpolicy.DefinitionVersion) (*PolicyDefinition, error) {
+	if pd.ID == nil || *pd.ID == "" {
+		return nil, errors.New("NewPolicyDefinitionFromVersionValidate: policy definition ID must be set")
+	}
+
+	if pd.Properties == nil {
+		return nil, errors.New("NewPolicyDefinitionFromVersionValidate: policy definition properties must be set")
+	}
+
+	if pd.Properties.Version == nil || *pd.Properties.Version == "" {
+		return nil, errors.New("NewPolicyDefinitionFromVersionValidate: policy definition version must be set")
+	}
+
+	resID, err := arm.ParseResourceID(*pd.ID)
+	if err != nil {
+		return nil, fmt.Errorf("NewPolicyDefinitionFromVersionValidate: parsing resource ID %s: %w", *pd.ID, err)
+	}
+
+	policyName := resID.Parent.Name
+
+	jsonBytes, err := json.Marshal(pd)
+	if err != nil {
+		return nil, fmt.Errorf("NewPolicyDefinitionFromVersionValidate: marshalling policy definition version: %w", err)
+	}
+
+	var pdDef armpolicy.Definition
+	if err := json.Unmarshal(jsonBytes, &pdDef); err != nil {
+		return nil, fmt.Errorf("NewPolicyDefinitionFromVersionValidate: unmarshaling to policy definition: %w", err)
+	}
+
+	pdDef.Name = &policyName
+
+	return NewPolicyDefinitionValidate(pdDef)
+}
+
+// GetVersion returns the version of the policy definition, if it exists.
+// If the version is not set, it returns nil.
+func (pd *PolicyDefinition) GetVersion() *string {
+	if pd == nil || pd.Properties == nil {
+		return nil
+	}
+
+	return pd.Properties.Version
+}
+
+// GetName returns the name of the policy definition version.
+func (pd *PolicyDefinition) GetName() *string {
+	if pd == nil {
+		return nil
+	}
+
+	return pd.Name
+}
+
 // policyDefinitionRule represents the opinionated rule section of a policy definition.
 // This is used to determine the role assignments that need to be created,
 // therefore we only care about the `then.details.roleDefinitionIds` field.

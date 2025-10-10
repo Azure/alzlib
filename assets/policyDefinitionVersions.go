@@ -8,11 +8,11 @@ import (
 )
 
 // PolicyDefinitionVersions is a type alias for the generic collection.
-type PolicyDefinitionVersions = VersionedPolicyCollection[*PolicyDefinitionVersion]
+type PolicyDefinitionVersions = VersionedPolicyCollection[*PolicyDefinition]
 
-// NewPolicyDefinitionVersions creates a collection of PolicyDefinitionVersion.
+// NewPolicyDefinitionVersions creates a collection of PolicyDefinition.
 func NewPolicyDefinitionVersions() *PolicyDefinitionVersions {
 	return &PolicyDefinitionVersions{
-		versions: make(map[semver.Version]*PolicyDefinitionVersion),
+		versions: make(map[semver.Version]*PolicyDefinition),
 	}
 }

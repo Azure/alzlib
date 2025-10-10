@@ -9,9 +9,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/alzlib/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
@@ -63,17 +65,50 @@ func TestGetBuiltInPolicy(t *testing.T) {
 
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
 	az.AddPolicyClient(cf)
+	resId, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/8154e3b3-cc52-40be-9407-7756581d71f6")
+	require.NoError(t, err)
 	err = az.getBuiltInPolicies(
 		context.Background(),
-		[]string{"8154e3b3-cc52-40be-9407-7756581d71f6"},
+		[]BuiltInRequest{
+			{
+				ResourceID: resId,
+				Version:    nil,
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Len(t, az.policyDefinitions, 1)
 	assert.Equal(
 		t,
 		"Microsoft Managed Control 1614 - Developer Security Architecture And Design",
-		*az.policyDefinitions["8154e3b3-cc52-40be-9407-7756581d71f6"].Properties.DisplayName,
+		*az.PolicyDefinition("8154e3b3-cc52-40be-9407-7756581d71f6", nil).Properties.DisplayName,
 	)
+}
+
+func TestListAllBuiltIns(t *testing.T) {
+	cred, err := auth.NewToken()
+	require.NoError(t, err)
+
+	cf, _ := armpolicy.NewClientFactory("", cred, nil)
+	cli := cf.NewSetDefinitionVersionsClient()
+	pg := cli.NewListBuiltInPager("7379ef4c-89b0-48b6-a5cc-fd3a75eaef93", &armpolicy.SetDefinitionVersionsClientListBuiltInOptions{
+		Expand: to.Ptr("LatestDefinitionVersion, EffectiveDefinitionVersion"),
+		Top:    to.Ptr[int32](500),
+	})
+	pdvc := assets.NewPolicySetDefinitionVersions()
+	for pg.More() {
+		page, err := pg.NextPage(t.Context())
+		require.NoError(t, err)
+		for _, v := range page.Value {
+			pdv, err := assets.NewPolicySetDefinitionFromVersionValidate(*v)
+			require.NoError(t, err)
+			require.NoError(t, pdvc.Add(pdv, false))
+		}
+	}
+	res, err := pdvc.GetVersion(to.Ptr("1.*.*"))
+	require.NoError(t, err)
+	require.NotNil(t, res.Properties.Version)
+	assert.Equal(t, "1.2.0", *res.Properties.Version)
 }
 
 func TestGetBuiltInPolicySet(t *testing.T) {
@@ -83,16 +118,23 @@ func TestGetBuiltInPolicySet(t *testing.T) {
 
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
 	az.AddPolicyClient(cf)
+	resId, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/7379ef4c-89b0-48b6-a5cc-fd3a75eaef93")
+	require.NoError(t, err)
 	err = az.getBuiltInPolicySets(
 		context.Background(),
-		[]string{"7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"},
+		[]BuiltInRequest{
+			{
+				ResourceID: resId,
+				Version:    nil,
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Len(t, az.policySetDefinitions, 1)
 	assert.Equal(
 		t,
 		"Evaluate Private Link Usage Across All Supported Azure Resources",
-		*az.policySetDefinitions["7379ef4c-89b0-48b6-a5cc-fd3a75eaef93"].Properties.DisplayName,
+		*az.PolicySetDefinition("7379ef4c-89b0-48b6-a5cc-fd3a75eaef93", nil).Properties.DisplayName,
 	)
 }
 

@@ -157,12 +157,12 @@ func TestProcessPolicyDefinitionValid(t *testing.T) {
 
 	sampleData := getSamplePolicyDefinition()
 	res := &Result{
-		PolicyDefinitionVersions: make(map[string]*assets.PolicyDefinitionVersions),
+		PolicyDefinitions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicyDefinition(res, unmar))
-	assert.Len(t, res.PolicyDefinitionVersions, 1)
-	pdv, err := res.PolicyDefinitionVersions["Append-AppService-httpsonly"].GetVersion(nil)
+	assert.Len(t, res.PolicyDefinitions, 1)
+	pdv, err := res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(nil)
 	require.NoError(t, err)
 	assert.Equal(
 		t,
@@ -183,7 +183,7 @@ func TestProcessPolicyDefinitionNoName(t *testing.T) {
 
 	sampleData := getSamplePolicyDefinition_noName()
 	res := &Result{
-		PolicyDefinitionVersions: make(map[string]*assets.PolicyDefinitionVersions),
+		PolicyDefinitions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyLength{}
@@ -200,12 +200,12 @@ func TestProcessPolicySetDefinitionValid(t *testing.T) {
 
 	sampleData := getSamplePolicySetDefinition()
 	res := &Result{
-		PolicySetDefinitionVersions: make(map[string]*assets.PolicySetDefinitionVersions),
+		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicySetDefinition(res, unmar))
-	assert.Len(t, res.PolicySetDefinitionVersions, 1)
-	psdv, err := res.PolicySetDefinitionVersions["Deploy-MDFC-Config"].GetVersion(nil)
+	assert.Len(t, res.PolicySetDefinitions, 1)
+	psdv, err := res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(nil)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
 	assert.Equal(
@@ -215,23 +215,23 @@ func TestProcessPolicySetDefinitionValid(t *testing.T) {
 	)
 }
 
-// TestProcessPolicyDefinitionVersionsValid tests the processing of a valid policy definition version .
-func TestProcessPolicySetDefinitionVersionsValid(t *testing.T) {
+// TestProcessPolicyDefinitionsValid tests the processing of a valid policy definition version .
+func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	t.Parallel()
 
-	sampleData := getSamplePolicySetDefinitionVersion("1.0.0")
-	sampleData2 := getSamplePolicySetDefinitionVersion("1.1.0")
+	sampleData := getSamplePolicySetDefinition("1.0.0")
+	sampleData2 := getSamplePolicySetDefinition("1.1.0")
 	res := &Result{
-		PolicySetDefinitionVersions: make(map[string]*assets.PolicySetDefinitionVersions),
+		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
 	for _, data := range [][]byte{sampleData, sampleData2} {
 		unmar := newUnmarshaler(data, ".json")
 		require.NoError(t, processPolicySetDefinition(res, unmar))
 	}
-	assert.Len(t, res.PolicySetDefinitionVersions, 1)
+	assert.Len(t, res.PolicySetDefinitions, 1)
 
 	// nil version returns latest
-	psdv, err := res.PolicySetDefinitionVersions["Deploy-MDFC-Config"].GetVersion(nil)
+	psdv, err := res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(nil)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
 	assert.Equal(
@@ -242,36 +242,36 @@ func TestProcessPolicySetDefinitionVersionsValid(t *testing.T) {
 
 	// explicit version returns correct version
 	constr := "1.0.*"
-	psdv, err = res.PolicySetDefinitionVersions["Deploy-MDFC-Config"].GetVersion(&constr)
+	psdv, err = res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
 	assert.Equal(t, "1.0.0", *psdv.SetDefinitionVersion.Properties.Version)
 
 	// explicit version returns correct version
 	constr = "1.*.*"
-	psdv, err = res.PolicySetDefinitionVersions["Deploy-MDFC-Config"].GetVersion(&constr)
+	psdv, err = res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
 	assert.Equal(t, "1.1.0", *psdv.SetDefinitionVersion.Properties.Version)
 }
 
 // TestProcessSetPolicyDefinitionValid tests the processing of a valid policy set definition.
-func TestProcessPolicyDefinitionVersionsValid(t *testing.T) {
+func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	t.Parallel()
 
-	sampleData := getSamplePolicyDefinitionVersion("1.0.0")
-	sampleData2 := getSamplePolicyDefinitionVersion("1.1.0")
+	sampleData := getSamplePolicyDefinition("1.0.0")
+	sampleData2 := getSamplePolicyDefinition("1.1.0")
 	res := &Result{
-		PolicyDefinitionVersions: make(map[string]*assets.PolicyDefinitionVersions),
+		PolicyDefinitions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
 	for _, data := range [][]byte{sampleData, sampleData2} {
 		unmar := newUnmarshaler(data, ".json")
 		require.NoError(t, processPolicyDefinition(res, unmar))
 	}
-	assert.Len(t, res.PolicyDefinitionVersions, 1)
+	assert.Len(t, res.PolicyDefinitions, 1)
 
 	// nil version returns latest
-	pdv, err := res.PolicyDefinitionVersions["Append-AppService-httpsonly"].GetVersion(nil)
+	pdv, err := res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(nil)
 	require.NoError(t, err)
 	assert.Equal(t, "Append-AppService-httpsonly", *pdv.Name)
 	assert.Equal(
@@ -282,14 +282,14 @@ func TestProcessPolicyDefinitionVersionsValid(t *testing.T) {
 
 	// explicit version returns correct version
 	constr := "1.0.*"
-	pdv, err = res.PolicyDefinitionVersions["Append-AppService-httpsonly"].GetVersion(&constr)
+	pdv, err = res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Append-AppService-httpsonly", *pdv.Name)
 	assert.Equal(t, "1.0.0", *pdv.DefinitionVersion.Properties.Version)
 
 	// explicit version returns correct version
 	constr = "1.*.*"
-	pdv, err = res.PolicyDefinitionVersions["Append-AppService-httpsonly"].GetVersion(&constr)
+	pdv, err = res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Append-AppService-httpsonly", *pdv.Name)
 	assert.Equal(t, "1.1.0", *pdv.DefinitionVersion.Properties.Version)
@@ -302,7 +302,7 @@ func TestProcessPolicySetDefinitionNoName(t *testing.T) {
 
 	sampleData := getSamplePolicySetDefinition_noName()
 	res := &Result{
-		PolicySetDefinitionVersions: make(map[string]*assets.PolicySetDefinitionVersions),
+		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyMustNotBeNil{}
@@ -549,7 +549,7 @@ func getSamplePolicyDefinition() []byte {
 }
 
 // getSamplePolicyDefinition returns a valid policy definition as a byte slice.
-func getSamplePolicyDefinitionVersion(v string) []byte {
+func getSamplePolicyDefinition(v string) []byte {
 	return []byte(fmt.Sprintf(`{
 		"name": "Append-AppService-httpsonly",
 		"type": "Microsoft.Authorization/policyDefinitions",
@@ -914,7 +914,7 @@ func getSamplePolicySetDefinition() []byte {
 }
 
 // getSamplePolicySetDefinition returns a valid policy set definition as a byte slice.
-func getSamplePolicySetDefinitionVersion(v string) []byte {
+func getSamplePolicySetDefinition(v string) []byte {
 	return []byte(fmt.Sprintf(`{
     "name": "Deploy-MDFC-Config",
     "type": "Microsoft.Authorization/policySetDefinitions",
