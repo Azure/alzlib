@@ -219,8 +219,8 @@ func TestProcessPolicySetDefinitionValid(t *testing.T) {
 func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	t.Parallel()
 
-	sampleData := getSamplePolicySetDefinition("1.0.0")
-	sampleData2 := getSamplePolicySetDefinition("1.1.0")
+	sampleData := getSamplePolicySetDefinitionVersion("1.0.0")
+	sampleData2 := getSamplePolicySetDefinitionVersion("1.1.0")
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
@@ -237,7 +237,7 @@ func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	assert.Equal(
 		t,
 		"1.1.0",
-		*psdv.SetDefinitionVersion.Properties.Version,
+		*psdv.SetDefinition.Properties.Version,
 	)
 
 	// explicit version returns correct version
@@ -245,22 +245,22 @@ func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	psdv, err = res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
-	assert.Equal(t, "1.0.0", *psdv.SetDefinitionVersion.Properties.Version)
+	assert.Equal(t, "1.0.0", *psdv.SetDefinition.Properties.Version)
 
 	// explicit version returns correct version
 	constr = "1.*.*"
 	psdv, err = res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
-	assert.Equal(t, "1.1.0", *psdv.SetDefinitionVersion.Properties.Version)
+	assert.Equal(t, "1.1.0", *psdv.SetDefinition.Properties.Version)
 }
 
 // TestProcessSetPolicyDefinitionValid tests the processing of a valid policy set definition.
 func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	t.Parallel()
 
-	sampleData := getSamplePolicyDefinition("1.0.0")
-	sampleData2 := getSamplePolicyDefinition("1.1.0")
+	sampleData := getSamplePolicyDefinitionVersion("1.0.0")
+	sampleData2 := getSamplePolicyDefinitionVersion("1.1.0")
 	res := &Result{
 		PolicyDefinitions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
@@ -277,7 +277,7 @@ func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	assert.Equal(
 		t,
 		"1.1.0",
-		*pdv.DefinitionVersion.Properties.Version,
+		*pdv.Definition.Properties.Version,
 	)
 
 	// explicit version returns correct version
@@ -285,14 +285,14 @@ func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	pdv, err = res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Append-AppService-httpsonly", *pdv.Name)
-	assert.Equal(t, "1.0.0", *pdv.DefinitionVersion.Properties.Version)
+	assert.Equal(t, "1.0.0", *pdv.Definition.Properties.Version)
 
 	// explicit version returns correct version
 	constr = "1.*.*"
 	pdv, err = res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Append-AppService-httpsonly", *pdv.Name)
-	assert.Equal(t, "1.1.0", *pdv.DefinitionVersion.Properties.Version)
+	assert.Equal(t, "1.1.0", *pdv.Definition.Properties.Version)
 }
 
 // TestProcessPolicySetDefinitionNoName tests that the processing of a set definition
@@ -549,7 +549,7 @@ func getSamplePolicyDefinition() []byte {
 }
 
 // getSamplePolicyDefinition returns a valid policy definition as a byte slice.
-func getSamplePolicyDefinition(v string) []byte {
+func getSamplePolicyDefinitionVersion(v string) []byte {
 	return []byte(fmt.Sprintf(`{
 		"name": "Append-AppService-httpsonly",
 		"type": "Microsoft.Authorization/policyDefinitions",
@@ -914,7 +914,7 @@ func getSamplePolicySetDefinition() []byte {
 }
 
 // getSamplePolicySetDefinition returns a valid policy set definition as a byte slice.
-func getSamplePolicySetDefinition(v string) []byte {
+func getSamplePolicySetDefinitionVersion(v string) []byte {
 	return []byte(fmt.Sprintf(`{
     "name": "Deploy-MDFC-Config",
     "type": "Microsoft.Authorization/policySetDefinitions",

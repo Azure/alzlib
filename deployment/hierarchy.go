@@ -309,7 +309,7 @@ func (h *Hierarchy) addManagementGroup(
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
 	assignedPolicyDefinitionIDs := mapset.NewThreadUnsafeSet[string]()
 
-	// Combine all assignments form all supplied archetypes into a single set
+	// Combine all assignments from all supplied archetypes into a single set
 	allPolicyAssignments := mapset.NewThreadUnsafeSet[string]()
 	for _, archetype := range req.archetypes {
 		allPolicyAssignments = allPolicyAssignments.Union(archetype.PolicyAssignments)

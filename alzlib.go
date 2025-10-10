@@ -606,13 +606,10 @@ func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 	return nil
 }
 
-// GetDefinitionsFromAzure takes a slice of strings of Azure resource IDs of policy definitions and
-// policy set
-// definitions.
-// It then fetches them from Azure if they don't already exist (determined by last segment tof
+// GetDefinitionsFromAzure takes a slice of requests for built-in definitions.
+// It then fetches them from Azure if they don't already exist (determined by last segment of
 // resource id). For set definitions we need to get all of them, even if they exist in AlzLib
-// already because they can contain
-// built-in definitions.
+// already because they can contain built-in definitions.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInRequest) error {
 	policyDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 	policySetDefsToGet := make([]BuiltInRequest, 0, len(reqs))

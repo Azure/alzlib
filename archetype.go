@@ -4,6 +4,8 @@
 package alzlib
 
 import (
+	"strings"
+
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
@@ -43,4 +45,14 @@ func (a *Archetype) copy() *Archetype {
 		RoleDefinitions:      a.RoleDefinitions.Clone(),
 		name:                 a.name,
 	}
+}
+
+// SplitNameAndVersion splits a resource reference into its name and version components.
+// If no version is present, the second return value will be nil.
+func SplitNameAndVersion(ref string) (string, *string) {
+	split := strings.Split(ref, "@")
+	if len(split) == 1 {
+		return split[0], nil
+	}
+	return split[0], &split[1]
 }

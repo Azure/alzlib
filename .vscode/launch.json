@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach to alzlibtool (dlv --headless)",
+            "type": "go",
+            "request": "attach",
+            "mode": "remote",
+            "host": "127.0.0.1",
+            "port": 40000,
+            "cwd": "${workspaceFolder}",
+            "remotePath": "${workspaceFolder}",
+            "showLog": true
+        }
+    ]
+}
