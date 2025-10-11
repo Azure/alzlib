@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"iter"
 	"maps"
+	"reflect"
 
 	"github.com/Azure/alzlib/to"
 	"github.com/Masterminds/semver/v3"
@@ -170,8 +171,11 @@ func (c *VersionedPolicyCollection[T]) Add(add T, overwrite bool) error {
 		)
 	}
 
-	if _, ok := c.versions[*sv]; ok && !overwrite {
-		return fmt.Errorf("version %s for %s already exists", *verStr, *name)
+	if ver, ok := c.versions[*sv]; ok && !overwrite {
+		if !reflect.DeepEqual(ver, add) {
+			return fmt.Errorf("version %s for %s already exists and the new definition is different", *verStr, *name)
+		}
+		return nil
 	}
 
 	for v := range maps.Values(c.versions) {

@@ -152,7 +152,9 @@ func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
 		}
 
 		if pdvc, exists := az.policyDefinitions[*pd.Name]; exists {
-			merr = multierror.Append(merr, pdvc.Upsert(pdvc, az.Options.AllowOverwrite))
+			if err := pdvc.Upsert(pdvc, az.Options.AllowOverwrite); err != nil {
+				merr = multierror.Append(merr, pdvc.Upsert(pdvc, az.Options.AllowOverwrite))
+			}
 			continue
 		}
 
@@ -178,7 +180,9 @@ func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) e
 		}
 
 		if psdvc, exists := az.policySetDefinitions[*psd.Name]; exists {
-			merr = multierror.Append(merr, psdvc.Upsert(psdvc, az.Options.AllowOverwrite))
+			if err := psdvc.Upsert(psdvc, az.Options.AllowOverwrite); err != nil {
+				multierror.Append(merr, err)
+			}
 			continue
 		}
 
@@ -798,16 +802,16 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest)
 		pdv, err := assets.NewPolicyDefinitionFromVersionValidate(resp.DefinitionVersion)
 		if err != nil {
 			return fmt.Errorf(
-				"Alzlib.getBuiltInPolicies: error validating built-in policy definition %s: %w",
-				req.String(),
+				"Alzlib.getBuiltInPolicies: validating built-in policy definition %s: %w",
+				JoinNameAndVersion(req.ResourceID.Name, req.Version),
 				err,
 			)
 		}
 
 		if err := az.AddPolicyDefinitions(pdv); err != nil {
 			return fmt.Errorf(
-				"Alzlib.getBuiltInPolicies: error adding built-in policy definition %s: %w",
-				req.String(),
+				"Alzlib.getBuiltInPolicies: adding built-in policy definition %s: %w",
+				JoinNameAndVersion(req.ResourceID.Name, req.Version),
 				err,
 			)
 		}
@@ -977,7 +981,7 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInReques
 
 	if err := az.getBuiltInPolicies(ctx, defReqs); err != nil {
 		return fmt.Errorf(
-			"Alzlib.getBuiltInPolicySets: error getting new built-in policy definitions referenced by policy sets: %w",
+			"Alzlib.getBuiltInPolicySets: getting new built-in policy definitions referenced by policy sets: %w",
 			err,
 		)
 	}

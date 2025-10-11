@@ -141,7 +141,10 @@ func checkLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) func(
 					fixes[filepath.Join(path, relPath)] = parts.String()
 					return nil
 				}
-				merr = multierror.Append(merr, model.check(parts))
+
+				if err := model.check(parts); err != nil {
+					merr = multierror.Append(merr, err)
+				}
 			}
 
 			return nil
