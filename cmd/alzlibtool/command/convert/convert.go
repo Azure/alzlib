@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Azure/alzlib/internal/tools/checker"
+	"github.com/Azure/alzlib/internal/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -56,7 +57,6 @@ func init() {
 func convertFiles[C convertible](
 	src, dst string,
 	cmd *cobra.Command,
-	valid checker.Validator,
 ) error {
 	if _, err := os.ReadDir(dst); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -96,10 +96,11 @@ func convertFiles[C convertible](
 
 		resource := new(C)
 		if err := json.Unmarshal(bytes, resource); err != nil {
-			return fmt.Errorf("json.Ummarshal error: '%s', %w", path, err)
+			return fmt.Errorf("json.Unmarshal error: '%s', %w", path, err)
 		}
 
-		if err := valid.Validate(resource); err != nil {
+		valid := checker.NewValidator(checks.CheckResourceTypeIsCorrect(resource))
+		if err := valid.Validate(); err != nil {
 			return fmt.Errorf("validation error: '%s', %w", path, err)
 		}
 

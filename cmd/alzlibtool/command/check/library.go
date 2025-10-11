@@ -55,16 +55,31 @@ var libraryCmd = cobra.Command{
 			os.Exit(1)
 		}
 
+		shouldFix, err := cmd.Flags().GetBool("fix")
+		if err != nil {
+			cmd.PrintErrf("%s could not get fix flag: %v\n", cmd.ErrPrefix(), err)
+			os.Exit(1)
+		}
+
 		chk := checker.NewValidator(
-			checks.CheckAllDefinitionsAreReferenced,
-			checks.CheckAllArchitectures,
-			checks.CheckLibraryMemberPath,
-			checks.CheckDefaults,
+			checks.CheckAllDefinitionsAreReferenced(az),
+			checks.CheckAllArchitectures(az),
+			checks.CheckLibraryMemberPath(az),
+			checks.CheckDefaults(az),
+			checks.CheckLibraryFileNames(args[0], &checks.CheckLibraryFileNameOptions{
+				Fix: shouldFix,
+			}),
 		)
-		err = chk.Validate(az)
+		err = chk.Validate()
 		if err != nil {
 			cmd.PrintErrf("%s library check error: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
 	},
+}
+
+func init() {
+	libraryCmd.Flags().
+		BoolP("fix", "f", false,
+			"Whether to fix any fixable issues (currently only filename issues).")
 }

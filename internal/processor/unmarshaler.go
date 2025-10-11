@@ -11,23 +11,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type unmarshaler struct {
+type Unmarshaler struct {
 	d   []byte
 	ext string
 }
 
-func newUnmarshaler(data []byte, ext string) unmarshaler {
+func NewUnmarshaler(data []byte, ext string) Unmarshaler {
 	if !strings.HasPrefix(ext, ".") {
 		ext = "." + ext
 	}
 
-	return unmarshaler{
+	return Unmarshaler{
 		d:   data,
 		ext: ext,
 	}
 }
 
-func (u unmarshaler) unmarshal(dst any) error {
+func (u Unmarshaler) Unmarshal(dst any) error {
 	switch strings.ToLower(u.ext) {
 	case ".json":
 		return unmarshalJSON(u.d, dst)

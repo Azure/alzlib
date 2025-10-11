@@ -75,7 +75,7 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 		PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
 	}
 
-	err := checkAllDefinitionsAreReferenced(az)
+	err := checkAllDefinitionsAreReferenced(az)()
 	require.NoError(t, err)
 
 	// Test case with unreferenced definitions
@@ -101,7 +101,7 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 		},
 	)
 
-	err = checkAllDefinitionsAreReferenced(az)
+	err = checkAllDefinitionsAreReferenced(az)()
 	require.ErrorContains(
 		t,
 		err,

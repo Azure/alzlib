@@ -66,7 +66,7 @@ func TestProcessArchetypeOverrideValid(t *testing.T) {
 	res := &Result{
 		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	require.NoError(t, processArchetypeOverride(res, unmar))
 	assert.Len(t, res.LibArchetypeOverrides, 1)
 	assert.Equal(t, 1, res.LibArchetypeOverrides["test"].PolicyAssignmentsToAdd.Cardinality())
@@ -83,7 +83,7 @@ func TestProcessArchetypeOverrideInvalid(t *testing.T) {
 	res := &Result{
 		LibArchetypeOverrides: make(map[string]*LibArchetypeOverride, 0),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	err := processArchetypeOverride(res, unmar)
 	require.ErrorContains(t, err, "invalid character ']' after object key:value pair")
 }
@@ -96,7 +96,7 @@ func TestProcessArchetypeDefinitionValid(t *testing.T) {
 	res := &Result{
 		LibArchetypes: make(map[string]*LibArchetype, 0),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	require.NoError(t, processArchetype(res, unmar))
 	assert.Len(t, res.LibArchetypes, 1)
 	assert.Equal(t, 1, res.LibArchetypes["test"].PolicyAssignments.Cardinality())
@@ -114,7 +114,7 @@ func Test_processArchetypeDefinition_invalidJson(t *testing.T) {
 	res := &Result{
 		LibArchetypes: make(map[string]*LibArchetype, 0),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	require.ErrorContains(t, processArchetype(res, unmar), "invalid character '[' after object key")
 }
 
@@ -126,7 +126,7 @@ func TestProcessPolicyAssignmentValid(t *testing.T) {
 	res := &Result{
 		PolicyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicyAssignment(res, unmar))
 	assert.Len(t, res.PolicyAssignments, 1)
 	assert.Equal(t, "Deny-Storage-http", *res.PolicyAssignments["Deny-Storage-http"].Name)
@@ -146,7 +146,7 @@ func TestProcessPolicyAssignmentNoName(t *testing.T) {
 	res := &Result{
 		PolicyAssignments: make(map[string]*assets.PolicyAssignment),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyMustNotBeNil{}
 	require.ErrorAs(t, processPolicyAssignment(res, unmar), &target)
 }
@@ -159,7 +159,7 @@ func TestProcessPolicyDefinitionValid(t *testing.T) {
 	res := &Result{
 		PolicyDefinitions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicyDefinition(res, unmar))
 	assert.Len(t, res.PolicyDefinitions, 1)
 	pdv, err := res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(nil)
@@ -185,7 +185,7 @@ func TestProcessPolicyDefinitionNoName(t *testing.T) {
 	res := &Result{
 		PolicyDefinitions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyLength{}
 	require.ErrorAs(
 		t,
@@ -202,7 +202,7 @@ func TestProcessPolicySetDefinitionValid(t *testing.T) {
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	require.NoError(t, processPolicySetDefinition(res, unmar))
 	assert.Len(t, res.PolicySetDefinitions, 1)
 	psdv, err := res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(nil)
@@ -226,7 +226,7 @@ func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	}
 
 	for _, data := range [][]byte{sampleData, sampleData2} {
-		unmar := newUnmarshaler(data, ".json")
+		unmar := NewUnmarshaler(data, ".json")
 		require.NoError(t, processPolicySetDefinition(res, unmar))
 	}
 
@@ -268,7 +268,7 @@ func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	}
 
 	for _, data := range [][]byte{sampleData, sampleData2} {
-		unmar := newUnmarshaler(data, ".json")
+		unmar := NewUnmarshaler(data, ".json")
 		require.NoError(t, processPolicyDefinition(res, unmar))
 	}
 
@@ -308,7 +308,7 @@ func TestProcessPolicySetDefinitionNoName(t *testing.T) {
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyMustNotBeNil{}
 	require.ErrorAs(
 		t,
@@ -323,7 +323,7 @@ func TestProcessPolicyAssignmentNoData(t *testing.T) {
 	t.Parallel()
 
 	res := &Result{}
-	unmar := newUnmarshaler([]byte{}, ".json")
+	unmar := NewUnmarshaler([]byte{}, ".json")
 	require.ErrorContains(t, processPolicyAssignment(res, unmar), "unexpected end of JSON input")
 }
 
@@ -333,7 +333,7 @@ func TestProcessPolicyDefinitionNoData(t *testing.T) {
 	t.Parallel()
 
 	res := &Result{}
-	unmar := newUnmarshaler([]byte{}, ".json")
+	unmar := NewUnmarshaler([]byte{}, ".json")
 	require.ErrorContains(t, processPolicyDefinition(res, unmar), "unexpected end of JSON input")
 }
 
@@ -343,7 +343,7 @@ func TestProcessPolicySetDefinitionNoData(t *testing.T) {
 	t.Parallel()
 
 	res := &Result{}
-	unmar := newUnmarshaler([]byte{}, ".json")
+	unmar := NewUnmarshaler([]byte{}, ".json")
 	require.ErrorContains(t, processPolicySetDefinition(res, unmar), "unexpected end of JSON input")
 }
 
@@ -356,7 +356,7 @@ func TestProcessRoleDefinitionWithDataActions(t *testing.T) {
 	res := &Result{
 		RoleDefinitions: make(map[string]*assets.RoleDefinition),
 	}
-	unmar := newUnmarshaler(sampleData, ".json")
+	unmar := NewUnmarshaler(sampleData, ".json")
 	require.NoError(t, processRoleDefinition(res, unmar))
 	assert.Len(t, res.RoleDefinitions, 1)
 	assert.Equal(
@@ -1480,13 +1480,13 @@ func getSampleArchetypeOverride_invalid() []byte {
 
 func TestProcessorRegex(t *testing.T) {
 	fileTypes2Regex := map[string]*regexp.Regexp{
-		"alz_architecture_definition": architectureDefinitionRegex,
-		"alz_archetype_definition":    archetypeDefinitionRegex,
-		"alz_archetype_override":      archetypeOverrideRegex,
-		"alz_policy_definition":       policyDefinitionRegex,
-		"alz_policy_assignment":       policyAssignmentRegex,
-		"alz_policy_set_definition":   policySetDefinitionRegex,
-		"alz_role_definition":         roleDefinitionRegex,
+		"alz_architecture_definition": ArchitectureDefinitionRegex,
+		"alz_archetype_definition":    ArchetypeDefinitionRegex,
+		"alz_archetype_override":      ArchetypeOverrideRegex,
+		"alz_policy_definition":       PolicyDefinitionRegex,
+		"alz_policy_assignment":       PolicyAssignmentRegex,
+		"alz_policy_set_definition":   PolicySetDefinitionRegex,
+		"alz_role_definition":         RoleDefinitionRegex,
 	}
 	tests := []struct {
 		input    string
@@ -1530,7 +1530,7 @@ func TestProcessorRegex(t *testing.T) {
 
 func TestProcessorRegexPolicyDefaultValues(t *testing.T) {
 	fileTypes2Regex := map[string]*regexp.Regexp{
-		"alz_policy_default_values": policyDefaultValuesRegex,
+		"alz_policy_default_values": PolicyDefaultValuesRegex,
 	}
 	tests := []struct {
 		input    string

@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/Azure/alzlib/internal/tools/errcheck"
+	"github.com/hashicorp/go-multierror"
 )
 
 // Validator is a struct that holds a list of checks to be performed.
@@ -32,7 +32,7 @@ func NewValidatorCheck(name string, f ValidateFunc) ValidatorCheck {
 }
 
 // ValidateFunc is a function type that takes an input of any type and returns an error if the validation fails.
-type ValidateFunc func(any) error
+type ValidateFunc func() error
 
 // NewValidator creates a new Validator with the given checks.
 func NewValidator(c ...ValidatorCheck) Validator {
@@ -48,22 +48,18 @@ func (v Validator) AddChecks(c ...ValidatorCheck) Validator {
 }
 
 // Validate runs all the checks in the Validator against the provided resource.
-func (v Validator) Validate(resource any) error {
-	errs := errcheck.NewCheckerError()
+func (v Validator) Validate() error {
+	var errs error
 
 	for _, c := range v.checks {
 		io.WriteString(os.Stdout, "==> Starting check: "+c.name+"\n") // nolint: errcheck
 
-		if err := c.f(resource); err != nil {
-			errs.Add(err)
+		if err := c.f(); err != nil {
+			errs = multierror.Append(errs, err)
 		}
 
 		io.WriteString(os.Stdout, "==> Finished check: "+c.name+"\n") // nolint: errcheck
 	}
 
-	if errs.HasErrors() {
-		return errs
-	}
-
-	return nil
+	return errs
 }

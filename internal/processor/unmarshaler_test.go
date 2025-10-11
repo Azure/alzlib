@@ -13,11 +13,11 @@ import (
 func TestUnmarshalJson(t *testing.T) {
 	data := []byte(`{"name": "John", "age": 30}`)
 	ext := ".json"
-	u := newUnmarshaler(data, ext)
+	u := NewUnmarshaler(data, ext)
 
 	var dst map[string]interface{}
 
-	err := u.unmarshal(&dst)
+	err := u.Unmarshal(&dst)
 
 	require.NoError(t, err)
 	assert.Equal(t, "John", dst["name"])
@@ -30,11 +30,11 @@ name: John
 age: 30
 `)
 	for _, ext := range []string{".yaml", ".yml"} {
-		u := newUnmarshaler(data, ext)
+		u := NewUnmarshaler(data, ext)
 
 		var dst map[string]interface{}
 
-		err := u.unmarshal(&dst)
+		err := u.Unmarshal(&dst)
 
 		require.NoError(t, err)
 		assert.Equal(t, "John", dst["name"])

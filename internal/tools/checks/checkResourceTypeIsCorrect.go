@@ -13,10 +13,12 @@ import (
 
 // CheckResourceTypeIsCorrect is a validator check that ensures the resource type is correct for
 // policy definitions and set definitions.
-var CheckResourceTypeIsCorrect = checker.NewValidatorCheck(
-	"Resource type is correct",
-	checkResourceTypeIsCorrect,
-)
+func CheckResourceTypeIsCorrect(resourceType any) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		"Resource type is correct",
+		checkResourceTypeIsCorrect(resourceType),
+	)
+}
 
 // ErrResourceTypeIsIncorrect is returned when the resource type is incorrect.
 var ErrResourceTypeIsIncorrect = errors.New("resource type is incorrect")
@@ -26,17 +28,19 @@ func NewErrResourceTypeIsIncorrect(resourceType string) error {
 	return fmt.Errorf("%w: %s", ErrResourceTypeIsIncorrect, resourceType)
 }
 
-func checkResourceTypeIsCorrect(anyType any) error {
-	switch anyType := anyType.(type) {
-	case *armpolicy.Definition:
-		if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policyDefinitions" {
-			return NewErrResourceTypeIsIncorrect("policy definition")
+func checkResourceTypeIsCorrect(anyType any) func() error {
+	return func() error {
+		switch anyType := anyType.(type) {
+		case *armpolicy.Definition:
+			if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policyDefinitions" {
+				return NewErrResourceTypeIsIncorrect("policy definition")
+			}
+		case *armpolicy.SetDefinition:
+			if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policySetDefinitions" {
+				return NewErrResourceTypeIsIncorrect("policy set definition")
+			}
 		}
-	case *armpolicy.SetDefinition:
-		if anyType.Type == nil || *anyType.Type != "Microsoft.Authorization/policySetDefinitions" {
-			return NewErrResourceTypeIsIncorrect("policy set definition")
-		}
-	}
 
-	return nil
+		return nil
+	}
 }
