@@ -46,7 +46,7 @@ func TestNewAlzLibWithNoDir(t *testing.T) {
 	path := filepath.Join("testdata", "doesnotexist")
 	lib := NewCustomLibraryReference(path)
 	err := az.Init(context.Background(), lib)
-	assert.ErrorIs(t, err, os.ErrNotExist)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 // Test_NewAlzLibDuplicateArchetypeDefinition tests the creation of a new AlzLib from a invalid
@@ -55,7 +55,7 @@ func TestNewAlzLibDuplicateArchetypeDefinition(t *testing.T) {
 	az := NewAlzLib(nil)
 	lib := NewCustomLibraryReference("./testdata/badlib-duplicatearchetypedef")
 	err := az.Init(context.Background(), lib)
-	assert.ErrorContains(t, err, "archetype with name `duplicate` already exists")
+	require.ErrorContains(t, err, "archetype with name `duplicate` already exists")
 }
 
 func TestGetBuiltInPolicy(t *testing.T) {
@@ -65,6 +65,7 @@ func TestGetBuiltInPolicy(t *testing.T) {
 
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
 	az.AddPolicyClient(cf)
+
 	resId, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/8154e3b3-cc52-40be-9407-7756581d71f6")
 	require.NoError(t, err)
 	err = az.getBuiltInPolicies(
@@ -96,15 +97,18 @@ func TestListAllBuiltIns(t *testing.T) {
 		Top:    to.Ptr[int32](500),
 	})
 	pdvc := assets.NewPolicySetDefinitionVersions()
+
 	for pg.More() {
 		page, err := pg.NextPage(t.Context())
 		require.NoError(t, err)
+
 		for _, v := range page.Value {
 			pdv, err := assets.NewPolicySetDefinitionFromVersionValidate(*v)
 			require.NoError(t, err)
 			require.NoError(t, pdvc.Add(pdv, false))
 		}
 	}
+
 	res, err := pdvc.GetVersion(to.Ptr("1.*.*"))
 	require.NoError(t, err)
 	require.NotNil(t, res.Properties.Version)
@@ -118,6 +122,7 @@ func TestGetBuiltInPolicySet(t *testing.T) {
 
 	cf, _ := armpolicy.NewClientFactory("", cred, nil)
 	az.AddPolicyClient(cf)
+
 	resId, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/7379ef4c-89b0-48b6-a5cc-fd3a75eaef93")
 	require.NoError(t, err)
 	err = az.getBuiltInPolicySets(
@@ -475,7 +480,7 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 				assert.Len(t, az.architectures, tc.expectedLength)
 				assert.NotNil(t, az.architectures[tc.expectedNotNil])
 			} else {
-				assert.ErrorContains(t, err, tc.expectedError)
+				require.ErrorContains(t, err, tc.expectedError)
 			}
 		})
 	}
@@ -541,7 +546,7 @@ func TestAddDefaultPolicyValues(t *testing.T) {
 	}
 	az = NewAlzLib(nil)
 	err = az.addDefaultPolicyAssignmentValues(res)
-	assert.ErrorContains(
+	require.ErrorContains(
 		t,
 		err,
 		"assignment `assignment1` and parameter `param1` already exists in defaults",

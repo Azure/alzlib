@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package alzlib
 
 import "github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -14,5 +17,6 @@ func (b BuiltInRequest) String() string {
 	if b.Version != nil {
 		return b.ResourceID.String() + "@" + *b.Version
 	}
+
 	return b.ResourceID.String()
 }

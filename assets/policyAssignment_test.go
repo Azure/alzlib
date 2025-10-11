@@ -96,7 +96,7 @@ func TestGetParameterValueAsString(t *testing.T) {
 	require.Error(t, err)
 
 	expectedError = fmt.Sprintf("parameter %s not found in policy assignment %s", paramName, *pa.Name)
-	assert.ErrorContains(t, err, expectedError)
+	require.ErrorContains(t, err, expectedError)
 }
 
 func TestValidatePolicyAssignment(t *testing.T) {
@@ -228,7 +228,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			if tt.expectedErr == "" {
 				require.NoError(t, err)
 			} else {
-				assert.ErrorContains(t, err, tt.expectedErr)
+				require.ErrorContains(t, err, tt.expectedErr)
 			}
 		})
 	}

@@ -317,13 +317,16 @@ func TestVersionedPolicyCollection_Upsert_VersionedDefinitions(t *testing.T) {
 	v2 := "2.0.0"
 	p1 := fakePolicyDefinitioned("foo", v1)
 	p2 := fakePolicyDefinitioned("foo", v2)
+
 	require.NoError(t, c1.Add(p1, false))
 	require.NoError(t, c2.Add(p2, false))
 
 	err := c1.Upsert(c2, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	sv, errVer := semver.NewVersion(v2)
 	require.NoError(t, errVer)
+
 	got, ok := c1.versions[*sv]
 	assert.True(t, ok)
 	assert.Equal(t, v2, *got.GetVersion())
@@ -336,6 +339,7 @@ func TestVersionedPolicyCollection_Upsert_OverwriteVersioned(t *testing.T) {
 	v := "1.0.0"
 	p1 := fakePolicyDefinitioned("foo", v)
 	p2 := fakePolicyDefinitioned("foo", v)
+
 	require.NoError(t, c1.Add(p1, false))
 	require.NoError(t, c2.Add(p2, false))
 
@@ -345,8 +349,10 @@ func TestVersionedPolicyCollection_Upsert_OverwriteVersioned(t *testing.T) {
 
 	err2 := c1.Upsert(c2, true)
 	require.NoError(t, err2)
+
 	sv, errVer := semver.NewVersion(v)
 	require.NoError(t, errVer)
+
 	got, ok := c1.versions[*sv]
 	assert.True(t, ok)
 	assert.Equal(t, v, *got.GetVersion())
@@ -360,7 +366,7 @@ func TestVersionedPolicyCollection_Upsert_VersionlessDefinitions(t *testing.T) {
 	require.NoError(t, c2.Add(p, false))
 
 	err := c1.Upsert(c2, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, c1.versionlessDefinition)
 	assert.Equal(t, "foo", *c1.versionlessDefinition.GetName())
 }
@@ -371,15 +377,16 @@ func TestVersionedPolicyCollection_Upsert_VersionlessConflict(t *testing.T) {
 
 	p1 := fakePolicyDefinitionless("foo")
 	p2 := fakePolicyDefinitionless("bar")
+
 	require.NoError(t, c1.Add(p1, false))
 	require.NoError(t, c2.Add(p2, false))
 
 	err := c1.Upsert(c2, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot merge versionless definitions")
 
 	err2 := c1.Upsert(c2, true)
-	assert.NoError(t, err2)
+	require.NoError(t, err2)
 	assert.Equal(t, "bar", *c1.versionlessDefinition.GetName())
 }
 
@@ -393,7 +400,7 @@ func TestVersionedPolicyCollection_Upsert_VersionlessWithVersionedTarget(t *test
 	require.NoError(t, c2.Add(fakePolicyDefinitionless("foo"), false))
 
 	err := c1.Upsert(c2, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot merge versionless definitions when versioned definitions already exist")
 }
 
@@ -402,24 +409,25 @@ func TestVersionedPolicyCollection_Upsert_VersionedWithVersionlessTarget(t *test
 	c2 := NewPolicyDefinitionVersions()
 
 	require.NoError(t, c1.Add(fakePolicyDefinitionless("foo"), false))
+
 	v := "1.0.0"
 	p := fakePolicyDefinitioned("foo", v)
 	require.NoError(t, c2.Add(p, false))
 
 	err := c1.Upsert(c2, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot merge versioned definitions when versionless definition already exists")
 }
 
 func TestVersionedPolicyCollection_Upsert_NilInput(t *testing.T) {
 	c1 := NewPolicyDefinitionVersions()
 	err := c1.Upsert(nil, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestVersionedPolicyCollection_Upsert_EmptyInput(t *testing.T) {
 	c1 := NewPolicyDefinitionVersions()
 	c2 := NewPolicyDefinitionVersions()
 	err := c1.Upsert(c2, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

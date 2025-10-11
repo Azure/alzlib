@@ -363,6 +363,7 @@ func (h *Hierarchy) addManagementGroup(
 
 	for name := range allPolicyDefinitions.Iter() {
 		defName, defVersion := alzlib.SplitNameAndVersion(name)
+
 		newDef := h.alzlib.PolicyDefinition(defName, defVersion)
 		if newDef == nil {
 			return nil, fmt.Errorf(
@@ -382,12 +383,14 @@ func (h *Hierarchy) addManagementGroup(
 
 	for name := range allPolicySetDefinitions.Iter() {
 		defName, defVersion := alzlib.SplitNameAndVersion(name)
+
 		newSetDef := h.alzlib.PolicySetDefinition(defName, defVersion)
 		if newSetDef == nil {
 			ver := ""
 			if defVersion != nil {
 				ver = "@" + *defVersion
 			}
+
 			return nil, fmt.Errorf(
 				"Hierarchy.AddManagementGroup(): policy set definition `%s%s` in management group `%s` does not exist in the library",
 				name,
@@ -421,15 +424,10 @@ func (h *Hierarchy) addManagementGroup(
 				pd := h.alzlib.PolicyDefinition(resID.Name, rf.DefinitionVersion)
 
 				if pd == nil {
-					ver := ""
-					if rf.DefinitionVersion != nil {
-						ver = "@" + *rf.DefinitionVersion
-					}
 					return nil, fmt.Errorf(
-						"Hierarchy.AddManagementGroup(): policy definition `%s%s` in policy set definition `%s` "+
+						"Hierarchy.AddManagementGroup(): policy definition `%s` in policy set definition `%s` "+
 							"in management group `%s` does not exist in the library",
-						resID.Name,
-						ver,
+						alzlib.JoinNameAndVersion(resID.Name, rf.DefinitionVersion),
 						refPdID.Name,
 						req.id,
 					)
@@ -437,17 +435,12 @@ func (h *Hierarchy) addManagementGroup(
 
 				for param := range rf.Parameters {
 					if pd.Parameter(param) == nil {
-						ver := ""
-						if rf.DefinitionVersion != nil {
-							ver = "@" + *rf.DefinitionVersion
-						}
 						return nil, fmt.Errorf(
 							"Hierarchy.AddManagementGroup(): parameter `%s` in policy set definition `%s` "+
-								"does not match a parameter in referenced definition `%s%s` in management group `%s`",
+								"does not match a parameter in referenced definition `%s` in management group `%s`",
 							param,
 							*psd.Name,
-							*pd.Name,
-							ver,
+							alzlib.JoinNameAndVersion(*pd.Name, rf.DefinitionVersion),
 							req.id,
 						)
 					}

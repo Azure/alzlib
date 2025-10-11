@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	// ErrNoVersionFound is returned when no version is found for a policy.
 	ErrNoVersionFound = errors.New("no version found")
 )
 
@@ -113,6 +114,7 @@ func (c *VersionedPolicyCollection[T]) GetVersionStrict(ver *string) (T, error) 
 		if c.versionlessDefinition == nil {
 			return nil, errors.New("no versionless definition exists")
 		}
+
 		return c.versionlessDefinition, nil
 	}
 
@@ -120,10 +122,12 @@ func (c *VersionedPolicyCollection[T]) GetVersionStrict(ver *string) (T, error) 
 	if err != nil {
 		return nil, fmt.Errorf("invalid version string `%s`. %w", *ver, err)
 	}
+
 	policy, ok := c.versions[*strictVer]
 	if !ok {
 		return nil, fmt.Errorf("no version found for version %s", *ver)
 	}
+
 	return policy, nil
 }
 
@@ -201,9 +205,11 @@ func (c *VersionedPolicyCollection[T]) Exists(version *string) bool {
 	}
 
 	_, ok := c.versions[*sv]
+
 	return ok
 }
 
+// AllVersions returns an iterator over all versions in the collection.
 func (c *VersionedPolicyCollection[T]) AllVersions() iter.Seq[T] {
 	if c.versionlessDefinition != nil {
 		return func(yield func(T) bool) {
@@ -212,6 +218,7 @@ func (c *VersionedPolicyCollection[T]) AllVersions() iter.Seq[T] {
 			}
 		}
 	}
+
 	return maps.Values(c.versions)
 }
 

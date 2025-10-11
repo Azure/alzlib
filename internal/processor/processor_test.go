@@ -85,7 +85,7 @@ func TestProcessArchetypeOverrideInvalid(t *testing.T) {
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	err := processArchetypeOverride(res, unmar)
-	assert.ErrorContains(t, err, "invalid character ']' after object key:value pair")
+	require.ErrorContains(t, err, "invalid character ']' after object key:value pair")
 }
 
 // TestProcessArchetypeDefinitionValid test the processing of a valid archetype definition.
@@ -115,7 +115,7 @@ func Test_processArchetypeDefinition_invalidJson(t *testing.T) {
 		LibArchetypes: make(map[string]*LibArchetype, 0),
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
-	assert.ErrorContains(t, processArchetype(res, unmar), "invalid character '[' after object key")
+	require.ErrorContains(t, processArchetype(res, unmar), "invalid character '[' after object key")
 }
 
 // TestProcessPolicyAssignmentValid tests the processing of a valid policy assignment.
@@ -187,7 +187,7 @@ func TestProcessPolicyDefinitionNoName(t *testing.T) {
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyLength{}
-	assert.ErrorAs(
+	require.ErrorAs(
 		t,
 		processPolicyDefinition(res, unmar),
 		&target,
@@ -224,10 +224,12 @@ func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	res := &Result{
 		PolicySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions),
 	}
+
 	for _, data := range [][]byte{sampleData, sampleData2} {
 		unmar := newUnmarshaler(data, ".json")
 		require.NoError(t, processPolicySetDefinition(res, unmar))
 	}
+
 	assert.Len(t, res.PolicySetDefinitions, 1)
 
 	// nil version returns latest
@@ -237,7 +239,7 @@ func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	assert.Equal(
 		t,
 		"1.1.0",
-		*psdv.SetDefinition.Properties.Version,
+		*psdv.Properties.Version,
 	)
 
 	// explicit version returns correct version
@@ -245,14 +247,14 @@ func TestProcessPolicySetDefinitionsValid(t *testing.T) {
 	psdv, err = res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
-	assert.Equal(t, "1.0.0", *psdv.SetDefinition.Properties.Version)
+	assert.Equal(t, "1.0.0", *psdv.Properties.Version)
 
 	// explicit version returns correct version
 	constr = "1.*.*"
 	psdv, err = res.PolicySetDefinitions["Deploy-MDFC-Config"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Deploy-MDFC-Config", *psdv.Name)
-	assert.Equal(t, "1.1.0", *psdv.SetDefinition.Properties.Version)
+	assert.Equal(t, "1.1.0", *psdv.Properties.Version)
 }
 
 // TestProcessSetPolicyDefinitionValid tests the processing of a valid policy set definition.
@@ -264,10 +266,12 @@ func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	res := &Result{
 		PolicyDefinitions: make(map[string]*assets.PolicyDefinitionVersions),
 	}
+
 	for _, data := range [][]byte{sampleData, sampleData2} {
 		unmar := newUnmarshaler(data, ".json")
 		require.NoError(t, processPolicyDefinition(res, unmar))
 	}
+
 	assert.Len(t, res.PolicyDefinitions, 1)
 
 	// nil version returns latest
@@ -277,7 +281,7 @@ func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	assert.Equal(
 		t,
 		"1.1.0",
-		*pdv.Definition.Properties.Version,
+		*pdv.Properties.Version,
 	)
 
 	// explicit version returns correct version
@@ -285,14 +289,14 @@ func TestProcessPolicyDefinitionsValid(t *testing.T) {
 	pdv, err = res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Append-AppService-httpsonly", *pdv.Name)
-	assert.Equal(t, "1.0.0", *pdv.Definition.Properties.Version)
+	assert.Equal(t, "1.0.0", *pdv.Properties.Version)
 
 	// explicit version returns correct version
 	constr = "1.*.*"
 	pdv, err = res.PolicyDefinitions["Append-AppService-httpsonly"].GetVersion(&constr)
 	require.NoError(t, err)
 	assert.Equal(t, "Append-AppService-httpsonly", *pdv.Name)
-	assert.Equal(t, "1.1.0", *pdv.Definition.Properties.Version)
+	assert.Equal(t, "1.1.0", *pdv.Properties.Version)
 }
 
 // TestProcessPolicySetDefinitionNoName tests that the processing of a set definition
@@ -306,7 +310,7 @@ func TestProcessPolicySetDefinitionNoName(t *testing.T) {
 	}
 	unmar := newUnmarshaler(sampleData, ".json")
 	target := &assets.ErrPropertyMustNotBeNil{}
-	assert.ErrorAs(
+	require.ErrorAs(
 		t,
 		processPolicySetDefinition(res, unmar),
 		&target,
@@ -320,7 +324,7 @@ func TestProcessPolicyAssignmentNoData(t *testing.T) {
 
 	res := &Result{}
 	unmar := newUnmarshaler([]byte{}, ".json")
-	assert.ErrorContains(t, processPolicyAssignment(res, unmar), "unexpected end of JSON input")
+	require.ErrorContains(t, processPolicyAssignment(res, unmar), "unexpected end of JSON input")
 }
 
 // TestProcessPolicyDefinitionNoData tests the processing of an invalid policy definition with no
@@ -330,7 +334,7 @@ func TestProcessPolicyDefinitionNoData(t *testing.T) {
 
 	res := &Result{}
 	unmar := newUnmarshaler([]byte{}, ".json")
-	assert.ErrorContains(t, processPolicyDefinition(res, unmar), "unexpected end of JSON input")
+	require.ErrorContains(t, processPolicyDefinition(res, unmar), "unexpected end of JSON input")
 }
 
 // TestProcessSetPolicyDefinitionNoData tests the processing of an invalid policy set definition
@@ -340,7 +344,7 @@ func TestProcessPolicySetDefinitionNoData(t *testing.T) {
 
 	res := &Result{}
 	unmar := newUnmarshaler([]byte{}, ".json")
-	assert.ErrorContains(t, processPolicySetDefinition(res, unmar), "unexpected end of JSON input")
+	require.ErrorContains(t, processPolicySetDefinition(res, unmar), "unexpected end of JSON input")
 }
 
 // TestProcessRoleDefinitionWithDataActions tests the processing of a role definition with data

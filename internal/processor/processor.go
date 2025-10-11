@@ -390,7 +390,13 @@ func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 			if pd.GetVersion() != nil {
 				ver = *pd.GetVersion()
 			}
-			return NewErrResourceAlreadyExists("policy definition (version)", fmt.Sprintf("%s for %s already exists", ver, *pd.Name))
+
+			return NewErrResourceAlreadyExists(
+				"policy definition (version)", fmt.Sprintf("%s for %s already exists",
+					ver,
+					*pd.Name,
+				),
+			)
 		}
 	}
 
@@ -398,7 +404,12 @@ func processPolicyDefinition(res *Result, unmar unmarshaler) error {
 		res.PolicyDefinitions[*pd.Name] = assets.NewPolicyDefinitionVersions()
 	}
 
-	res.PolicyDefinitions[*pd.Name].Add(pd, false)
+	if err := res.PolicyDefinitions[*pd.Name].Add(pd, false); err != nil {
+		return errors.Join(
+			errors.New("processPolicyDefinition: error adding policy definition to collection"),
+			err,
+		)
+	}
 
 	return nil
 }
@@ -421,7 +432,12 @@ func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 			if psd.GetVersion() != nil {
 				ver = *psd.GetVersion()
 			}
-			return NewErrResourceAlreadyExists("policy set definition (version)", fmt.Sprintf("%s for %s already exists", ver, *psd.Name))
+
+			return NewErrResourceAlreadyExists(
+				"policy set definition (version)", fmt.Sprintf("%s for %s already exists",
+					ver,
+					*psd.Name),
+			)
 		}
 	}
 
@@ -429,7 +445,12 @@ func processPolicySetDefinition(res *Result, unmar unmarshaler) error {
 		res.PolicySetDefinitions[*psd.Name] = assets.NewPolicySetDefinitionVersions()
 	}
 
-	res.PolicySetDefinitions[*psd.Name].Add(psd, false)
+	if err := res.PolicySetDefinitions[*psd.Name].Add(psd, false); err != nil {
+		return errors.Join(
+			errors.New("processPolicySetDefinition: error adding policy set definition to collection"),
+			err,
+		)
+	}
 
 	return nil
 }

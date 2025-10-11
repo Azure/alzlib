@@ -316,7 +316,7 @@ func TestModifyPolicyAssignments(t *testing.T) {
 	require.Error(t, err)
 
 	expected = "resource id 'invalid' must start with '/'"
-	assert.ErrorContains(t, err, expected)
+	require.ErrorContains(t, err, expected)
 }
 
 func TestManagementGroupUpdate(t *testing.T) {
@@ -462,7 +462,7 @@ func TestManagementGroupUpdate(t *testing.T) {
 			},
 		},
 	}
-	assert.ErrorContains(t, mg1.update(true), "policy assignment defNotInHierarchy has a policy definition pdOtherRoot that is not in the same hierarchy")
+	require.ErrorContains(t, mg1.update(true), "policy assignment defNotInHierarchy has a policy definition pdOtherRoot that is not in the same hierarchy")
 }
 
 func TestManagementGroupUpdateWithUniqueRoleDefinitions(t *testing.T) {

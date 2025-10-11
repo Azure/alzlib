@@ -54,6 +54,7 @@ func SplitNameAndVersion(ref string) (string, *string) {
 	if len(split) == 1 {
 		return split[0], nil
 	}
+
 	return split[0], &split[1]
 }
 
@@ -63,5 +64,6 @@ func JoinNameAndVersion(name string, version *string) string {
 	if version == nil {
 		return name
 	}
+
 	return name + "@" + *version
 }

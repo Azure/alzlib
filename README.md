@@ -16,7 +16,21 @@ go get -u github.com/Azure/alzlib
 
 See the examples in the `integrationtest/examples_test.go` file for usage examples.
 
-We recommend adding `.alzlib` to your `.gitignore` file to avoid committing the library to your repository.
+We recommend adding `.alzlib` to your `.gitignore` file to avoid committing the library cache to your repository.
+
+## Why?
+
+Managing Azure Policy at-scale can be challenging. This module helps by providing a way to programmatically access and manage Azure Policy definitions, assignments, and initiatives from the [Azure Landing Zones Library](https://github.com/Azure/Azure-Landing-Zones-Library).
+
+Key benefits include:
+
+- Ensuring that the definition in your policy assignment is assignable. This means that it is built-in, or in-scope for the assignment (in this management group or a parent).
+- Ensuring that all of your policy assignment parameters are valid, and that they exist in the definition.
+- Correctly calculating the role assignments required for `Modify` and `DeployIfNotExists` policies.
+  - For this we to get all the definitions that are assigned, and look at the `roleDefinitionIds` property of the policy definition.
+  - We assign roles at the scope of the policy assignment, and for any parameter value that has the `assignPermissions` metadata property set to `true`. This supports a least-privilege model and ensures that the role assignment is removed either when the resource is deleted, or when the policy assignment is removed.
+
+The Library is a way of defining and customizing a management group hierarchy and associated policies for an organization. It is designed to be a starting point for organizations to build their own governance model. This module provides a way to consume the Library in a programmatic way, allowing for easier integration into existing tooling and processes. Typically this is infrastructure as code tooling, such as a Terraform provider or Pulumi package.
 
 ## Configuration
 

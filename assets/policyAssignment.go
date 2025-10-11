@@ -51,7 +51,7 @@ func (pa *PolicyAssignment) IdentityType() armpolicy.ResourceIdentityType {
 	return *pa.Identity.Type
 }
 
-// ReferencedPolicyDefinitionResourceID returns the resource ID of the policy definition referenced by
+// ReferencedPolicyDefinitionResourceIDAndVersion returns the resource ID and version of the policy definition referenced by
 // the policy assignment.
 func (pa *PolicyAssignment) ReferencedPolicyDefinitionResourceIDAndVersion() (*arm.ResourceID, *string, error) {
 	id, err := arm.ParseResourceID(*pa.Properties.PolicyDefinitionID)

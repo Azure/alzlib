@@ -44,7 +44,7 @@ func NewPolicySetDefinitionValidate(psd armpolicy.SetDefinition) (*PolicySetDefi
 	return psdObj, nil
 }
 
-// NewPolicySetDefinitionValidate creates a new PolicySetDefinitionVersion instance and validates it.
+// NewPolicySetDefinitionFromVersionValidate creates a new PolicySetDefinitionVersion instance and validates it.
 func NewPolicySetDefinitionFromVersionValidate(psd armpolicy.SetDefinitionVersion) (*PolicySetDefinition, error) {
 	if psd.ID == nil || *psd.ID == "" {
 		return nil, errors.New("NewPolicySetDefinitionFromVersionValidate: policy set definition ID must be set")

@@ -147,7 +147,7 @@ func TestNewPolicySetDefinitionFromVersionValidateSuccess(t *testing.T) {
 func TestNewPolicySetDefinitionFromVersionValidateMissingID(t *testing.T) {
 	_, err := NewPolicySetDefinitionFromVersionValidate(armpolicy.SetDefinitionVersion{})
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "policy set definition ID must be set")
+	require.ErrorContains(t, err, "policy set definition ID must be set")
 }
 
 func TestNewPolicySetDefinitionFromVersionValidateInvalidResourceID(t *testing.T) {
@@ -157,7 +157,7 @@ func TestNewPolicySetDefinitionFromVersionValidateInvalidResourceID(t *testing.T
 
 	_, err := NewPolicySetDefinitionFromVersionValidate(psdVersion)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "parsing resource ID")
+	require.ErrorContains(t, err, "parsing resource ID")
 }
 
 func TestNewPolicySetDefinitionFromVersionValidateValidationFailure(t *testing.T) {
@@ -175,5 +175,5 @@ func TestNewPolicySetDefinitionFromVersionValidateValidationFailure(t *testing.T
 
 	_, err := NewPolicySetDefinitionFromVersionValidate(psdVersion)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "'properties.displayName' must not be nil")
+	require.ErrorContains(t, err, "'properties.displayName' must not be nil")
 }
