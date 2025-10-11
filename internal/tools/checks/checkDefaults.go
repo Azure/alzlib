@@ -58,7 +58,7 @@ func checkDefaults(azany any) error {
 			}
 			// Now we can check that the parameters are present in the referenced definition
 			for _, param := range pdv.AssignmentParameters(assignment) {
-				if !az.AssignmentReferencedDefinitionHasParameter(pdResID, param) {
+				if !az.AssignmentReferencedDefinitionHasParameter(pdResID, a.Properties.DefinitionVersion, param) {
 					return fmt.Errorf(
 						"checkDefaults: policy assignment `%s`, referenced by default `%s` has a parameter `%s` "+
 							"that is not present in the referenced definition",

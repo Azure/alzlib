@@ -56,3 +56,12 @@ func SplitNameAndVersion(ref string) (string, *string) {
 	}
 	return split[0], &split[1]
 }
+
+// JoinNameAndVersion joins a resource name and version into a single string.
+// If the version is nil, only the name is returned.
+func JoinNameAndVersion(name string, version *string) string {
+	if version == nil {
+		return name
+	}
+	return name + "@" + *version
+}

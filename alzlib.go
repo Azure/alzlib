@@ -929,7 +929,7 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInReques
 							"Alzlib.getBuiltInPolicySets: error getting specific version `%s` of built-in policy definition for `%s`, referenced in policy set `%s`: %w",
 							*ref.DefinitionVersion,
 							resID.Name,
-							req.String(),
+							req.ResourceID.Name,
 							err,
 						)
 					}

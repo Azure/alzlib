@@ -54,15 +54,3 @@ func policyVersionConstraintToSemVerConstraint(constraint string) (*semver.Const
 
 	return sv, nil
 }
-
-// semverCheckPrereleaseStrict checks if the version's prerelease matches the constraint's
-// prerelease.
-// We need this as the semver package does not support this directly.
-// It works for simple constraints like "1.0.*-alpha", which will match "1.0.0-alpha".
-// It does not work for multiple comma separated constraints like "1.0.0-alpha, 1.0.0-beta".
-func semverCheckPrereleaseStrict(v *semver.Version, c *semver.Constraints) bool {
-	conStr := c.String()
-	_, after, _ := strings.Cut(conStr, "-")
-
-	return v.Prerelease() == after
-}

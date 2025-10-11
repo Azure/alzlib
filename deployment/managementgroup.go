@@ -190,7 +190,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 		}
 
 		// get the policy definition name using the resource id
-		policyDefinitionRef, err := pa.ReferencedPolicyDefinitionResourceID()
+		policyDefinitionRef, policyDefinitionVersion, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return fmt.Errorf(
 				"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
@@ -203,7 +203,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 		switch policyDefinitionRef.ResourceType.Type {
 		case "policyDefinitions":
 			// check the definition exists in the AlzLib
-			pd := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name)
+			pd := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name, policyDefinitionVersion)
 			if pd == nil {
 				return fmt.Errorf(
 					"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
@@ -305,13 +305,13 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 			}
 
 		case "policySetDefinitions":
-			psd := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name)
+			psd := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name, policyDefinitionVersion)
 			if psd == nil {
 				return fmt.Errorf(
 					"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
 						"assignment `%s`, policy set `%s` not found in AlzLib",
 					paName,
-					policyDefinitionRef.Name,
+					alzlib.JoinNameAndVersion(policyDefinitionRef.Name, policyDefinitionVersion),
 				)
 			}
 
@@ -338,7 +338,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 					)
 				}
 
-				pd := mg.hierarchy.alzlib.PolicyDefinition(pdName)
+				pd := mg.hierarchy.alzlib.PolicyDefinition(pdName, pdRef.DefinitionVersion)
 				if pd == nil {
 					return fmt.Errorf(
 						"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
@@ -553,7 +553,7 @@ func (mg *HierarchyManagementGroup) ModifyPolicyAssignment(
 
 	for k, v := range parameters {
 		// Only add parameter if it exists in the referenced policy definition.
-		ref, err := mg.policyAssignments[name].ReferencedPolicyDefinitionResourceID()
+		ref, policyDefinitionVersion, err := mg.policyAssignments[name].ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return fmt.Errorf(
 				"HierarchyManagementGroup.ModifyPolicyAssignment: "+
@@ -563,7 +563,7 @@ func (mg *HierarchyManagementGroup) ModifyPolicyAssignment(
 			)
 		}
 
-		if !mg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, k) {
+		if !mg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, policyDefinitionVersion, k) {
 			return fmt.Errorf(
 				"HierarchyManagementGroup.ModifyPolicyAssignment: "+
 					"parameter `%s` not found in referenced %s `%s` for policy assignment `%s`",
@@ -742,7 +742,7 @@ func updatePolicyAsignments(
 
 		// rewrite the referenced policy definition id
 		// if the policy definition is in the list.
-		pdRes, err := assignment.ReferencedPolicyDefinitionResourceID()
+		pdRes, _, err := assignment.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return fmt.Errorf(
 				"updatePolicyAssignments: error parsing policy definition id for policy assignment %s: %w",

@@ -223,6 +223,18 @@ func TestVersionedPolicyCollection_GetVersion_WildcardConstraint(t *testing.T) {
 	assert.Nil(t, got)
 }
 
+func TestVersionedPolicyCollection_GetVersion_PrereleaseVersionMatchOnNilVersion(t *testing.T) {
+	pdvs := NewPolicyDefinitionVersions()
+	name := policyVersionedName
+	preReleaseVersion := "1.0.0-preview"
+	policy := fakePolicyDefinitioned(name, preReleaseVersion)
+	require.NoError(t, pdvs.Add(policy, false))
+
+	got, err := pdvs.GetVersion(nil)
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+}
+
 func TestVersionedPolicyCollection_Exists(t *testing.T) {
 	t.Run("returns true when versionless definition present", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()

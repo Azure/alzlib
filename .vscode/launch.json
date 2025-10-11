@@ -1,16 +1,20 @@
 {
-    "version": "0.2.0",
-    "configurations": [
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach (dlv exec <cmd> --headless --listen=127.0.0.1:40000 --api-version=2 --)",
+      "type": "go",
+      "request": "attach",
+      "mode": "remote",
+      "host": "127.0.0.1",
+      "port": 40000,
+      "showLog": true,
+      "substitutePath": [
         {
-            "name": "Attach to alzlibtool (dlv --headless)",
-            "type": "go",
-            "request": "attach",
-            "mode": "remote",
-            "host": "127.0.0.1",
-            "port": 40000,
-            "cwd": "${workspaceFolder}",
-            "remotePath": "${workspaceFolder}",
-            "showLog": true
+          "from": "github.com/Azure/alzlib",
+          "to": "${workspaceFolder}"
         }
-    ]
+      ]
+    }
+  ]
 }

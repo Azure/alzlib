@@ -15,6 +15,10 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
+var (
+	ErrNoVersionFound = errors.New("no version found")
+)
+
 // VersionedTypes is a type constraint for versioned policy types.
 type VersionedTypes interface {
 	*PolicyDefinition | *PolicySetDefinition
@@ -47,7 +51,20 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 			return c.versionlessDefinition, nil
 		}
 
-		return c.GetVersion(to.Ptr(">= 0.0.*"))
+		// Try a release version first
+		release, err := c.GetVersion(to.Ptr(">= 0.0.*"))
+		if err != nil {
+			if !errors.Is(err, ErrNoVersionFound) {
+				return nil, err
+			}
+		}
+
+		if release != nil {
+			return release, nil
+		}
+
+		// If no release version found, try a preview version
+		return c.GetVersion(to.Ptr(">= 0.0.*-preview"))
 	}
 
 	constraint, err := policyVersionConstraintToSemVerConstraint(*constraintStr)
@@ -58,7 +75,7 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 	var resKey *semver.Version
 
 	for v := range maps.Keys(c.versions) {
-		if !constraint.Check(&v) || !semverCheckPrereleaseStrict(&v, constraint) {
+		if !constraint.Check(&v) {
 			continue
 		}
 
@@ -75,7 +92,10 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 	}
 
 	if resKey == nil {
-		return nil, fmt.Errorf("no version found for constraint %s", *constraintStr)
+		return nil, errors.Join(ErrNoVersionFound, fmt.Errorf(
+			"constraint %s",
+			*constraintStr,
+		))
 	}
 
 	return c.versions[*resKey], nil

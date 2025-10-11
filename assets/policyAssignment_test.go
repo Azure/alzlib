@@ -50,7 +50,7 @@ func TestReferencedPolicyDefinitionResourceId(t *testing.T) {
 		Name: "pd1",
 	}
 
-	resourceID, err := pa.ReferencedPolicyDefinitionResourceID()
+	resourceID, _, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
