@@ -170,6 +170,7 @@ func TestNewPolicySetDefinitionFromVersionValidateValidationFailure(t *testing.T
 		Properties: &armpolicy.SetDefinitionVersionProperties{
 			Description:       to.Ptr(description),
 			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+			Version:           to.Ptr("1.0.0"),
 		},
 	}
 

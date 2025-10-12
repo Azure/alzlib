@@ -152,7 +152,7 @@ func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
 		}
 
 		if pdvc, exists := az.policyDefinitions[*pd.Name]; exists {
-			if err := pdvc.Upsert(pdvc, az.Options.AllowOverwrite); err != nil {
+			if err := pdvc.Add(pd, az.Options.AllowOverwrite); err != nil {
 				merr = multierror.Append(merr, pdvc.Upsert(pdvc, az.Options.AllowOverwrite))
 			}
 			continue
@@ -180,7 +180,7 @@ func (az *AlzLib) AddPolicySetDefinitions(psds ...*assets.PolicySetDefinition) e
 		}
 
 		if psdvc, exists := az.policySetDefinitions[*psd.Name]; exists {
-			if err := psdvc.Upsert(psdvc, az.Options.AllowOverwrite); err != nil {
+			if err := psdvc.Add(psd, az.Options.AllowOverwrite); err != nil {
 				multierror.Append(merr, err)
 			}
 			continue
@@ -634,8 +634,7 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInReq
 			}
 		case "policysetdefinitions":
 			// If the set is not present, OR if the set contains referenced definitions that are not
-			// present
-			// add it to the list of set defs to get.
+			// present add it to the list of set defs to get.
 			exists := az.PolicySetDefinitionExists(req.ResourceID.Name, req.Version)
 			if !exists {
 				policySetDefsToGet = append(policySetDefsToGet, req)
@@ -1119,18 +1118,18 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 			}
 
 			az.AddPolicyDefinitions(pdv)
-
-			if !az.PolicyDefinitionExists(definitionName, ref.DefinitionVersion) {
-				return fmt.Errorf(
-					"Alzlib.getBuiltInPolicySets: finding specific version constraint `%s` of built-in policy definition "+
-						"for `%s`, referenced in policy set `%s`. Versions available: %v",
-					*ref.DefinitionVersion,
-					definitionName,
-					JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
-					az.policyDefinitions[definitionName].Versions(),
-				)
-			}
 		}
+	}
+
+	if !az.PolicyDefinitionExists(definitionName, ref.DefinitionVersion) {
+		return fmt.Errorf(
+			"Alzlib.getBuiltInPolicySets: finding specific version constraint `%s` of built-in policy definition "+
+				"for `%s`, referenced in policy set `%s`. Versions available: %v",
+			*ref.DefinitionVersion,
+			definitionName,
+			JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
+			az.policyDefinitions[definitionName].Versions(),
+		)
 	}
 
 	return nil

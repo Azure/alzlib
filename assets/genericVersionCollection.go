@@ -83,6 +83,10 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 		return c.GetVersion(to.Ptr(">= 0.0.*-preview"))
 	}
 
+	if len(c.versions) == 0 && c.versionlessDefinition != nil {
+		return c.versionlessDefinition, nil
+	}
+
 	constraint, err := policyVersionConstraintToSemVerConstraint(*constraintStr)
 	if err != nil {
 		return nil, err
@@ -90,7 +94,7 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 
 	var resKey *semver.Version
 
-	for v := range maps.Keys(c.versions) {
+	for v := range c.versions {
 		if !constraint.Check(&v) {
 			continue
 		}
@@ -160,9 +164,9 @@ func (c *VersionedPolicyCollection[T]) Add(add T, overwrite bool) error {
 			)
 		}
 
-		if c.versionlessDefinition != nil {
+		if c.versionlessDefinition != nil && !overwrite {
 			return errors.New(
-				"cannot add versionless definition when versionless definition already exists",
+				"cannot add overwrite versionless definition when overwrite is false",
 			)
 		}
 
