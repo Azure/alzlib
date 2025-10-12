@@ -46,6 +46,7 @@ func (c *VersionedPolicyCollection[T]) Versions() []semver.Version {
 	for v := range c.versions {
 		vers = append(vers, v)
 	}
+
 	slices.SortFunc(vers, func(a, b semver.Version) int {
 		return a.Compare(&b)
 	})
@@ -193,6 +194,7 @@ func (c *VersionedPolicyCollection[T]) Add(add T, overwrite bool) error {
 		if !reflect.DeepEqual(ver, add) {
 			return fmt.Errorf("version %s for %s already exists and the new definition is different", *verStr, *name)
 		}
+
 		return nil
 	}
 

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package to
 
 // ValOrZero returns the value of the pointer or the zero value of the type if the pointer is nil.
@@ -6,5 +9,6 @@ func ValOrZero[T any](v *T) T {
 		var zero T
 		return zero
 	}
+
 	return *v
 }

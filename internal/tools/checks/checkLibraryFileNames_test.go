@@ -1,8 +1,15 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package checks
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/Azure/alzlib/internal/processor"
+	"github.com/Azure/alzlib/internal/tools/checker"
 	"github.com/Azure/alzlib/to"
 )
 
@@ -170,6 +177,7 @@ func TestParseLibraryFileName(t *testing.T) {
 				if err == nil {
 					t.Errorf("Expected an error but got nil")
 				}
+
 				return
 			}
 
@@ -202,9 +210,7 @@ func Test_libraryFileNameParts_update(t *testing.T) {
 			},
 			model: &libraryFileNameCheckModel{
 				Name: to.Ptr("newname"),
-				Properties: &struct {
-					Version *string `json:"version,omitempty" yaml:"version,omitempty"`
-				}{
+				Properties: &libraryFileNameCheckModelProperties{
 					Version: to.Ptr("1.2.3"),
 				},
 			},
@@ -244,9 +250,7 @@ func Test_libraryFileNameParts_update(t *testing.T) {
 			},
 			model: &libraryFileNameCheckModel{
 				Name: to.Ptr("newname"),
-				Properties: &struct {
-					Version *string `json:"version,omitempty" yaml:"version,omitempty"`
-				}{
+				Properties: &libraryFileNameCheckModelProperties{
 					Version: nil,
 				},
 			},
@@ -267,9 +271,7 @@ func Test_libraryFileNameParts_update(t *testing.T) {
 			},
 			model: &libraryFileNameCheckModel{
 				Name: to.Ptr("newname"),
-				Properties: &struct {
-					Version *string `json:"version,omitempty" yaml:"version,omitempty"`
-				}{
+				Properties: &libraryFileNameCheckModelProperties{
 					Version: to.Ptr("3.0.0"),
 				},
 			},
@@ -290,9 +292,7 @@ func Test_libraryFileNameParts_update(t *testing.T) {
 			},
 			model: &libraryFileNameCheckModel{
 				Name: to.Ptr("updated"),
-				Properties: &struct {
-					Version *string `json:"version,omitempty" yaml:"version,omitempty"`
-				}{
+				Properties: &libraryFileNameCheckModelProperties{
 					Version: to.Ptr("2.0.0"),
 				},
 			},
@@ -313,9 +313,7 @@ func Test_libraryFileNameParts_update(t *testing.T) {
 			},
 			model: &libraryFileNameCheckModel{
 				Name: to.Ptr("test2"),
-				Properties: &struct {
-					Version *string `json:"version,omitempty" yaml:"version,omitempty"`
-				}{
+				Properties: &libraryFileNameCheckModelProperties{
 					Version: to.Ptr(""),
 				},
 			},
@@ -333,19 +331,242 @@ func Test_libraryFileNameParts_update(t *testing.T) {
 			// Make a copy of initialParts to avoid mutation affecting the test
 			parts := tt.initialParts
 
-			parts.update(tt.model)
+			parts = parts.update(tt.model)
 
 			if parts.name != tt.expectedParts.name {
 				t.Errorf("Expected name %q but got %q", tt.expectedParts.name, parts.name)
 			}
+
 			if parts.version != tt.expectedParts.version {
 				t.Errorf("Expected version %q but got %q", tt.expectedParts.version, parts.version)
 			}
+
 			if parts.fileType != tt.expectedParts.fileType {
 				t.Errorf("Expected fileType %q but got %q", tt.expectedParts.fileType, parts.fileType)
 			}
+
 			if parts.ext != tt.expectedParts.ext {
 				t.Errorf("Expected ext %q but got %q", tt.expectedParts.ext, parts.ext)
+			}
+		})
+	}
+}
+
+func TestCheckTypeTbt(t *testing.T) {
+	tests := []struct {
+		name      string
+		model     *libraryFileNameCheckModel
+		parts     libraryFileNameParts
+		expectErr string
+	}{
+		{
+			name:  "type is required for policy definition when missing",
+			model: &libraryFileNameCheckModel{},
+			parts: libraryFileNameParts{
+				fileType: processor.PolicyDefinitionFileType,
+			},
+			expectErr: "`.type` property is required for this file type",
+		},
+		{
+			name:  "type is optional for archetype definition",
+			model: &libraryFileNameCheckModel{},
+			parts: libraryFileNameParts{
+				fileType: processor.ArchetypeDefinitionFileType,
+			},
+		},
+		{
+			name: "unknown type returns error",
+			model: &libraryFileNameCheckModel{
+				Type: to.Ptr("Unknown.Type"),
+			},
+			parts: libraryFileNameParts{
+				fileType: processor.PolicyDefinitionFileType,
+			},
+			expectErr: "unknown ARM type \"Unknown.Type\"",
+		},
+		{
+			name: "type mismatch returns error",
+			model: &libraryFileNameCheckModel{
+				Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
+			},
+			parts: libraryFileNameParts{
+				fileType: processor.PolicySetDefinitionFileType,
+			},
+			expectErr: fmt.Sprintf("expected type segment %q, got %q", processor.PolicyDefinitionFileType, processor.PolicySetDefinitionFileType),
+		},
+		{
+			name: "matching type passes",
+			model: &libraryFileNameCheckModel{
+				Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
+			},
+			parts: libraryFileNameParts{
+				fileType: processor.PolicyDefinitionFileType,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checker.NewValidator(checkType(tt.model, tt.parts)).Validate()
+			if tt.expectErr == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.expectErr)
+			}
+
+			if !strings.Contains(err.Error(), tt.expectErr) {
+				t.Fatalf("expected error containing %q, got %q", tt.expectErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestCheckNameTbt(t *testing.T) {
+	tests := []struct {
+		name      string
+		model     *libraryFileNameCheckModel
+		parts     libraryFileNameParts
+		expectErr string
+	}{
+		{
+			name: "role name overrides base name",
+			model: &libraryFileNameCheckModel{
+				Name: to.Ptr("base"),
+				Properties: &libraryFileNameCheckModelProperties{
+					RoleName: to.Ptr("role"),
+				},
+			},
+			parts: libraryFileNameParts{name: "role"},
+		},
+		{
+			name: "role name mismatch returns error",
+			model: &libraryFileNameCheckModel{
+				Properties: &libraryFileNameCheckModelProperties{
+					RoleName: to.Ptr("role"),
+				},
+			},
+			parts:     libraryFileNameParts{name: "other"},
+			expectErr: "expected \"role\", got \"other\"",
+		},
+		{
+			name:      "name is required when role name absent",
+			model:     &libraryFileNameCheckModel{},
+			parts:     libraryFileNameParts{name: "any"},
+			expectErr: "`.name` property is required",
+		},
+		{
+			name: "name mismatch returns error",
+			model: &libraryFileNameCheckModel{
+				Name: to.Ptr("expected"),
+			},
+			parts:     libraryFileNameParts{name: "actual"},
+			expectErr: "expected name segment \"expected\", got \"actual\"",
+		},
+		{
+			name: "matching name passes",
+			model: &libraryFileNameCheckModel{
+				Name: to.Ptr("expected"),
+			},
+			parts: libraryFileNameParts{name: "expected"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checker.NewValidator(checkName(tt.model, tt.parts)).Validate()
+			if tt.expectErr == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.expectErr)
+			}
+
+			if !strings.Contains(err.Error(), tt.expectErr) {
+				t.Fatalf("expected error containing %q, got %q", tt.expectErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestCheckVersionTbt(t *testing.T) {
+	tests := []struct {
+		name      string
+		model     *libraryFileNameCheckModel
+		parts     libraryFileNameParts
+		expectErr string
+	}{
+		{
+			name:  "missing type skips validation",
+			model: &libraryFileNameCheckModel{},
+			parts: libraryFileNameParts{version: "1.0.0"},
+		},
+		{
+			name: "version not allowed for type",
+			model: &libraryFileNameCheckModel{
+				Type: to.Ptr("Microsoft.Authorization/roleDefinitions"),
+			},
+			parts:     libraryFileNameParts{version: "1.0.0"},
+			expectErr: "version not allowed for type \"Microsoft.Authorization/roleDefinitions\"",
+		},
+		{
+			name: "version allowed type without property rejects version segment",
+			model: &libraryFileNameCheckModel{
+				Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
+			},
+			parts:     libraryFileNameParts{version: "1.2.3"},
+			expectErr: "version segment in file name not allowed when no version is specified in properties",
+		},
+		{
+			name: "version mismatch returns error",
+			model: &libraryFileNameCheckModel{
+				Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
+				Properties: &libraryFileNameCheckModelProperties{
+					Version: to.Ptr("1.0.0"),
+				},
+			},
+			parts:     libraryFileNameParts{version: "2.0.0"},
+			expectErr: "expected version segment \"1.0.0\", got \"2.0.0\"",
+		},
+		{
+			name: "matching version passes",
+			model: &libraryFileNameCheckModel{
+				Type: to.Ptr("Microsoft.Authorization/policySetDefinitions"),
+				Properties: &libraryFileNameCheckModelProperties{
+					Version: to.Ptr("2.1.0"),
+				},
+			},
+			parts: libraryFileNameParts{version: "2.1.0"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checker.NewValidator(checkVersion(tt.model, tt.parts)).Validate()
+			if tt.expectErr == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.expectErr)
+			}
+
+			if !strings.Contains(err.Error(), tt.expectErr) {
+				t.Fatalf("expected error containing %q, got %q", tt.expectErr, err.Error())
 			}
 		})
 	}

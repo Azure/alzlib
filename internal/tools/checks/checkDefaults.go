@@ -20,7 +20,6 @@ func CheckDefaults(az *alzlib.AlzLib) checker.ValidatorCheck {
 
 func checkDefaults(az *alzlib.AlzLib) func() error {
 	return func() error {
-
 		defs := az.PolicyDefaultValues()
 		for _, def := range defs {
 			pdv := az.PolicyDefaultValue(def)

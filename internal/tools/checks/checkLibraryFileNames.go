@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 package checks
 
 import (
@@ -7,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Azure/alzlib/internal/processor"
@@ -19,28 +23,23 @@ import (
 // It is used to unmarshal the JSON data from various types of library files.
 type libraryFileNameCheckModel struct {
 	Name       *string `json:"name,omitempty" yaml:"name,omitempty"`
-	Properties *struct {
-		Version *string `json:"version,omitempty" yaml:"version,omitempty"`
-	}
+	Type       *string `json:"type,omitempty" yaml:"type,omitempty"`
+	Properties *libraryFileNameCheckModelProperties
+}
+
+type libraryFileNameCheckModelProperties struct {
+	Version  *string `json:"version,omitempty" yaml:"version,omitempty"`
+	RoleName *string `json:"roleName,omitempty" yaml:"roleName,omitempty"`
 }
 
 func (m *libraryFileNameCheckModel) check(p libraryFileNameParts) error {
-	if m.Name == nil || *m.Name != p.name {
-		return fmt.Errorf("filename name component: expected %s, got %s", to.ValOrZero(m.Name), p.name)
-	}
+	v := checker.NewValidator(
+		checkType(m, p),
+		checkName(m, p),
+		checkVersion(m, p),
+	)
 
-	if m.Properties == nil || m.Properties.Version == nil {
-		if p.version != "" {
-			return fmt.Errorf("filename version component: expected to be absent, got %s", p.version)
-		}
-		return nil
-	}
-
-	if *m.Properties.Version != p.version {
-		return fmt.Errorf("filename version component: %s expected %s, got %s", *m.Name, to.ValOrZero(m.Properties.Version), p.version)
-	}
-
-	return nil
+	return v.Validate()
 }
 
 type libraryFileNameParts struct {
@@ -54,24 +53,34 @@ func (p libraryFileNameParts) String() string {
 	if p.version != "" {
 		return fmt.Sprintf("%s.%s.%s.%s", p.name, p.version, p.fileType, p.ext)
 	}
+
 	return fmt.Sprintf("%s.%s.%s", p.name, p.fileType, p.ext)
 }
 
-func (p *libraryFileNameParts) update(model *libraryFileNameCheckModel) {
+func (p libraryFileNameParts) update(model *libraryFileNameCheckModel) libraryFileNameParts {
 	p.name = *model.Name
+
+	if model.Properties != nil && model.Properties.RoleName != nil {
+		p.name = *model.Properties.RoleName
+	}
+
 	if model.Properties != nil && model.Properties.Version != nil {
 		p.version = *model.Properties.Version
 	}
+
 	if model.Properties == nil || model.Properties.Version == nil {
 		p.version = ""
 	}
+
+	return p
 }
 
+// CheckLibraryFileNameOptions are options for the CheckLibraryFileNames function.
 type CheckLibraryFileNameOptions struct {
 	Fix bool // Whether to rename files to match their internal name and version.
 }
 
-// CheckLibrary is a validator check that ensures all library file names are valid.
+// CheckLibraryFileNames is a validator check that ensures all library file names are valid.
 func CheckLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) checker.ValidatorCheck {
 	if opts == nil {
 		opts = new(CheckLibraryFileNameOptions)
@@ -101,17 +110,25 @@ func checkLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) func(
 		var merr error
 
 		dirFs := os.DirFS(path)
+
 		walkErr := fs.WalkDir(dirFs, ".", func(relPath string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return fmt.Errorf("walkLibraryFunc: error accessing path %s: %w", relPath, err)
+			}
+
 			if d.IsDir() {
 				return nil
 			}
 
 			validFile := false
+
 			for _, v := range valids {
 				if !v.MatchString(d.Name()) {
 					continue
 				}
+
 				validFile = true
+
 				break
 			}
 
@@ -134,22 +151,20 @@ func checkLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) func(
 				return fmt.Errorf("walkLibraryFunc: invalid library file name format: %s: %w", relPath, err)
 			}
 
-			nameErr := model.check(parts)
-			if nameErr != nil {
+			err = model.check(parts)
+			if err != nil {
 				if opts.Fix {
-					parts.update(model)
-					fixes[filepath.Join(path, relPath)] = parts.String()
+					newParts := parts.update(model)
+					fixes[filepath.Join(path, relPath)] = newParts.String()
+
 					return nil
 				}
 
-				if err := model.check(parts); err != nil {
-					merr = multierror.Append(merr, err)
-				}
+				merr = multierror.Append(merr, err)
 			}
 
 			return nil
 		})
-
 		if walkErr != nil {
 			return walkErr
 		}
@@ -169,20 +184,124 @@ func checkLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) func(
 
 func parseLibraryFileName(path string) (libraryFileNameParts, error) {
 	var parts libraryFileNameParts
+
 	split := strings.Split(filepath.Base(path), ".")
 	if len(split) < 3 {
 		return parts, errors.New("invalid file name format")
 	}
+
 	parts.ext = split[len(split)-1]
 	parts.fileType = split[len(split)-2]
 
 	if len(split) > 3 {
 		parts.version = strings.Join(split[1:len(split)-2], ".")
 		parts.name = split[0]
+
 		return parts, nil
 	}
 
 	parts.name = split[0]
 
 	return parts, nil
+}
+
+var armType2FileNameType = map[string]string{
+	"microsoft.authorization/roledefinitions":      processor.RoleDefinitionFileType,
+	"microsoft.authorization/policydefinitions":    processor.PolicyDefinitionFileType,
+	"microsoft.authorization/policysetdefinitions": processor.PolicySetDefinitionFileType,
+	"microsoft.authorization/policyassignments":    processor.PolicyAssignmentFileType,
+}
+
+func checkType(model *libraryFileNameCheckModel, parts libraryFileNameParts) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		fmt.Sprintf("File type matches internal type for %s", parts.String()),
+		func() error {
+			if model.Type == nil {
+				typesMust := []string{
+					processor.PolicyAssignmentFileType,
+					processor.PolicyDefinitionFileType,
+					processor.PolicySetDefinitionFileType,
+					processor.RoleDefinitionFileType,
+				}
+
+				if slices.Contains(typesMust, parts.fileType) {
+					return fmt.Errorf("%s: `.type` property is required for this file type", parts.String())
+				}
+
+				return nil
+			}
+
+			mappedType, ok := armType2FileNameType[strings.ToLower(*model.Type)]
+			if !ok {
+				return fmt.Errorf("%s: unknown ARM type %q", parts.String(), *model.Type)
+			}
+
+			if mappedType != parts.fileType {
+				return fmt.Errorf("%s: expected type segment %q, got %q", parts.String(), mappedType, parts.fileType)
+			}
+
+			return nil
+		},
+	)
+}
+
+func checkName(model *libraryFileNameCheckModel, parts libraryFileNameParts) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		fmt.Sprintf("File name matches internal name for %s", parts.String()),
+		func() error {
+			if model.Properties != nil && model.Properties.RoleName != nil {
+				if *model.Properties.RoleName != parts.name {
+					return fmt.Errorf("%s: expected %q, got %q", parts.String(), *model.Properties.RoleName, parts.name)
+				}
+
+				return nil
+			}
+
+			if to.ValOrZero(model.Name) == "" {
+				return fmt.Errorf("%s: `.name` property is required", parts.String())
+			}
+
+			if *model.Name != parts.name {
+				return fmt.Errorf("%s: expected name segment %q, got %q", parts.String(), *model.Name, parts.name)
+			}
+
+			return nil
+		},
+	)
+}
+
+var versionAllowedArmTypes = []string{
+	"microsoft.authorization/policydefinitions",
+	"microsoft.authorization/policysetdefinitions",
+}
+
+func checkVersion(model *libraryFileNameCheckModel, parts libraryFileNameParts) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		fmt.Sprintf("File version matches internal version for %s", parts.String()),
+		func() error {
+			if model.Type == nil {
+				return nil
+			}
+
+			if !slices.Contains(versionAllowedArmTypes, strings.ToLower(*model.Type)) {
+				if parts.version != "" {
+					return fmt.Errorf("%s: version not allowed for type %q", parts.String(), *model.Type)
+				}
+			}
+
+			if model.Properties == nil || model.Properties.Version == nil {
+				if parts.version != "" {
+					return fmt.Errorf("%s: version segment in file name not allowed when no version is specified in properties", parts.String())
+				}
+
+				return nil
+			}
+
+			if *model.Properties.Version != parts.version {
+				return fmt.Errorf("%s: expected version segment %q, got %q", parts.String(), *model.Properties.Version, parts.version)
+			}
+
+			return nil
+		},
+	)
 }

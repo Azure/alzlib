@@ -24,7 +24,9 @@ func CheckAllArchitectures(az *alzlib.AlzLib) checker.ValidatorCheck {
 func checkAllArchitectures(az *alzlib.AlzLib) func() error {
 	return func() error {
 		archs := az.Architectures()
+
 		var errs error
+
 		externalParent := "00000000-0000-0000-0000-000000000000"
 		ctx := context.Background()
 

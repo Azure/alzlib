@@ -43,14 +43,24 @@ const (
 
 var supportedFileTypes = []string{".json", ".yaml", ".yml"}
 
-var ArchitectureDefinitionRegex = regexp.MustCompile(architectureDefinitionSuffix)
-var ArchetypeDefinitionRegex = regexp.MustCompile(archetypeDefinitionSuffix)
-var ArchetypeOverrideRegex = regexp.MustCompile(archetypeOverrideSuffix)
-var PolicyAssignmentRegex = regexp.MustCompile(policyAssignmentSuffix)
-var PolicyDefinitionRegex = regexp.MustCompile(policyDefinitionSuffix)
-var PolicySetDefinitionRegex = regexp.MustCompile(policySetDefinitionSuffix)
-var RoleDefinitionRegex = regexp.MustCompile(roleDefinitionSuffix)
-var PolicyDefaultValuesRegex = regexp.MustCompile(policyDefaultValueFileName)
+var (
+	// ArchitectureDefinitionRegex matches architecture definition files.
+	ArchitectureDefinitionRegex = regexp.MustCompile(architectureDefinitionSuffix)
+	// ArchetypeDefinitionRegex matches archetype definition files.
+	ArchetypeDefinitionRegex = regexp.MustCompile(archetypeDefinitionSuffix)
+	// ArchetypeOverrideRegex matches archetype override files.
+	ArchetypeOverrideRegex = regexp.MustCompile(archetypeOverrideSuffix)
+	// PolicyAssignmentRegex matches policy assignment files.
+	PolicyAssignmentRegex = regexp.MustCompile(policyAssignmentSuffix)
+	// PolicyDefinitionRegex matches policy definition files.
+	PolicyDefinitionRegex = regexp.MustCompile(policyDefinitionSuffix)
+	// PolicySetDefinitionRegex matches policy set definition files.
+	PolicySetDefinitionRegex = regexp.MustCompile(policySetDefinitionSuffix)
+	// RoleDefinitionRegex matches role definition files.
+	RoleDefinitionRegex = regexp.MustCompile(roleDefinitionSuffix)
+	// PolicyDefaultValuesRegex matches policy default values files.
+	PolicyDefaultValuesRegex = regexp.MustCompile(policyDefaultValueFileName)
+)
 
 var (
 	// ErrResourceAlreadyExists is returned when a resource already exists in the result.

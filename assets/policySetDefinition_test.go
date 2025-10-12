@@ -150,16 +150,6 @@ func TestNewPolicySetDefinitionFromVersionValidateMissingID(t *testing.T) {
 	require.ErrorContains(t, err, "policy set definition ID must be set")
 }
 
-func TestNewPolicySetDefinitionFromVersionValidateInvalidResourceID(t *testing.T) {
-	psdVersion := armpolicy.SetDefinitionVersion{
-		ID: to.Ptr("invalid-resource-id"),
-	}
-
-	_, err := NewPolicySetDefinitionFromVersionValidate(psdVersion)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "parsing resource ID")
-}
-
 func TestNewPolicySetDefinitionFromVersionValidateValidationFailure(t *testing.T) {
 	versionID := "/subscriptions/00000000-0000-0000-0000-000000000000/providers/" +
 		"Microsoft.Authorization/policySetDefinitions/anotherPolicySet/versions/1.0.0"

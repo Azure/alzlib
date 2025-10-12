@@ -37,6 +37,7 @@ func (p *fakeDefinitionVersionsPager) NextPage(context.Context) (armpolicy.Defin
 
 	page := p.pages[p.index]
 	p.index++
+
 	return page.response, page.err
 }
 
@@ -61,6 +62,7 @@ func (p *fakeSetDefinitionVersionsPager) NextPage(context.Context) (armpolicy.Se
 
 	page := p.pages[p.index]
 	p.index++
+
 	return page.response, page.err
 }
 
