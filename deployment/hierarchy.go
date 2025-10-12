@@ -386,15 +386,9 @@ func (h *Hierarchy) addManagementGroup(
 
 		newSetDef := h.alzlib.PolicySetDefinition(defName, defVersion)
 		if newSetDef == nil {
-			ver := ""
-			if defVersion != nil {
-				ver = "@" + *defVersion
-			}
-
 			return nil, fmt.Errorf(
-				"Hierarchy.AddManagementGroup(): policy set definition `%s%s` in management group `%s` does not exist in the library",
-				name,
-				ver,
+				"Hierarchy.AddManagementGroup(): policy set definition `%s` in management group `%s` does not exist in the library",
+				alzlib.JoinNameAndVersion(name, defVersion),
 				req.id,
 			)
 		}

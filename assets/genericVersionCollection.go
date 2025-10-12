@@ -9,6 +9,7 @@ import (
 	"iter"
 	"maps"
 	"reflect"
+	"slices"
 
 	"github.com/Azure/alzlib/to"
 	"github.com/Masterminds/semver/v3"
@@ -37,6 +38,19 @@ type Versioned interface {
 type VersionedPolicyCollection[T Versioned] struct {
 	versions              map[semver.Version]T
 	versionlessDefinition T
+}
+
+// Versions returns a sorted list of all versions in the collection.
+func (c *VersionedPolicyCollection[T]) Versions() []semver.Version {
+	vers := make([]semver.Version, 0, len(c.versions))
+	for v := range c.versions {
+		vers = append(vers, v)
+	}
+	slices.SortFunc(vers, func(a, b semver.Version) int {
+		return a.Compare(&b)
+	})
+
+	return vers
 }
 
 // GetVersion returns a policy version based on the provided constraint string.

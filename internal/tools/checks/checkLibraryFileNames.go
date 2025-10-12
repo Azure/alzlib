@@ -33,10 +33,11 @@ func (m *libraryFileNameCheckModel) check(p libraryFileNameParts) error {
 		if p.version != "" {
 			return fmt.Errorf("filename version component: expected to be absent, got %s", p.version)
 		}
+		return nil
 	}
 
 	if *m.Properties.Version != p.version {
-		return fmt.Errorf("filename version component: expected %s, got %s", to.ValOrZero(m.Properties.Version), p.version)
+		return fmt.Errorf("filename version component: %s expected %s, got %s", *m.Name, to.ValOrZero(m.Properties.Version), p.version)
 	}
 
 	return nil
@@ -87,7 +88,6 @@ func checkLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) func(
 		processor.ArchetypeDefinitionRegex,
 		processor.ArchetypeOverrideRegex,
 		processor.ArchitectureDefinitionRegex,
-		processor.PolicyDefaultValuesRegex,
 		processor.PolicyAssignmentRegex,
 		processor.PolicyDefinitionRegex,
 		processor.PolicySetDefinitionRegex,
@@ -124,8 +124,8 @@ func checkLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) func(
 				return fmt.Errorf("walkLibraryFunc: failed to read file: %s: %w", relPath, err)
 			}
 
-			var model *libraryFileNameCheckModel
-			if err := processor.NewUnmarshaler(fileBytes, filepath.Ext(relPath)).Unmarshal(model); err != nil {
+			model := new(libraryFileNameCheckModel)
+			if err := processor.NewUnmarshaler(fileBytes, filepath.Ext(relPath)).Unmarshal(&model); err != nil {
 				return fmt.Errorf("walkLibraryFunc: failed to unmarshal file: %s: %w", relPath, err)
 			}
 
