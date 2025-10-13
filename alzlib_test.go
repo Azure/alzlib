@@ -968,6 +968,7 @@ func TestIntegrationGetDefinitionsFromAzure(t *testing.T) {
 	require.NoError(t, err)
 	policySetDefAllowUsageCostResources, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/0a2ebd47-3fb9-4735-a006-b7f31ddadd9f")
 	require.NoError(t, err)
+
 	reqs := []BuiltInRequest{
 		{
 			ResourceID: policyDefAzureBackupShouldBeEnabledForVirtualMachines,
@@ -999,6 +1000,7 @@ func TestIntegrationGetDefinitionsFromAzure(t *testing.T) {
 	})
 	require.NoError(t, err)
 	az.AddPolicyClient(cf)
+
 	ctx := t.Context()
 	err = az.GetDefinitionsFromAzure(ctx, reqs)
 	require.NoError(t, err)
