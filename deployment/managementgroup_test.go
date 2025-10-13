@@ -2131,7 +2131,7 @@ func deployPrivateDnsZonesPolicySetDefinition() *assets.PolicySetDefinition {
         "type": "string"
       }
     },
-    alzlib.PolicyDefinitionsType: [
+    "policyDefinitions": [
       {
         "groupNames": [],
         "parameters": {
