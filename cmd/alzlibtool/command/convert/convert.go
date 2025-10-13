@@ -61,10 +61,10 @@ func convertFiles[C convertible](
 	if _, err := os.ReadDir(dst); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			if err := os.MkdirAll(dst, directoryPermissions); err != nil {
-				return fmt.Errorf("convert: error creating destination directory: %w", err)
+				return fmt.Errorf("convert: creating destination directory: %w", err)
 			}
 		} else {
-			return fmt.Errorf("convert: error reading destination directory: %w", err)
+			return fmt.Errorf("convert: reading destination directory: %w", err)
 		}
 	}
 

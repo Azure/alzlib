@@ -501,7 +501,7 @@ func (mg *HierarchyManagementGroup) update(uniqueRoleDefinitions bool) error {
 	// and write the definition id if it's custom.
 	if err := updatePolicySetDefinitions(mg, pd2mg); err != nil {
 		return fmt.Errorf(
-			"HierarchyManagementGroup.update: error updating policy set definitions for mg `%s`: %w",
+			"HierarchyManagementGroup.update: updating policy set definitions for mg `%s`: %w",
 			mg.id,
 			err,
 		)
@@ -511,7 +511,7 @@ func (mg *HierarchyManagementGroup) update(uniqueRoleDefinitions bool) error {
 	updateRoleDefinitions(mg, uniqueRoleDefinitions)
 
 	if err := updatePolicyAsignments(mg, pd2mg, psd2mg); err != nil {
-		return fmt.Errorf("HierarchyManagementGroup.update: error updating policy assignments: %w", err)
+		return fmt.Errorf("HierarchyManagementGroup.update: updating policy assignments: %w", err)
 	}
 
 	return nil
@@ -649,7 +649,7 @@ func parseArmFunctionInPolicySetParameter(
 	res, err := goarmfunctions.LexAndParse(context.Background(), toParse, resultantParams, nil)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"parseArmFunctionInPolicySetParameter: error parsing parameter %s in reference %s in set definition %s: %w",
+			"parseArmFunctionInPolicySetParameter: parsing parameter %s in reference %s in set definition %s: %w",
 			paramName,
 			pdRef,
 			*setDef.Name,
@@ -683,7 +683,7 @@ func updatePolicySetDefinitions(
 		refs := psd.PolicyDefinitionReferences()
 		if refs == nil {
 			return fmt.Errorf(
-				"updatePolicySetDefinitions: error getting policy definition references for policy set definition %s",
+				"updatePolicySetDefinitions: getting policy definition references for policy set definition %s",
 				psdName,
 			)
 		}
@@ -692,7 +692,7 @@ func updatePolicySetDefinitions(
 			pdname, err := assets.NameFromResourceID(*pdr.PolicyDefinitionID)
 			if err != nil {
 				return fmt.Errorf(
-					"updatePolicySetDefinitions: error getting policy definition name from resource id %s: %w",
+					"updatePolicySetDefinitions: getting policy definition name from resource id %s: %w",
 					*pdr.PolicyDefinitionID,
 					err,
 				)
@@ -745,7 +745,7 @@ func updatePolicyAsignments(
 		pdRes, _, err := assignment.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return fmt.Errorf(
-				"updatePolicyAssignments: error parsing policy definition id for policy assignment %s: %w",
+				"updatePolicyAssignments: parsing policy definition id for policy assignment %s: %w",
 				assignmentName,
 				err,
 			)

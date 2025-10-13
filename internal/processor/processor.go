@@ -156,14 +156,14 @@ func (client *Client) Metadata() (*LibMetadata, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("ProcessorClient.Metadata: error opening metadata file: %w", err)
+		return nil, fmt.Errorf("ProcessorClient.Metadata: opening metadata file: %w", err)
 	}
 
 	defer metadataFile.Close() // nolint: errcheck
 
 	data, err := io.ReadAll(metadataFile)
 	if err != nil {
-		return nil, fmt.Errorf("ProcessorClient.Metadata: error reading metadata file: %w", err)
+		return nil, fmt.Errorf("ProcessorClient.Metadata: reading metadata file: %w", err)
 	}
 
 	unmar := NewUnmarshaler(data, ".json")
@@ -198,7 +198,7 @@ func (client *Client) Process(res *Result) error {
 	// Open the metadata file and store contents in the result
 	metad, err := client.Metadata()
 	if err != nil {
-		return fmt.Errorf("ProcessorClient.Process: error getting metadata: %w", err)
+		return fmt.Errorf("ProcessorClient.Process: getting metadata: %w", err)
 	}
 
 	res.Metadata = metad
@@ -206,7 +206,7 @@ func (client *Client) Process(res *Result) error {
 	// Walk the embedded lib FS and process files
 	if err := fs.WalkDir(client.fs, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("ProcessorClient.Process: error walking directory %s: %w", path, err)
+			return fmt.Errorf("ProcessorClient.Process: walking directory %s: %w", path, err)
 		}
 		// Skip directories
 		if d.IsDir() {
@@ -223,7 +223,7 @@ func (client *Client) Process(res *Result) error {
 		}
 		file, err := client.fs.Open(path)
 		if err != nil {
-			return fmt.Errorf("ProcessorClient.Process: error opening file %s: %w", path, err)
+			return fmt.Errorf("ProcessorClient.Process: opening file %s: %w", path, err)
 		}
 		return classifyLibFile(res, file, d.Name())
 	}); err != nil {
@@ -416,7 +416,7 @@ func processPolicyDefinition(res *Result, unmar Unmarshaler) error {
 
 	if err := res.PolicyDefinitions[*pd.Name].Add(pd, false); err != nil {
 		return errors.Join(
-			errors.New("processPolicyDefinition: error adding policy definition to collection"),
+			errors.New("processPolicyDefinition: adding policy definition to collection"),
 			err,
 		)
 	}
@@ -457,7 +457,7 @@ func processPolicySetDefinition(res *Result, unmar Unmarshaler) error {
 
 	if err := res.PolicySetDefinitions[*psd.Name].Add(psd, false); err != nil {
 		return errors.Join(
-			errors.New("processPolicySetDefinition: error adding policy set definition to collection"),
+			errors.New("processPolicySetDefinition: adding policy set definition to collection"),
 			err,
 		)
 	}

@@ -113,7 +113,7 @@ func checkLibraryFileNames(path string, opts *CheckLibraryFileNameOptions) func(
 
 		walkErr := fs.WalkDir(dirFs, ".", func(relPath string, d fs.DirEntry, err error) error {
 			if err != nil {
-				return fmt.Errorf("walkLibraryFunc: error accessing path %s: %w", relPath, err)
+				return fmt.Errorf("walkLibraryFunc: accessing path %s: %w", relPath, err)
 			}
 
 			if d.IsDir() {

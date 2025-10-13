@@ -70,10 +70,8 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 
 		// Try a release version first
 		release, err := c.GetVersion(to.Ptr(">= 0.0.*"))
-		if err != nil {
-			if !errors.Is(err, ErrNoVersionFound) {
-				return nil, err
-			}
+		if err != nil && !errors.Is(err, ErrNoVersionFound) {
+			return nil, err
 		}
 
 		if release != nil {

@@ -113,7 +113,7 @@ func (h *Hierarchy) FromArchitecture(
 ) error {
 	architecture := h.alzlib.Architecture(arch)
 	if architecture == nil {
-		return fmt.Errorf("Hierarchy.FromArchitecture: error getting architecture `%s`", arch)
+		return fmt.Errorf("Hierarchy.FromArchitecture: getting architecture `%s`", arch)
 	}
 	// Get the architecture root management groups.
 	for _, a := range architecture.RootMgs() {
@@ -156,7 +156,7 @@ func (h *Hierarchy) PolicyRoleAssignments(
 			}
 
 			return nil, fmt.Errorf(
-				"Hierarchy.PolicyRoleAssignments: error generating additional role assignments for management group `%s`: %w",
+				"Hierarchy.PolicyRoleAssignments: generating additional role assignments for management group `%s`: %w",
 				mg.id,
 				err,
 			)
@@ -199,7 +199,7 @@ func (h *Hierarchy) AddDefaultPolicyAssignmentValue(
 
 			if err := mg.ModifyPolicyAssignment(assignment, newParams, nil, nil, nil, nil, nil); err != nil {
 				return fmt.Errorf(
-					"Hierarchy.AddDefaultPolicyAssignmentValue: error adding default `%s` policy assignment value "+
+					"Hierarchy.AddDefaultPolicyAssignmentValue: adding default `%s` policy assignment value "+
 						"to management group `%s` for policy assignment `%s`: %w",
 					defaultName,
 					mg.id,
@@ -233,7 +233,7 @@ func recurseAddManagementGroup(
 	}
 	if _, err := h.addManagementGroup(ctx, req); err != nil {
 		return fmt.Errorf(
-			"Hierarchy.recurseAddManagementGroup: error adding management group `%s`: %w",
+			"Hierarchy.recurseAddManagementGroup: adding management group `%s`: %w",
 			archMg.ID(),
 			err,
 		)
@@ -329,7 +329,7 @@ func (h *Hierarchy) addManagementGroup(
 		referencedResourceID, definitionVersion, err := polAssign.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return nil, fmt.Errorf(
-				"Hierarchy.AddManagementGroup: error getting referenced policy definition resource ID "+
+				"Hierarchy.AddManagementGroup: getting referenced policy definition resource ID "+
 					"for policy assignment `%s` in management group `%s`: %w",
 				pa,
 				req.id,

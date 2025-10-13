@@ -35,7 +35,7 @@ func checkAllArchitectures(az *alzlib.AlzLib) func() error {
 
 			err := d.FromArchitecture(ctx, v, externalParent, "northeurope")
 			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("checkAllArchitectures: error deploying architecture %s: %w", v, err))
+				errs = multierror.Append(errs, fmt.Errorf("checkAllArchitectures: deploying architecture %s: %w", v, err))
 			}
 		}
 
