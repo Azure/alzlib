@@ -453,9 +453,9 @@ func (az *AlzLib) PolicyDefinition(name string, version *string) *assets.PolicyD
 }
 
 // SetAssignPermissionsOnDefinitionParameter sets the AssignPermissions metadata field to true for
-// the definition and parameter with the given name.
+// for the definition (all versions) and parameter with the given name.
 func (az *AlzLib) SetAssignPermissionsOnDefinitionParameter(
-	definitionName string, definitionVersion *string, parameterName string,
+	definitionName string, parameterName string,
 ) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
@@ -465,19 +465,15 @@ func (az *AlzLib) SetAssignPermissionsOnDefinitionParameter(
 		return
 	}
 
-	pd, err := definition.GetVersionStrict(definitionVersion)
-	if err != nil {
-		return
+	for def := range definition.AllVersions() {
+		def.SetAssignPermissionsOnParameter(parameterName)
 	}
-
-	pd.SetAssignPermissionsOnParameter(parameterName)
 }
 
 // UnsetAssignPermissionsOnDefinitionParameter removes the AssignPermissions metadata field to true
-// for the definition
-// and parameter with the given name.
+// for the definition (all versions) and parameter with the given name.
 func (az *AlzLib) UnsetAssignPermissionsOnDefinitionParameter(
-	definitionName string, definitionVersion *string, parameterName string,
+	definitionName string, parameterName string,
 ) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
@@ -487,12 +483,9 @@ func (az *AlzLib) UnsetAssignPermissionsOnDefinitionParameter(
 		return
 	}
 
-	pd, err := definition.GetVersionStrict(definitionVersion)
-	if err != nil {
-		return
+	for def := range definition.AllVersions() {
+		def.UnsetAssignPermissionsOnParameter(parameterName)
 	}
-
-	pd.UnsetAssignPermissionsOnParameter(parameterName)
 }
 
 // PolicyAssignment returns a deep copy of the requested policy assignment.

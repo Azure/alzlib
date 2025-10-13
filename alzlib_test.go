@@ -754,7 +754,7 @@ func TestSetAssignPermissionsOnDefinitionParameter(t *testing.T) {
 	require.NoError(t, az.AddPolicyDefinitions(pd))
 
 	// Set assign permissions on the parameter using exact version
-	az.SetAssignPermissionsOnDefinitionParameter("testPolicy", to.Ptr("1.0.0"), "testParam")
+	az.SetAssignPermissionsOnDefinitionParameter("testPolicy", "testParam")
 
 	// Verify the parameter has the assignPermissions metadata
 	result := az.PolicyDefinition("testPolicy", to.Ptr("1.0.*"))
@@ -793,7 +793,7 @@ func TestUnsetAssignPermissionsOnDefinitionParameter(t *testing.T) {
 	require.NoError(t, az.AddPolicyDefinitions(pd))
 
 	// Unset assign permissions on the parameter using exact version
-	az.UnsetAssignPermissionsOnDefinitionParameter("testPolicy", to.Ptr("1.0.0"), "testParam")
+	az.UnsetAssignPermissionsOnDefinitionParameter("testPolicy", "testParam")
 
 	// Verify the parameter no longer has the assignPermissions metadata
 	result := az.PolicyDefinition("testPolicy", to.Ptr("1.0.*"))
@@ -888,7 +888,7 @@ func TestAddPolicyDefinitionsMultipleVersions(t *testing.T) {
 	assert.True(t, az.PolicyDefinitionExists("testPolicy", to.Ptr("2.0.*")))
 
 	// Verify there's only one entry in the map
-	assert.Equal(t, 1, len(az.PolicyDefinitions()))
+	assert.Len(t, az.PolicyDefinitions(), 1)
 }
 
 func TestAddPolicySetDefinitionsMultipleVersions(t *testing.T) {
@@ -923,7 +923,7 @@ func TestAddPolicySetDefinitionsMultipleVersions(t *testing.T) {
 	assert.True(t, az.PolicySetDefinitionExists("testPolicySet", to.Ptr("1.1.*")))
 
 	// Verify there's only one entry in the map
-	assert.Equal(t, 1, len(az.PolicySetDefinitions()))
+	assert.Len(t, az.PolicySetDefinitions(), 1)
 }
 
 func TestAssignmentReferencedDefinitionHasParameterPolicySet(t *testing.T) {
