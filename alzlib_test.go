@@ -733,8 +733,6 @@ func TestPolicySetDefinitionGetWithVersion(t *testing.T) {
 func TestSetAssignPermissionsOnDefinitionParameter(t *testing.T) {
 	t.Parallel()
 
-	az := NewAlzLib(nil)
-
 	// Create a policy definition with a parameter
 	pd := assets.NewPolicyDefinition(armpolicy.Definition{
 		Name: to.Ptr("testPolicy"),
@@ -752,27 +750,66 @@ func TestSetAssignPermissionsOnDefinitionParameter(t *testing.T) {
 		},
 	})
 
-	require.NoError(t, az.AddPolicyDefinitions(pd))
+	pd2 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy2"),
+		Properties: &armpolicy.DefinitionProperties{
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"testParam": {
+					Type:     to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{},
+				},
+			},
+		},
+	})
 
-	// Set assign permissions on the parameter using exact version
-	az.SetAssignPermissionsOnDefinitionParameter("testPolicy", "testParam")
+	tc := []struct {
+		name                      string
+		def                       *assets.PolicyDefinition
+		versionConstraint         *string
+		paramName                 string
+		expectedAssignPermissions bool
+	}{
+		{
+			name:                      "versioned policy",
+			def:                       pd,
+			versionConstraint:         to.Ptr("1.0.*"),
+			paramName:                 "testParam",
+			expectedAssignPermissions: true,
+		},
+		{
+			name:                      "versionless policy",
+			def:                       pd2,
+			paramName:                 "testParam",
+			expectedAssignPermissions: true,
+		},
+	}
 
-	// Verify the parameter has the assignPermissions metadata
-	result := az.PolicyDefinition("testPolicy", to.Ptr("1.0.*"))
-	require.NotNil(t, result)
-	param := result.Parameter("testParam")
-	require.NotNil(t, param)
-	require.NotNil(t, param.Metadata)
-	require.NotNil(t, param.Metadata.AssignPermissions)
-	assert.True(t, *param.Metadata.AssignPermissions)
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a policy definition with a parameter
+			az := NewAlzLib(nil)
+			require.NoError(t, az.AddPolicyDefinitions(tt.def))
+			az.SetAssignPermissionsOnDefinitionParameter(*tt.def.Name, tt.paramName)
+			result := az.PolicyDefinition(*tt.def.Name, tt.versionConstraint)
+			require.NotNil(t, result)
+			param := result.Parameter(tt.paramName)
+			require.NotNil(t, param)
+			require.NotNil(t, param.Metadata)
+			require.NotNil(t, param.Metadata.AssignPermissions)
+			assert.Equal(t, tt.expectedAssignPermissions, *param.Metadata.AssignPermissions)
+		})
+	}
 }
 
 func TestUnsetAssignPermissionsOnDefinitionParameter(t *testing.T) {
 	t.Parallel()
 
-	az := NewAlzLib(nil)
-
-	// Create a policy definition with a parameter that has assignPermissions
+	// Create a policy definition with a parameter
 	pd := assets.NewPolicyDefinition(armpolicy.Definition{
 		Name: to.Ptr("testPolicy"),
 		Properties: &armpolicy.DefinitionProperties{
@@ -791,18 +828,59 @@ func TestUnsetAssignPermissionsOnDefinitionParameter(t *testing.T) {
 		},
 	})
 
-	require.NoError(t, az.AddPolicyDefinitions(pd))
+	pd2 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy2"),
+		Properties: &armpolicy.DefinitionProperties{
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"testParam": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+						AssignPermissions: to.Ptr(true),
+					},
+				},
+			},
+		},
+	})
 
-	// Unset assign permissions on the parameter using exact version
-	az.UnsetAssignPermissionsOnDefinitionParameter("testPolicy", "testParam")
+	tc := []struct {
+		name                      string
+		def                       *assets.PolicyDefinition
+		versionConstraint         *string
+		paramName                 string
+		expectedAssignPermissions bool
+	}{
+		{
+			name:              "versioned policy",
+			def:               pd,
+			versionConstraint: to.Ptr("1.0.*"),
+			paramName:         "testParam",
+		},
+		{
+			name:      "versionless policy",
+			def:       pd2,
+			paramName: "testParam",
+		},
+	}
 
-	// Verify the parameter no longer has the assignPermissions metadata
-	result := az.PolicyDefinition("testPolicy", to.Ptr("1.0.*"))
-	require.NotNil(t, result)
-	param := result.Parameter("testParam")
-	require.NotNil(t, param)
-	require.NotNil(t, param.Metadata)
-	assert.Nil(t, param.Metadata.AssignPermissions)
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a policy definition with a parameter
+			az := NewAlzLib(nil)
+			require.NoError(t, az.AddPolicyDefinitions(tt.def))
+			az.UnsetAssignPermissionsOnDefinitionParameter(*tt.def.Name, tt.paramName)
+			result := az.PolicyDefinition(*tt.def.Name, tt.versionConstraint)
+			require.NotNil(t, result)
+			param := result.Parameter(tt.paramName)
+			require.NotNil(t, param)
+			require.NotNil(t, param.Metadata)
+			assert.Nil(t, param.Metadata.AssignPermissions)
+		})
+	}
 }
 
 func TestAssignmentReferencedDefinitionHasParameter(t *testing.T) {
