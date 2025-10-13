@@ -565,3 +565,395 @@ func TestInitSimple(t *testing.T) {
 	assert.Equal(t, []string{"override-pa", "test-pa"}, az.PolicyAssignments())
 	assert.Equal(t, []string{"test"}, az.PolicyDefaultValues())
 }
+
+func TestPolicyDefinitionExistsWithVersion(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a versioned policy definition
+	pd := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("1.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+		},
+	})
+
+	err := az.AddPolicyDefinitions(pd)
+	require.NoError(t, err)
+
+	// Test existence with version constraint matching 1.0.0
+	assert.True(t, az.PolicyDefinitionExists("testPolicy", to.Ptr("1.0.*")))
+
+	// Test existence with nil version (latest)
+	assert.True(t, az.PolicyDefinitionExists("testPolicy", nil))
+
+	// Test existence with non-existent version constraint
+	assert.False(t, az.PolicyDefinitionExists("testPolicy", to.Ptr("2.0.*")))
+
+	// Test existence with non-existent policy
+	assert.False(t, az.PolicyDefinitionExists("nonExistent", nil))
+}
+
+func TestPolicySetDefinitionExistsWithVersion(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a versioned policy set definition
+	psd := assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+		Name: to.Ptr("testPolicySet"),
+		Properties: &armpolicy.SetDefinitionProperties{
+			Version:           to.Ptr("2.1.0"),
+			PolicyType:        to.Ptr(armpolicy.PolicyTypeCustom),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+		},
+	})
+
+	err := az.AddPolicySetDefinitions(psd)
+	require.NoError(t, err)
+
+	// Test existence with version constraint matching 2.1.0
+	assert.True(t, az.PolicySetDefinitionExists("testPolicySet", to.Ptr("2.1.*")))
+
+	// Test existence with nil version (latest)
+	assert.True(t, az.PolicySetDefinitionExists("testPolicySet", nil))
+
+	// Test existence with non-existent version constraint
+	assert.False(t, az.PolicySetDefinitionExists("testPolicySet", to.Ptr("1.0.*")))
+
+	// Test existence with non-existent policy set
+	assert.False(t, az.PolicySetDefinitionExists("nonExistent", nil))
+}
+
+func TestPolicyDefinitionGetWithVersion(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Add two versions of the same policy
+	pd1 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("1.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{"rule": "v1"},
+			Metadata:   map[string]any{"version": "1.0.0"},
+		},
+	})
+
+	pd2 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("2.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{"rule": "v2"},
+			Metadata:   map[string]any{"version": "2.0.0"},
+		},
+	})
+
+	require.NoError(t, az.AddPolicyDefinitions(pd1))
+	require.NoError(t, az.AddPolicyDefinitions(pd2))
+
+	// Get version 1.0.0 using constraint
+	result1 := az.PolicyDefinition("testPolicy", to.Ptr("1.0.*"))
+	require.NotNil(t, result1)
+	assert.Equal(t, "1.0.0", *result1.Properties.Version)
+
+	// Get version 2.0.0 using constraint
+	result2 := az.PolicyDefinition("testPolicy", to.Ptr("2.0.*"))
+	require.NotNil(t, result2)
+	assert.Equal(t, "2.0.0", *result2.Properties.Version)
+
+	// Get latest (nil version) - should return 2.0.0
+	resultLatest := az.PolicyDefinition("testPolicy", nil)
+	require.NotNil(t, resultLatest)
+	assert.Equal(t, "2.0.0", *resultLatest.Properties.Version)
+
+	// Get non-existent policy
+	resultNil := az.PolicyDefinition("nonExistent", nil)
+	assert.Nil(t, resultNil)
+}
+
+func TestPolicySetDefinitionGetWithVersion(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Add two versions of the same policy set
+	psd1 := assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+		Name: to.Ptr("testPolicySet"),
+		Properties: &armpolicy.SetDefinitionProperties{
+			Version:           to.Ptr("1.5.0"),
+			PolicyType:        to.Ptr(armpolicy.PolicyTypeCustom),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+			Metadata:          map[string]any{"version": "1.5.0"},
+		},
+	})
+
+	psd2 := assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+		Name: to.Ptr("testPolicySet"),
+		Properties: &armpolicy.SetDefinitionProperties{
+			Version:           to.Ptr("1.6.0"),
+			PolicyType:        to.Ptr(armpolicy.PolicyTypeCustom),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+			Metadata:          map[string]any{"version": "1.6.0"},
+		},
+	})
+
+	require.NoError(t, az.AddPolicySetDefinitions(psd1))
+	require.NoError(t, az.AddPolicySetDefinitions(psd2))
+
+	// Get version 1.5.0 using constraint
+	result1 := az.PolicySetDefinition("testPolicySet", to.Ptr("1.5.*"))
+	require.NotNil(t, result1)
+	assert.Equal(t, "1.5.0", *result1.Properties.Version)
+
+	// Get version 1.6.0 using constraint
+	result2 := az.PolicySetDefinition("testPolicySet", to.Ptr("1.6.*"))
+	require.NotNil(t, result2)
+	assert.Equal(t, "1.6.0", *result2.Properties.Version)
+
+	// Get latest (nil version) - should return 1.6.0
+	resultLatest := az.PolicySetDefinition("testPolicySet", nil)
+	require.NotNil(t, resultLatest)
+	assert.Equal(t, "1.6.0", *resultLatest.Properties.Version)
+
+	// Get non-existent policy set
+	resultNil := az.PolicySetDefinition("nonExistent", nil)
+	assert.Nil(t, resultNil)
+}
+
+func TestSetAssignPermissionsOnDefinitionParameter(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a policy definition with a parameter
+	pd := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("1.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"testParam": {
+					Type:     to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{},
+				},
+			},
+		},
+	})
+
+	require.NoError(t, az.AddPolicyDefinitions(pd))
+
+	// Set assign permissions on the parameter using exact version
+	az.SetAssignPermissionsOnDefinitionParameter("testPolicy", to.Ptr("1.0.0"), "testParam")
+
+	// Verify the parameter has the assignPermissions metadata
+	result := az.PolicyDefinition("testPolicy", to.Ptr("1.0.*"))
+	require.NotNil(t, result)
+	param := result.Parameter("testParam")
+	require.NotNil(t, param)
+	require.NotNil(t, param.Metadata)
+	require.NotNil(t, param.Metadata.AssignPermissions)
+	assert.True(t, *param.Metadata.AssignPermissions)
+}
+
+func TestUnsetAssignPermissionsOnDefinitionParameter(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a policy definition with a parameter that has assignPermissions
+	pd := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("1.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"testParam": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+						AssignPermissions: to.Ptr(true),
+					},
+				},
+			},
+		},
+	})
+
+	require.NoError(t, az.AddPolicyDefinitions(pd))
+
+	// Unset assign permissions on the parameter using exact version
+	az.UnsetAssignPermissionsOnDefinitionParameter("testPolicy", to.Ptr("1.0.0"), "testParam")
+
+	// Verify the parameter no longer has the assignPermissions metadata
+	result := az.PolicyDefinition("testPolicy", to.Ptr("1.0.*"))
+	require.NotNil(t, result)
+	param := result.Parameter("testParam")
+	require.NotNil(t, param)
+	require.NotNil(t, param.Metadata)
+	assert.Nil(t, param.Metadata.AssignPermissions)
+}
+
+func TestAssignmentReferencedDefinitionHasParameter(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a policy definition with parameters
+	pd := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("1.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"existingParam": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+			},
+		},
+	})
+
+	require.NoError(t, az.AddPolicyDefinitions(pd))
+
+	resID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/testPolicy")
+	require.NoError(t, err)
+
+	// Test with existing parameter using version constraint
+	assert.True(t, az.AssignmentReferencedDefinitionHasParameter(resID, to.Ptr("1.0.*"), "existingParam"))
+
+	// Test with non-existing parameter
+	assert.False(t, az.AssignmentReferencedDefinitionHasParameter(resID, to.Ptr("1.0.*"), "nonExistentParam"))
+
+	// Test with non-existing definition (should return true to avoid false positives)
+	resID2, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/nonExistent")
+	require.NoError(t, err)
+	assert.True(t, az.AssignmentReferencedDefinitionHasParameter(resID2, nil, "anyParam"))
+}
+
+func TestAddPolicyDefinitionsMultipleVersions(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Add multiple versions of the same policy definition
+	pd1 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("1.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+		},
+	})
+
+	pd2 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("1.1.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+		},
+	})
+
+	pd3 := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("testPolicy"),
+		Properties: &armpolicy.DefinitionProperties{
+			Version:    to.Ptr("2.0.0"),
+			PolicyType: to.Ptr(armpolicy.PolicyTypeCustom),
+			Mode:       to.Ptr("All"),
+			PolicyRule: map[string]any{},
+		},
+	})
+
+	require.NoError(t, az.AddPolicyDefinitions(pd1))
+	require.NoError(t, az.AddPolicyDefinitions(pd2))
+	require.NoError(t, az.AddPolicyDefinitions(pd3))
+
+	// Verify all versions exist using version constraints
+	assert.True(t, az.PolicyDefinitionExists("testPolicy", to.Ptr("1.0.*")))
+	assert.True(t, az.PolicyDefinitionExists("testPolicy", to.Ptr("1.1.*")))
+	assert.True(t, az.PolicyDefinitionExists("testPolicy", to.Ptr("2.0.*")))
+
+	// Verify there's only one entry in the map
+	assert.Equal(t, 1, len(az.PolicyDefinitions()))
+}
+
+func TestAddPolicySetDefinitionsMultipleVersions(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Add multiple versions of the same policy set definition
+	psd1 := assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+		Name: to.Ptr("testPolicySet"),
+		Properties: &armpolicy.SetDefinitionProperties{
+			Version:           to.Ptr("1.0.0"),
+			PolicyType:        to.Ptr(armpolicy.PolicyTypeCustom),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+		},
+	})
+
+	psd2 := assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+		Name: to.Ptr("testPolicySet"),
+		Properties: &armpolicy.SetDefinitionProperties{
+			Version:           to.Ptr("1.1.0"),
+			PolicyType:        to.Ptr(armpolicy.PolicyTypeCustom),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+		},
+	})
+
+	require.NoError(t, az.AddPolicySetDefinitions(psd1))
+	require.NoError(t, az.AddPolicySetDefinitions(psd2))
+
+	// Verify all versions exist using version constraints
+	assert.True(t, az.PolicySetDefinitionExists("testPolicySet", to.Ptr("1.0.*")))
+	assert.True(t, az.PolicySetDefinitionExists("testPolicySet", to.Ptr("1.1.*")))
+
+	// Verify there's only one entry in the map
+	assert.Equal(t, 1, len(az.PolicySetDefinitions()))
+}
+
+func TestAssignmentReferencedDefinitionHasParameterPolicySet(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a policy set definition with parameters
+	psd := assets.NewPolicySetDefinition(armpolicy.SetDefinition{
+		Name: to.Ptr("testPolicySet"),
+		Properties: &armpolicy.SetDefinitionProperties{
+			Version:           to.Ptr("1.0.0"),
+			PolicyType:        to.Ptr(armpolicy.PolicyTypeCustom),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"setParam": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+			},
+		},
+	})
+
+	require.NoError(t, az.AddPolicySetDefinitions(psd))
+
+	resID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/testPolicySet")
+	require.NoError(t, err)
+
+	// Test with existing parameter using version constraint
+	assert.True(t, az.AssignmentReferencedDefinitionHasParameter(resID, to.Ptr("1.0.*"), "setParam"))
+
+	// Test with non-existing parameter
+	assert.False(t, az.AssignmentReferencedDefinitionHasParameter(resID, to.Ptr("1.0.*"), "nonExistentParam"))
+}
