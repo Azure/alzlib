@@ -48,7 +48,7 @@ func TestFetchLibraryWithDependencies_MissingCustomDependency(t *testing.T) {
 	_, err := NewCustomLibraryReference(
 		"./testdata/dependent-libs/missing-dep-custom",
 	).FetchWithDependencies(ctx)
-	assert.ErrorContains(t, err, "could not fetch library member")
+	require.ErrorContains(t, err, "could not fetch library member")
 }
 
 func TestFetchLibraryWithDependencies_MissingLibraryDependency(t *testing.T) {
@@ -61,5 +61,5 @@ func TestFetchLibraryWithDependencies_MissingLibraryDependency(t *testing.T) {
 	_, err := NewCustomLibraryReference(
 		"./testdata/dependent-libs/missing-dep-library",
 	).FetchWithDependencies(ctx)
-	assert.ErrorContains(t, err, "could not fetch library member")
+	require.ErrorContains(t, err, "could not fetch library member")
 }

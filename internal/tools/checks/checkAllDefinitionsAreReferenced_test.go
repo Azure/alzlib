@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,7 +75,7 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 		PolicyAssignments:    mapset.NewThreadUnsafeSet[string](),
 	}
 
-	err := checkAllDefinitionsAreReferenced(az)
+	err := checkAllDefinitionsAreReferenced(az)()
 	require.NoError(t, err)
 
 	// Test case with unreferenced definitions
@@ -102,8 +101,8 @@ func TestCheckAllDefinitionsAreReferenced(t *testing.T) {
 		},
 	)
 
-	err = checkAllDefinitionsAreReferenced(az)
-	assert.ErrorContains(
+	err = checkAllDefinitionsAreReferenced(az)()
+	require.ErrorContains(
 		t,
 		err,
 		"found unreferenced definitions [policyDefinitions] [policySetDefinitions] [roleDefinitions]: [policy3], [policySet3], [role3]",

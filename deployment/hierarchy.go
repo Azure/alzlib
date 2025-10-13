@@ -38,6 +38,8 @@ const (
 	// RoleDefinitionIDFmt is the format string for role definition resource IDs in Azure.
 	RoleDefinitionIDFmt = "/providers/Microsoft.Management/managementGroups/%s" +
 		"/providers/Microsoft.Authorization/roleDefinitions/%s"
+
+	builtInRequestSliceCapacity = 100
 )
 
 // Hierarchy represents a deployment of Azure management group hierarchy.
@@ -113,7 +115,7 @@ func (h *Hierarchy) FromArchitecture(
 ) error {
 	architecture := h.alzlib.Architecture(arch)
 	if architecture == nil {
-		return fmt.Errorf("Hierarchy.FromArchitecture: error getting architecture `%s`", arch)
+		return fmt.Errorf("Hierarchy.FromArchitecture: getting architecture `%s`", arch)
 	}
 	// Get the architecture root management groups.
 	for _, a := range architecture.RootMgs() {
@@ -156,7 +158,7 @@ func (h *Hierarchy) PolicyRoleAssignments(
 			}
 
 			return nil, fmt.Errorf(
-				"Hierarchy.PolicyRoleAssignments: error generating additional role assignments for management group `%s`: %w",
+				"Hierarchy.PolicyRoleAssignments: generating additional role assignments for management group `%s`: %w",
 				mg.id,
 				err,
 			)
@@ -199,7 +201,7 @@ func (h *Hierarchy) AddDefaultPolicyAssignmentValue(
 
 			if err := mg.ModifyPolicyAssignment(assignment, newParams, nil, nil, nil, nil, nil); err != nil {
 				return fmt.Errorf(
-					"Hierarchy.AddDefaultPolicyAssignmentValue: error adding default `%s` policy assignment value "+
+					"Hierarchy.AddDefaultPolicyAssignmentValue: adding default `%s` policy assignment value "+
 						"to management group `%s` for policy assignment `%s`: %w",
 					defaultName,
 					mg.id,
@@ -233,7 +235,7 @@ func recurseAddManagementGroup(
 	}
 	if _, err := h.addManagementGroup(ctx, req); err != nil {
 		return fmt.Errorf(
-			"Hierarchy.recurseAddManagementGroup: error adding management group `%s`: %w",
+			"Hierarchy.recurseAddManagementGroup: adding management group `%s`: %w",
 			archMg.ID(),
 			err,
 		)
@@ -307,9 +309,9 @@ func (h *Hierarchy) addManagementGroup(
 	}
 
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
-	assignedPolicyDefinitionIDs := mapset.NewThreadUnsafeSet[string]()
+	assignedPolicyDefinitions := make([]alzlib.BuiltInRequest, 0, builtInRequestSliceCapacity)
 
-	// Combine all assignments form all supplied archetypes into a single set
+	// Combine all assignments from all supplied archetypes into a single set
 	allPolicyAssignments := mapset.NewThreadUnsafeSet[string]()
 	for _, archetype := range req.archetypes {
 		allPolicyAssignments = allPolicyAssignments.Union(archetype.PolicyAssignments)
@@ -326,10 +328,10 @@ func (h *Hierarchy) addManagementGroup(
 			)
 		}
 
-		referencedResourceID, err := polAssign.ReferencedPolicyDefinitionResourceID()
+		referencedResourceID, definitionVersion, err := polAssign.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return nil, fmt.Errorf(
-				"Hierarchy.AddManagementGroup: error getting referenced policy definition resource ID "+
+				"Hierarchy.AddManagementGroup: getting referenced policy definition resource ID "+
 					"for policy assignment `%s` in management group `%s`: %w",
 				pa,
 				req.id,
@@ -337,10 +339,14 @@ func (h *Hierarchy) addManagementGroup(
 			)
 		}
 
-		assignedPolicyDefinitionIDs.Add(referencedResourceID.String())
+		assignedPolicyDefinitions = append(assignedPolicyDefinitions, alzlib.BuiltInRequest{
+			ResourceID: referencedResourceID,
+			Version:    definitionVersion,
+		})
 	}
 
-	if err := h.alzlib.GetDefinitionsFromAzure(ctx, assignedPolicyDefinitionIDs.ToSlice()); err != nil {
+	// Definitions are retrieved only at the time of adding the management group to the hierarchy.
+	if err := h.alzlib.GetDefinitionsFromAzure(ctx, assignedPolicyDefinitions); err != nil {
 		return nil, fmt.Errorf(
 			"Hierarchy.AddManagementGroup: adding mg `%s` error getting policy definitions from Azure: %w",
 			req.id,
@@ -351,14 +357,16 @@ func (h *Hierarchy) addManagementGroup(
 	// Now that we are sure that we have all the definitions in the library,
 	// make copies of the archetype resources for modification in the Deployment management group.
 
-	// Copmbine all policy definitions form all supplied archetypes into a single set
+	// Combine all policy definitions from all supplied archetypes into a single set
 	allPolicyDefinitions := mapset.NewThreadUnsafeSet[string]()
 	for _, archetype := range req.archetypes {
 		allPolicyDefinitions = allPolicyDefinitions.Union(archetype.PolicyDefinitions)
 	}
 
 	for name := range allPolicyDefinitions.Iter() {
-		newDef := h.alzlib.PolicyDefinition(name)
+		defName, defVersion := alzlib.SplitNameAndVersion(name)
+
+		newDef := h.alzlib.PolicyDefinition(defName, defVersion)
 		if newDef == nil {
 			return nil, fmt.Errorf(
 				"Hierarchy.AddManagementGroup: policy definition `%s` in management group `%s` does not exist in the library",
@@ -376,11 +384,13 @@ func (h *Hierarchy) addManagementGroup(
 	}
 
 	for name := range allPolicySetDefinitions.Iter() {
-		newSetDef := h.alzlib.PolicySetDefinition(name)
+		defName, defVersion := alzlib.SplitNameAndVersion(name)
+
+		newSetDef := h.alzlib.PolicySetDefinition(defName, defVersion)
 		if newSetDef == nil {
 			return nil, fmt.Errorf(
 				"Hierarchy.AddManagementGroup(): policy set definition `%s` in management group `%s` does not exist in the library",
-				name,
+				alzlib.JoinNameAndVersion(name, defVersion),
 				req.id,
 			)
 		}
@@ -400,20 +410,20 @@ func (h *Hierarchy) addManagementGroup(
 		}
 		// Check if the referenced policy is a set and if its parameters match the parameters in the
 		// policy definitions
-		refPdID, _ := newpolassign.ReferencedPolicyDefinitionResourceID()
-		if refPdID.ResourceType.Type == "policySetDefinitions" {
-			psd := h.alzlib.PolicySetDefinition(refPdID.Name)
+		refPdID, refVer, _ := newpolassign.ReferencedPolicyDefinitionResourceIDAndVersion()
+		if strings.ToLower(refPdID.ResourceType.Type) == alzlib.PolicySetDefinitionsType {
+			psd := h.alzlib.PolicySetDefinition(refPdID.Name, refVer)
 
 			rfs := psd.PolicyDefinitionReferences()
 			for _, rf := range rfs {
 				resID, _ := arm.ParseResourceID(*rf.PolicyDefinitionID)
-				pd := h.alzlib.PolicyDefinition(resID.Name)
+				pd := h.alzlib.PolicyDefinition(resID.Name, rf.DefinitionVersion)
 
 				if pd == nil {
 					return nil, fmt.Errorf(
 						"Hierarchy.AddManagementGroup(): policy definition `%s` in policy set definition `%s` "+
 							"in management group `%s` does not exist in the library",
-						resID.Name,
+						alzlib.JoinNameAndVersion(resID.Name, rf.DefinitionVersion),
 						refPdID.Name,
 						req.id,
 					)
@@ -426,7 +436,7 @@ func (h *Hierarchy) addManagementGroup(
 								"does not match a parameter in referenced definition `%s` in management group `%s`",
 							param,
 							*psd.Name,
-							*pd.Name,
+							alzlib.JoinNameAndVersion(*pd.Name, rf.DefinitionVersion),
 							req.id,
 						)
 					}

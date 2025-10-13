@@ -6,15 +6,25 @@ package assets
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"maps"
+	"reflect"
+	"slices"
 
 	"github.com/Azure/alzlib/to"
 	"github.com/Masterminds/semver/v3"
+	"github.com/brunoga/deep"
+	"github.com/hashicorp/go-multierror"
+)
+
+var (
+	// ErrNoVersionFound is returned when no version is found for a policy.
+	ErrNoVersionFound = errors.New("no version found")
 )
 
 // VersionedTypes is a type constraint for versioned policy types.
 type VersionedTypes interface {
-	*PolicyDefinitionVersion | *PolicySetDefinitionVersion
+	*PolicyDefinition | *PolicySetDefinition
 }
 
 // Versioned is an interface for versioned policy types.
@@ -28,6 +38,20 @@ type Versioned interface {
 type VersionedPolicyCollection[T Versioned] struct {
 	versions              map[semver.Version]T
 	versionlessDefinition T
+}
+
+// Versions returns a sorted list of all versions in the collection.
+func (c *VersionedPolicyCollection[T]) Versions() []semver.Version {
+	vers := make([]semver.Version, 0, len(c.versions))
+	for v := range c.versions {
+		vers = append(vers, v)
+	}
+
+	slices.SortFunc(vers, func(a, b semver.Version) int {
+		return a.Compare(&b)
+	})
+
+	return vers
 }
 
 // GetVersion returns a policy version based on the provided constraint string.
@@ -44,7 +68,22 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 			return c.versionlessDefinition, nil
 		}
 
-		return c.GetVersion(to.Ptr(">= 0.0.*"))
+		// Try a release version first
+		release, err := c.GetVersion(to.Ptr(">= 0.0.*"))
+		if err != nil && !errors.Is(err, ErrNoVersionFound) {
+			return nil, err
+		}
+
+		if release != nil {
+			return release, nil
+		}
+
+		// If no release version found, try a preview version
+		return c.GetVersion(to.Ptr(">= 0.0.*-preview"))
+	}
+
+	if len(c.versions) == 0 && c.versionlessDefinition != nil {
+		return c.versionlessDefinition, nil
 	}
 
 	constraint, err := policyVersionConstraintToSemVerConstraint(*constraintStr)
@@ -54,8 +93,8 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 
 	var resKey *semver.Version
 
-	for v := range maps.Keys(c.versions) {
-		if !constraint.Check(&v) || !semverCheckPrereleaseStrict(&v, constraint) {
+	for v := range c.versions {
+		if !constraint.Check(&v) {
 			continue
 		}
 
@@ -72,14 +111,47 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 	}
 
 	if resKey == nil {
-		return nil, fmt.Errorf("no version found for constraint %s", *constraintStr)
+		return nil, errors.Join(ErrNoVersionFound, fmt.Errorf(
+			"constraint %s",
+			*constraintStr,
+		))
 	}
 
 	return c.versions[*resKey], nil
 }
 
+// GetVersionStrict returns a policy version based on the exact version string.
+// If the version string is nil, it returns the versionless definition if it exists.
+// If the version string is nil and no versionless definition exists it returns the exact match,
+// or an error if no exact match exists.
+func (c *VersionedPolicyCollection[T]) GetVersionStrict(ver *string) (T, error) {
+	if ver != nil && *ver == "" {
+		return nil, errors.New("version string cannot be empty")
+	}
+
+	if ver == nil {
+		if c.versionlessDefinition == nil {
+			return nil, errors.New("no versionless definition exists")
+		}
+
+		return c.versionlessDefinition, nil
+	}
+
+	strictVer, err := semver.StrictNewVersion(*ver)
+	if err != nil {
+		return nil, fmt.Errorf("invalid version string `%s`. %w", *ver, err)
+	}
+
+	policy, ok := c.versions[*strictVer]
+	if !ok {
+		return nil, fmt.Errorf("no version found for version %s", *ver)
+	}
+
+	return policy, nil
+}
+
 // Add adds a new version to the collection.
-func (c *VersionedPolicyCollection[T]) Add(add T) error {
+func (c *VersionedPolicyCollection[T]) Add(add T, overwrite bool) error {
 	if add == nil {
 		return errors.New("cannot add nil policy definition")
 	}
@@ -92,13 +164,14 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 			)
 		}
 
-		if c.versionlessDefinition != nil {
+		if c.versionlessDefinition != nil && !overwrite {
 			return errors.New(
-				"cannot add versionless definition when versionless definition already exists",
+				"cannot add overwrite versionless definition when overwrite is false",
 			)
 		}
 
-		c.versionlessDefinition = add
+		cpy := deep.MustCopy(add)
+		c.versionlessDefinition = cpy
 
 		return nil
 	}
@@ -116,8 +189,12 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 		)
 	}
 
-	if _, ok := c.versions[*sv]; ok {
-		return fmt.Errorf("version %s for %s already exists", *verStr, *name)
+	if ver, ok := c.versions[*sv]; ok && !overwrite {
+		if !reflect.DeepEqual(ver, add) {
+			return fmt.Errorf("version %s for %s already exists and the new definition is different", *verStr, *name)
+		}
+
+		return nil
 	}
 
 	for v := range maps.Values(c.versions) {
@@ -130,7 +207,68 @@ func (c *VersionedPolicyCollection[T]) Add(add T) error {
 		}
 	}
 
-	c.versions[*sv] = add
+	cpy := deep.MustCopy(add)
+	c.versions[*sv] = cpy
 
 	return nil
+}
+
+// Exists checks if a version or versionless definition exists in the collection.
+// If version is nil, it checks for the existence of a versionless definition.
+// You must supply a exact semver version string to check for a specific version.
+// If you want to supply a version constraint, use GetVersion instead.
+func (c *VersionedPolicyCollection[T]) Exists(version *string) bool {
+	if version == nil {
+		return c.versionlessDefinition != nil
+	}
+
+	sv, err := semver.StrictNewVersion(*version)
+	if err != nil {
+		return false
+	}
+
+	_, ok := c.versions[*sv]
+
+	return ok
+}
+
+// AllVersions returns an iterator over all versions in the collection.
+func (c *VersionedPolicyCollection[T]) AllVersions() iter.Seq[T] {
+	if c.versionlessDefinition != nil {
+		return func(yield func(T) bool) {
+			if !yield(c.versionlessDefinition) {
+				return
+			}
+		}
+	}
+
+	return maps.Values(c.versions)
+}
+
+// Upsert merges another VersionedPolicyCollection into this one.
+// If overwrite is true, existing versions will be overwritten.
+// If overwrite is false, an error will be returned if a version already exists.
+func (c *VersionedPolicyCollection[T]) Upsert(in *VersionedPolicyCollection[T], overwrite bool) error {
+	if in == nil || (in.versionlessDefinition == nil && len(in.versions) == 0) {
+		return nil
+	}
+
+	// if the incoming collection has a versionless definition, we need to handle that first
+	if in.versionlessDefinition != nil {
+		return c.Add(in.versionlessDefinition, overwrite)
+	}
+
+	if c.versions == nil {
+		c.versions = make(map[semver.Version]T)
+	}
+
+	var merr error
+	// We now need to merge the versioned definitions
+	for _, def := range in.versions {
+		if err := c.Add(def, overwrite); err != nil {
+			merr = multierror.Append(merr, err)
+		}
+	}
+
+	return merr
 }

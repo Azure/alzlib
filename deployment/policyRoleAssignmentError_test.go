@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPolicyRoleAssignmentError_Error(t *testing.T) {
@@ -43,7 +43,7 @@ func TestPolicyRoleAssignmentError_WrappedError(t *testing.T) {
 		t.Errorf("expected %s, got %s", expected, err.Error())
 	}
 
-	assert.ErrorIs(t, err, innerError)
+	require.ErrorIs(t, err, innerError)
 }
 
 func TestPolicyRoleAssignmentErrors_Error(t *testing.T) {

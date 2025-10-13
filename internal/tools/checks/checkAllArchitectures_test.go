@@ -26,5 +26,5 @@ func TestCheckAllArchitectures(t *testing.T) {
 	az.AddPolicyClient(cf)
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
-	require.NoError(t, checkAllArchitectures(az))
+	require.NoError(t, checkAllArchitectures(az)())
 }

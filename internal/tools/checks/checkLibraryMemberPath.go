@@ -17,29 +17,28 @@ const (
 
 // CheckLibraryMemberPath is a validator check that ensures the library member path matches the
 // expected path from the environment variable.
-var CheckLibraryMemberPath = checker.NewValidatorCheck(
-	"Library member path",
-	checkLibraryMemberPath,
-)
+func CheckLibraryMemberPath(az *alzlib.AlzLib) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		"Library member path",
+		checkLibraryMemberPath(az),
+	)
+}
 
 // ErrLibraryMemberPathMismatch is returned when the library member path does not match the expected path.
 var ErrLibraryMemberPathMismatch = fmt.Errorf("library member path mismatch")
 
-func checkLibraryMemberPath(in any) error {
-	path, ok := os.LookupEnv(alzLibPathEnvVar)
-	if !ok {
+func checkLibraryMemberPath(az *alzlib.AlzLib) func() error {
+	return func() error {
+		path, ok := os.LookupEnv(alzLibPathEnvVar)
+		if !ok {
+			return nil
+		}
+
+		lastMetad := az.Metadata()[len(az.Metadata())-1]
+		if lastMetad.Path() != path {
+			return fmt.Errorf("checkLibraryMemberPath: %w: %s != %s", ErrLibraryMemberPathMismatch, lastMetad.Path(), path)
+		}
+
 		return nil
 	}
-
-	metad, ok := in.(*alzlib.AlzLib)
-	if !ok {
-		return fmt.Errorf("checkAllDefinitionsAreReferenced: %w expected *alzlib.AlzLib, got %T", ErrIncorrectType, in)
-	}
-
-	lastMetad := metad.Metadata()[len(metad.Metadata())-1]
-	if lastMetad.Path() != path {
-		return fmt.Errorf("checkLibraryMemberPath: %w: %s != %s", ErrLibraryMemberPathMismatch, lastMetad.Path(), path)
-	}
-
-	return nil
 }

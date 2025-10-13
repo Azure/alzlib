@@ -1,0 +1,105 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/architecture_definition.json",
+  "name": "alz",
+  "management_groups": [
+    {
+      "archetypes": [
+        "root"
+      ],
+      "display_name": "Azure Landing Zones",
+      "exists": false,
+      "id": "alz",
+      "parent_id": null
+    },
+    {
+      "archetypes": [
+        "platform"
+      ],
+      "display_name": "Platform",
+      "exists": false,
+      "id": "platform",
+      "parent_id": "alz"
+    },
+    {
+      "archetypes": [
+        "landing_zones"
+      ],
+      "display_name": "Landing zones",
+      "exists": false,
+      "id": "landingzones",
+      "parent_id": "alz"
+    },
+    {
+      "archetypes": [
+        "corp"
+      ],
+      "display_name": "Corp",
+      "exists": false,
+      "id": "corp",
+      "parent_id": "landingzones"
+    },
+    {
+      "archetypes": [
+        "online"
+      ],
+      "display_name": "Online",
+      "exists": false,
+      "id": "online",
+      "parent_id": "landingzones"
+    },
+    {
+      "archetypes": [
+        "sandbox"
+      ],
+      "display_name": "Sandbox",
+      "exists": false,
+      "id": "sandbox",
+      "parent_id": "alz"
+    },
+    {
+      "archetypes": [
+        "security"
+      ],
+      "display_name": "Security",
+      "exists": false,
+      "id": "security",
+      "parent_id": "platform"
+    },
+    {
+      "archetypes": [
+        "management"
+      ],
+      "display_name": "Management",
+      "exists": false,
+      "id": "management",
+      "parent_id": "platform"
+    },
+    {
+      "archetypes": [
+        "connectivity"
+      ],
+      "display_name": "Connectivity",
+      "exists": false,
+      "id": "connectivity",
+      "parent_id": "platform"
+    },
+    {
+      "archetypes": [
+        "identity"
+      ],
+      "display_name": "Identity",
+      "exists": false,
+      "id": "identity",
+      "parent_id": "platform"
+    },
+    {
+      "archetypes": [
+        "decommissioned"
+      ],
+      "display_name": "Decommissioned",
+      "exists": false,
+      "id": "decommissioned",
+      "parent_id": "alz"
+    }
+  ]
+}

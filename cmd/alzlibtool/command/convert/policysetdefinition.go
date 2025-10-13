@@ -6,8 +6,6 @@ package convert
 import (
 	"os"
 
-	"github.com/Azure/alzlib/internal/tools/checker"
-	"github.com/Azure/alzlib/internal/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
@@ -21,10 +19,9 @@ var policysetdefinitionCmd = cobra.Command{
 		cobra.ExactArgs(RequiredArgCount),
 	),
 	Run: func(cmd *cobra.Command, args []string) {
-		valid := checker.NewValidator(checks.CheckResourceTypeIsCorrect)
-		err := convertFiles[armpolicy.SetDefinition](args[0], args[1], cmd, valid)
+		err := convertFiles[armpolicy.SetDefinition](args[0], args[1], cmd)
 		if err != nil {
-			cmd.PrintErrf("%s policy definintion conversion error: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf("%s policy set definition conversion error: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
 	},

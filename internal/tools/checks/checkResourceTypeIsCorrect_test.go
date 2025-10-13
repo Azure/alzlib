@@ -15,7 +15,7 @@ func TestCheckResourceType(t *testing.T) {
 		Type: to.Ptr("Microsoft.Authorization/policyDefinitions"),
 	}
 
-	err := checkResourceTypeIsCorrect(definition)
+	err := checkResourceTypeIsCorrect(definition)()
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
 	}
@@ -24,7 +24,7 @@ func TestCheckResourceType(t *testing.T) {
 		Type: to.Ptr("Microsoft.Authorization/policySetDefinitions"),
 	}
 
-	err = checkResourceTypeIsCorrect(setDefinition)
+	err = checkResourceTypeIsCorrect(setDefinition)()
 	if err != nil {
 		t.Errorf("Expected no error, but got %v", err)
 	}
@@ -33,7 +33,7 @@ func TestCheckResourceType(t *testing.T) {
 		Type: to.Ptr("InvalidType"),
 	}
 
-	err = checkResourceTypeIsCorrect(invalidDefinition)
+	err = checkResourceTypeIsCorrect(invalidDefinition)()
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")
 	}
@@ -42,7 +42,7 @@ func TestCheckResourceType(t *testing.T) {
 		Type: to.Ptr("InvalidType"),
 	}
 
-	err = checkResourceTypeIsCorrect(invalidSetDefinition)
+	err = checkResourceTypeIsCorrect(invalidSetDefinition)()
 	if err == nil {
 		t.Errorf("Expected an error, but got nil")
 	}

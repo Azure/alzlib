@@ -1,0 +1,197 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/default_policy_values.json",
+  "defaults": [
+    {
+      "default_name": "private_dns_zone_subscription_id",
+      "description": "The subscription id that hosts the private link DNS zones.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "dnsZoneSubscriptionId"
+          ],
+          "policy_assignment_name": "Deploy-Private-DNS-Zones"
+        }
+      ]
+    },
+    {
+      "default_name": "private_dns_zone_resource_group_name",
+      "description": "The resource group name that hosts the private link DNS zones.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "dnsZoneResourceGroupName"
+          ],
+          "policy_assignment_name": "Deploy-Private-DNS-Zones"
+        }
+      ]
+    },
+    {
+      "default_name": "private_dns_zone_region",
+      "description": "The region short name (e.g. `westus`) that should be used for the region specific private link DNS zones.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "dnsZoneRegion"
+          ],
+          "policy_assignment_name": "Deploy-Private-DNS-Zones"
+        }
+      ]
+    },
+    {
+      "default_name": "ama_user_assigned_managed_identity_id",
+      "description": "The user assigned managed identity id that should be used for the AMA deployment.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "userAssignedIdentityResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VM-ChangeTrack"
+        },
+        {
+          "parameter_names": [
+            "userAssignedIdentityResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VMSS-ChangeTrack"
+        },
+        {
+          "parameter_names": [
+            "userAssignedIdentityResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VM-Monitoring"
+        },
+        {
+          "parameter_names": [
+            "userAssignedIdentityResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VMSS-Monitoring"
+        },
+        {
+          "parameter_names": [
+            "userAssignedIdentityResourceId"
+          ],
+          "policy_assignment_name": "Deploy-MDFC-DefSQL-AMA"
+        }
+      ]
+    },
+    {
+      "default_name": "ama_user_assigned_managed_identity_name",
+      "description": "The user assigned managed identity name that is used for the deny action policy to prevent the accidental deletion of the AMA identity.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "resourceName"
+          ],
+          "policy_assignment_name": "DenyAction-DeleteUAMIAMA"
+        }
+      ]
+    },
+    {
+      "default_name": "ama_vm_insights_data_collection_rule_id",
+      "description": "The data collection rule id that should be used for the VM Insights deployment.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "dcrResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VM-Monitoring"
+        },
+        {
+          "parameter_names": [
+            "dcrResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VMSS-Monitoring"
+        },
+        {
+          "parameter_names": [
+            "dcrResourceId"
+          ],
+          "policy_assignment_name": "Deploy-vmHybr-Monitoring"
+        }
+      ]
+    },
+    {
+      "default_name": "ama_mdfc_sql_data_collection_rule_id",
+      "description": "The data collection rule id that should be used for the SQL MDFC deployment.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "dcrResourceId"
+          ],
+          "policy_assignment_name": "Deploy-MDFC-DefSQL-AMA"
+        }
+      ]
+    },
+    {
+      "default_name": "ama_change_tracking_data_collection_rule_id",
+      "description": "The data collection rule id that should be used for the change tracking deployment.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "dcrResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VM-ChangeTrack"
+        },
+        {
+          "parameter_names": [
+            "dcrResourceId"
+          ],
+          "policy_assignment_name": "Deploy-vmArc-ChangeTrack"
+        },
+        {
+          "parameter_names": [
+            "dcrResourceId"
+          ],
+          "policy_assignment_name": "Deploy-VMSS-ChangeTrack"
+        }
+      ]
+    },
+    {
+      "default_name": "ddos_protection_plan_id",
+      "description": "The DDoS protection plan id that should be used for the DDoS protection plan deployment. If this is invalid or you do not use DDoS protection, make sure to change the enforcement mode of the Enable-DDoS-VNET policy to 'DoNotEnforce'.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "ddosPlan"
+          ],
+          "policy_assignment_name": "Enable-DDoS-VNET"
+        }
+      ]
+    },
+    {
+      "default_name": "log_analytics_workspace_id",
+      "description": "The Log Analytics workspace id that should be used for centralized log collection.",
+      "policy_assignments": [
+        {
+          "parameter_names": [
+            "logAnalytics"
+          ],
+          "policy_assignment_name": "Deploy-AzActivity-Log"
+        },
+        {
+          "parameter_names": [
+            "logAnalyticsWorkspaceId"
+          ],
+          "policy_assignment_name": "Deploy-AzSqlDb-Auditing"
+        },
+        {
+          "parameter_names": [
+            "logAnalytics"
+          ],
+          "policy_assignment_name": "Deploy-Diag-LogsCat"
+        },
+        {
+          "parameter_names": [
+            "logAnalytics"
+          ],
+          "policy_assignment_name": "Deploy-MDFC-Config-H224"
+        },
+        {
+          "parameter_names": [
+            "userWorkspaceResourceId"
+          ],
+          "policy_assignment_name": "Deploy-MDFC-DefSQL-AMA"
+        }
+      ]
+    }
+  ]
+}

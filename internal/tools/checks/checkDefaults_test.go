@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/Azure/alzlib"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +18,7 @@ func TestCheckDefaultsGood(t *testing.T) {
 	_, err := lib.Fetch(ctx, t.Name())
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
-	require.NoError(t, checkDefaults(az))
+	require.NoError(t, checkDefaults(az)())
 }
 
 func TestCheckDefaultsAssignmentNotPresent(t *testing.T) {
@@ -29,9 +28,9 @@ func TestCheckDefaultsAssignmentNotPresent(t *testing.T) {
 	_, err := lib.Fetch(ctx, t.Name())
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
-	assert.ErrorContains(
+	require.ErrorContains(
 		t,
-		checkDefaults(az),
+		checkDefaults(az)(),
 		"policy assignment `not_present`, referenced by default `test` is not found in the library",
 	)
 }
@@ -43,9 +42,9 @@ func TestCheckDefaultsParameterNotPresent(t *testing.T) {
 	_, err := lib.Fetch(ctx, t.Name())
 	require.NoError(t, err)
 	require.NoError(t, az.Init(ctx, lib))
-	assert.ErrorContains(
+	require.ErrorContains(
 		t,
-		checkDefaults(az),
+		checkDefaults(az)(),
 		"policy assignment `test-policy-assignment`, referenced by default `test` has a parameter `not_present` that is not present in the referenced definition",
 	)
 }

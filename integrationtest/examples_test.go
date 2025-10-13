@@ -36,7 +36,7 @@ func Example_deploymentNewHierarchy() {
 
 	az.AddPolicyClient(cf)
 
-	lib := alzlib.NewCustomLibraryReference("testdata/alzlib-2024-07-01")
+	lib := alzlib.NewCustomLibraryReference("testdata/alzlib-2025-09-0")
 
 	libs, err := lib.FetchWithDependencies(ctx)
 	if err != nil {
@@ -68,5 +68,5 @@ func Example_deploymentNewHierarchy() {
 	fmt.Println("Management groups:", mgs)
 
 	// Output:
-	// Management groups: [alzroot connectivity corp identity landingzones management online platform sandboxes]
+	// Management groups: [alz connectivity corp decommissioned identity landingzones management online platform sandbox security]
 }

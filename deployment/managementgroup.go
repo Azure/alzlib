@@ -190,7 +190,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 		}
 
 		// get the policy definition name using the resource id
-		policyDefinitionRef, err := pa.ReferencedPolicyDefinitionResourceID()
+		policyDefinitionRef, policyDefinitionVersion, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return fmt.Errorf(
 				"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
@@ -200,10 +200,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 			)
 		}
 
-		switch policyDefinitionRef.ResourceType.Type {
-		case "policyDefinitions":
+		switch strings.ToLower(policyDefinitionRef.ResourceType.Type) {
+		case alzlib.PolicyDefinitionsType:
 			// check the definition exists in the AlzLib
-			pd := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name)
+			pd := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name, policyDefinitionVersion)
 			if pd == nil {
 				return fmt.Errorf(
 					"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
@@ -304,14 +304,14 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 				}
 			}
 
-		case "policySetDefinitions":
-			psd := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name)
+		case alzlib.PolicySetDefinitionsType:
+			psd := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name, policyDefinitionVersion)
 			if psd == nil {
 				return fmt.Errorf(
 					"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
 						"assignment `%s`, policy set `%s` not found in AlzLib",
 					paName,
-					policyDefinitionRef.Name,
+					alzlib.JoinNameAndVersion(policyDefinitionRef.Name, policyDefinitionVersion),
 				)
 			}
 
@@ -338,7 +338,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 					)
 				}
 
-				pd := mg.hierarchy.alzlib.PolicyDefinition(pdName)
+				pd := mg.hierarchy.alzlib.PolicyDefinition(pdName, pdRef.DefinitionVersion)
 				if pd == nil {
 					return fmt.Errorf(
 						"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
@@ -501,7 +501,7 @@ func (mg *HierarchyManagementGroup) update(uniqueRoleDefinitions bool) error {
 	// and write the definition id if it's custom.
 	if err := updatePolicySetDefinitions(mg, pd2mg); err != nil {
 		return fmt.Errorf(
-			"HierarchyManagementGroup.update: error updating policy set definitions for mg `%s`: %w",
+			"HierarchyManagementGroup.update: updating policy set definitions for mg `%s`: %w",
 			mg.id,
 			err,
 		)
@@ -511,7 +511,7 @@ func (mg *HierarchyManagementGroup) update(uniqueRoleDefinitions bool) error {
 	updateRoleDefinitions(mg, uniqueRoleDefinitions)
 
 	if err := updatePolicyAsignments(mg, pd2mg, psd2mg); err != nil {
-		return fmt.Errorf("HierarchyManagementGroup.update: error updating policy assignments: %w", err)
+		return fmt.Errorf("HierarchyManagementGroup.update: updating policy assignments: %w", err)
 	}
 
 	return nil
@@ -553,7 +553,7 @@ func (mg *HierarchyManagementGroup) ModifyPolicyAssignment(
 
 	for k, v := range parameters {
 		// Only add parameter if it exists in the referenced policy definition.
-		ref, err := mg.policyAssignments[name].ReferencedPolicyDefinitionResourceID()
+		ref, policyDefinitionVersion, err := mg.policyAssignments[name].ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return fmt.Errorf(
 				"HierarchyManagementGroup.ModifyPolicyAssignment: "+
@@ -563,7 +563,7 @@ func (mg *HierarchyManagementGroup) ModifyPolicyAssignment(
 			)
 		}
 
-		if !mg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, k) {
+		if !mg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, policyDefinitionVersion, k) {
 			return fmt.Errorf(
 				"HierarchyManagementGroup.ModifyPolicyAssignment: "+
 					"parameter `%s` not found in referenced %s `%s` for policy assignment `%s`",
@@ -649,7 +649,7 @@ func parseArmFunctionInPolicySetParameter(
 	res, err := goarmfunctions.LexAndParse(context.Background(), toParse, resultantParams, nil)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"parseArmFunctionInPolicySetParameter: error parsing parameter %s in reference %s in set definition %s: %w",
+			"parseArmFunctionInPolicySetParameter: parsing parameter %s in reference %s in set definition %s: %w",
 			paramName,
 			pdRef,
 			*setDef.Name,
@@ -683,7 +683,7 @@ func updatePolicySetDefinitions(
 		refs := psd.PolicyDefinitionReferences()
 		if refs == nil {
 			return fmt.Errorf(
-				"updatePolicySetDefinitions: error getting policy definition references for policy set definition %s",
+				"updatePolicySetDefinitions: getting policy definition references for policy set definition %s",
 				psdName,
 			)
 		}
@@ -692,7 +692,7 @@ func updatePolicySetDefinitions(
 			pdname, err := assets.NameFromResourceID(*pdr.PolicyDefinitionID)
 			if err != nil {
 				return fmt.Errorf(
-					"updatePolicySetDefinitions: error getting policy definition name from resource id %s: %w",
+					"updatePolicySetDefinitions: getting policy definition name from resource id %s: %w",
 					*pdr.PolicyDefinitionID,
 					err,
 				)
@@ -742,17 +742,17 @@ func updatePolicyAsignments(
 
 		// rewrite the referenced policy definition id
 		// if the policy definition is in the list.
-		pdRes, err := assignment.ReferencedPolicyDefinitionResourceID()
+		pdRes, _, err := assignment.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return fmt.Errorf(
-				"updatePolicyAssignments: error parsing policy definition id for policy assignment %s: %w",
+				"updatePolicyAssignments: parsing policy definition id for policy assignment %s: %w",
 				assignmentName,
 				err,
 			)
 		}
 
 		switch strings.ToLower(pdRes.ResourceType.Type) {
-		case "policydefinitions":
+		case alzlib.PolicyDefinitionsType:
 			if deploymentMgs, ok := pd2mg[pdRes.Name]; ok {
 				updated := false
 
@@ -777,7 +777,7 @@ func updatePolicyAsignments(
 					)
 				}
 			}
-		case "policysetdefinitions":
+		case alzlib.PolicySetDefinitionsType:
 			if deploymentMg, ok := psd2mg[pdRes.Name]; ok {
 				updated := false
 

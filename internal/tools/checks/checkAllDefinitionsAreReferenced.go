@@ -13,47 +13,47 @@ import (
 
 // CheckAllDefinitionsAreReferenced is a validator check that ensures all policy definitions, policy set definitions,
 // and role definitions in the ALZ library are referenced by at least one archetype.
-var CheckAllDefinitionsAreReferenced = checker.NewValidatorCheck(
-	"All definitions are referenced",
-	checkAllDefinitionsAreReferenced,
-)
+func CheckAllDefinitionsAreReferenced(az *alzlib.AlzLib) checker.ValidatorCheck {
+	return checker.NewValidatorCheck(
+		"All definitions are referenced",
+		checkAllDefinitionsAreReferenced(az),
+	)
+}
 
-func checkAllDefinitionsAreReferenced(azany any) error {
-	az, ok := azany.(*alzlib.AlzLib)
-	if !ok {
-		return fmt.Errorf("checkAllDefinitionsAreReferenced: expected *alzlib.AlzLib, got %T", azany)
+func checkAllDefinitionsAreReferenced(az *alzlib.AlzLib) func() error {
+	return func() error {
+		// Test if we have policy (set) definitions that are not referenced by any archetype
+		referencedPds := mapset.NewThreadUnsafeSet[string]()
+		referencedPsds := mapset.NewThreadUnsafeSet[string]()
+		referencedRds := mapset.NewThreadUnsafeSet[string]()
+
+		for _, archetypeName := range az.Archetypes() {
+			archetype := az.Archetype(archetypeName) // nolint: errcheck
+			referencedPds = referencedPds.Union(archetype.PolicyDefinitions)
+			referencedPsds = referencedPsds.Union(archetype.PolicySetDefinitions)
+			referencedRds = referencedRds.Union(archetype.RoleDefinitions)
+		}
+
+		unreferencedPds := mapset.NewThreadUnsafeSet(az.PolicyDefinitions()...).
+			Difference(referencedPds).
+			ToSlice()
+		unreferencedPsds := mapset.NewThreadUnsafeSet(az.PolicySetDefinitions()...).
+			Difference(referencedPsds).
+			ToSlice()
+		unreferencedRds := mapset.NewThreadUnsafeSet(az.RoleDefinitions()...).
+			Difference(referencedRds).
+			ToSlice()
+
+		if len(unreferencedPds) > 0 || len(unreferencedPsds) > 0 || len(unreferencedRds) > 0 {
+			return fmt.Errorf(
+				"checkAllDefinitionsAreReferenced: found unreferenced definitions "+
+					"[policyDefinitions] [policySetDefinitions] [roleDefinitions]: %v, %v, %v",
+				unreferencedPds,
+				unreferencedPsds,
+				unreferencedRds,
+			)
+		}
+
+		return nil
 	}
-	// Test if we have policy (set) definitions that are not referenced by any archetype
-	referencedPds := mapset.NewThreadUnsafeSet[string]()
-	referencedPsds := mapset.NewThreadUnsafeSet[string]()
-	referencedRds := mapset.NewThreadUnsafeSet[string]()
-
-	for _, archetypeName := range az.Archetypes() {
-		archetype := az.Archetype(archetypeName) // nolint: errcheck
-		referencedPds = referencedPds.Union(archetype.PolicyDefinitions)
-		referencedPsds = referencedPsds.Union(archetype.PolicySetDefinitions)
-		referencedRds = referencedRds.Union(archetype.RoleDefinitions)
-	}
-
-	unreferencedPds := mapset.NewThreadUnsafeSet(az.PolicyDefinitions()...).
-		Difference(referencedPds).
-		ToSlice()
-	unreferencedPsds := mapset.NewThreadUnsafeSet(az.PolicySetDefinitions()...).
-		Difference(referencedPsds).
-		ToSlice()
-	unreferencedRds := mapset.NewThreadUnsafeSet(az.RoleDefinitions()...).
-		Difference(referencedRds).
-		ToSlice()
-
-	if len(unreferencedPds) > 0 || len(unreferencedPsds) > 0 || len(unreferencedRds) > 0 {
-		return fmt.Errorf(
-			"checkAllDefinitionsAreReferenced: found unreferenced definitions "+
-				"[policyDefinitions] [policySetDefinitions] [roleDefinitions]: %v, %v, %v",
-			unreferencedPds,
-			unreferencedPsds,
-			unreferencedRds,
-		)
-	}
-
-	return nil
 }
