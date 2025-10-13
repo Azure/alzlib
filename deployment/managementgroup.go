@@ -201,7 +201,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 		}
 
 		switch strings.ToLower(policyDefinitionRef.ResourceType.Type) {
-		case "policydefinitions":
+		case alzlib.PolicyDefinitionsType:
 			// check the definition exists in the AlzLib
 			pd := mg.hierarchy.alzlib.PolicyDefinition(policyDefinitionRef.Name, policyDefinitionVersion)
 			if pd == nil {
@@ -304,7 +304,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 				}
 			}
 
-		case "policysetdefinitions":
+		case alzlib.PolicySetDefinitionsType:
 			psd := mg.hierarchy.alzlib.PolicySetDefinition(policyDefinitionRef.Name, policyDefinitionVersion)
 			if psd == nil {
 				return fmt.Errorf(
@@ -752,7 +752,7 @@ func updatePolicyAsignments(
 		}
 
 		switch strings.ToLower(pdRes.ResourceType.Type) {
-		case "policydefinitions":
+		case alzlib.PolicyDefinitionsType:
 			if deploymentMgs, ok := pd2mg[pdRes.Name]; ok {
 				updated := false
 
@@ -777,7 +777,7 @@ func updatePolicyAsignments(
 					)
 				}
 			}
-		case "policysetdefinitions":
+		case alzlib.PolicySetDefinitionsType:
 			if deploymentMg, ok := psd2mg[pdRes.Name]; ok {
 				updated := false
 

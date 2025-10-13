@@ -27,7 +27,9 @@ const (
 	// InitialMetadataSliceCapacity is the initial capacity for the metadata slice.
 	InitialMetadataSliceCapacity = 10
 	// MaxRecursionDepth is the maximum depth for recursive operations.
-	MaxRecursionDepth = 5
+	MaxRecursionDepth        = 5
+	PolicySetDefinitionsType = "policysetdefinitions"
+	PolicyDefinitionsType    = "policydefinitions"
 )
 
 // AlzLib is the structure that gets built from the the library files
@@ -625,11 +627,11 @@ func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInReq
 		}
 
 		switch strings.ToLower(req.ResourceID.ResourceType.Type) {
-		case "policydefinitions":
+		case PolicyDefinitionsType:
 			if !az.PolicyDefinitionExists(req.ResourceID.Name, req.Version) {
 				policyDefsToGet = append(policyDefsToGet, req)
 			}
-		case "policysetdefinitions":
+		case PolicySetDefinitionsType:
 			// If the set is not present, OR if the set contains referenced definitions that are not
 			// present add it to the list of set defs to get.
 			exists := az.PolicySetDefinitionExists(req.ResourceID.Name, req.Version)
@@ -714,7 +716,7 @@ func (az *AlzLib) AssignmentReferencedDefinitionHasParameter(
 	param string,
 ) bool {
 	switch strings.ToLower(res.ResourceType.Type) {
-	case "policydefinitions":
+	case PolicyDefinitionsType:
 		pd := az.PolicyDefinition(res.Name, definitionVersion)
 		if pd == nil {
 			// If we don't have the definition, return true as this won't cause an issue.
@@ -725,7 +727,7 @@ func (az *AlzLib) AssignmentReferencedDefinitionHasParameter(
 		if pd.Parameter(param) != nil {
 			return true
 		}
-	case "policysetdefinitions":
+	case PolicySetDefinitionsType:
 		psd := az.PolicySetDefinition(res.Name, definitionVersion)
 		if psd == nil {
 			// If we don't have the definition, return true as this won't cause an issue.

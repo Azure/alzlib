@@ -411,7 +411,7 @@ func (h *Hierarchy) addManagementGroup(
 		// Check if the referenced policy is a set and if its parameters match the parameters in the
 		// policy definitions
 		refPdID, refVer, _ := newpolassign.ReferencedPolicyDefinitionResourceIDAndVersion()
-		if strings.ToLower(refPdID.ResourceType.Type) == "policysetdefinitions" {
+		if strings.ToLower(refPdID.ResourceType.Type) == alzlib.PolicySetDefinitionsType {
 			psd := h.alzlib.PolicySetDefinition(refPdID.Name, refVer)
 
 			rfs := psd.PolicyDefinitionReferences()
