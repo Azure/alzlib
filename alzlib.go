@@ -27,9 +27,11 @@ const (
 	// InitialMetadataSliceCapacity is the initial capacity for the metadata slice.
 	InitialMetadataSliceCapacity = 10
 	// MaxRecursionDepth is the maximum depth for recursive operations.
-	MaxRecursionDepth        = 5
+	MaxRecursionDepth = 5
+	// PolicySetDefinitionsType is the lowercase type for policy set definitions, without the resource provider.
 	PolicySetDefinitionsType = "policysetdefinitions"
-	PolicyDefinitionsType    = "policydefinitions"
+	// PolicyDefinitionsType is the lowercase type for policy definitions, without the resource provider.
+	PolicyDefinitionsType = "policydefinitions"
 )
 
 // AlzLib is the structure that gets built from the the library files
