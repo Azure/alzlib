@@ -122,7 +122,8 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 
 // GetVersionStrict returns a policy version based on the exact version string.
 // If the version string is nil, it returns the versionless definition if it exists.
-// If the version string is nil and no versionless definition exists it returns the exact match, or an error if no exact match exists.
+// If the version string is nil and no versionless definition exists it returns the exact match,
+// or an error if no exact match exists.
 func (c *VersionedPolicyCollection[T]) GetVersionStrict(ver *string) (T, error) {
 	if ver != nil && *ver == "" {
 		return nil, errors.New("version string cannot be empty")

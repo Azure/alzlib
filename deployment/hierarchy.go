@@ -38,6 +38,8 @@ const (
 	// RoleDefinitionIDFmt is the format string for role definition resource IDs in Azure.
 	RoleDefinitionIDFmt = "/providers/Microsoft.Management/managementGroups/%s" +
 		"/providers/Microsoft.Authorization/roleDefinitions/%s"
+
+	builtInRequestSliceCapacity = 100
 )
 
 // Hierarchy represents a deployment of Azure management group hierarchy.
@@ -307,7 +309,7 @@ func (h *Hierarchy) addManagementGroup(
 	}
 
 	// Get the policy definitions and policy set definitions referenced by the policy assignments.
-	assignedPolicyDefinitions := make([]alzlib.BuiltInRequest, 0, 100)
+	assignedPolicyDefinitions := make([]alzlib.BuiltInRequest, 0, builtInRequestSliceCapacity)
 
 	// Combine all assignments from all supplied archetypes into a single set
 	allPolicyAssignments := mapset.NewThreadUnsafeSet[string]()

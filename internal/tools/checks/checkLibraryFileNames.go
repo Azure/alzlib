@@ -19,6 +19,10 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
+const (
+	versionlessLibraryFileNameParts = 3
+)
+
 // libraryFileNameCheckModel is a model for checking library file names.
 // It is used to unmarshal the JSON data from various types of library files.
 type libraryFileNameCheckModel struct {
@@ -186,14 +190,14 @@ func parseLibraryFileName(path string) (libraryFileNameParts, error) {
 	var parts libraryFileNameParts
 
 	split := strings.Split(filepath.Base(path), ".")
-	if len(split) < 3 {
+	if len(split) < versionlessLibraryFileNameParts {
 		return parts, errors.New("invalid file name format")
 	}
 
 	parts.ext = split[len(split)-1]
 	parts.fileType = split[len(split)-2]
 
-	if len(split) > 3 {
+	if len(split) > versionlessLibraryFileNameParts {
 		parts.version = strings.Join(split[1:len(split)-2], ".")
 		parts.name = split[0]
 
@@ -291,14 +295,19 @@ func checkVersion(model *libraryFileNameCheckModel, parts libraryFileNameParts) 
 
 			if model.Properties == nil || model.Properties.Version == nil {
 				if parts.version != "" {
-					return fmt.Errorf("%s: version segment in file name not allowed when no version is specified in properties", parts.String())
+					return fmt.Errorf(
+						"%s: version segment in file name not allowed when no version is specified in properties",
+						parts.String(),
+					)
 				}
 
 				return nil
 			}
 
 			if *model.Properties.Version != parts.version {
-				return fmt.Errorf("%s: expected version segment %q, got %q", parts.String(), *model.Properties.Version, parts.version)
+				return fmt.Errorf(
+					"%s: expected version segment %q, got %q", parts.String(), *model.Properties.Version, parts.version,
+				)
 			}
 
 			return nil

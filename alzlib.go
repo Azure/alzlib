@@ -454,7 +454,9 @@ func (az *AlzLib) PolicyDefinition(name string, version *string) *assets.PolicyD
 
 // SetAssignPermissionsOnDefinitionParameter sets the AssignPermissions metadata field to true for
 // the definition and parameter with the given name.
-func (az *AlzLib) SetAssignPermissionsOnDefinitionParameter(definitionName string, definitionVersion *string, parameterName string) {
+func (az *AlzLib) SetAssignPermissionsOnDefinitionParameter(
+	definitionName string, definitionVersion *string, parameterName string,
+) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 
@@ -829,7 +831,9 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInReques
 	return az.ensureReferencedPolicyDefinitions(ctx, processedRequests)
 }
 
-func (az *AlzLib) addLatestPolicyDefinition(ctx context.Context, client *armpolicy.DefinitionsClient, req BuiltInRequest) error {
+func (az *AlzLib) addLatestPolicyDefinition(
+	ctx context.Context, client *armpolicy.DefinitionsClient, req BuiltInRequest,
+) error {
 	resp, err := client.GetBuiltIn(ctx, req.ResourceID.Name, nil)
 	if err != nil {
 		return fmt.Errorf(
@@ -1088,7 +1092,9 @@ func (az *AlzLib) ensureReferencedPolicyDefinition(
 		return az.fetchReferencedPolicyDefinitionVersions(ctx, definitionsVersionedClient, resID.Name, setDefinition, ref)
 	}
 
-	return az.fetchLatestReferencedPolicyDefinition(ctx, definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion)
+	return az.fetchLatestReferencedPolicyDefinition(
+		ctx, definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion,
+	)
 }
 
 func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
@@ -1104,7 +1110,8 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return fmt.Errorf(
-				"Alzlib.getBuiltInPolicySets: error listing built-in policy definition versions for `%s`, referenced in policy set `%s`: %w",
+				"Alzlib.getBuiltInPolicySets: error listing built-in policy definition versions for "+
+					"`%s`, referenced in policy set `%s`: %w",
 				definitionName,
 				JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
 				err,
@@ -1115,7 +1122,8 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 			pdv, err := assets.NewPolicyDefinitionFromVersionValidate(*v)
 			if err != nil {
 				return fmt.Errorf(
-					"Alzlib.getBuiltInPolicySets: error validating built-in policy definition version for `%s`, referenced in policy set `%s`: %w",
+					"Alzlib.getBuiltInPolicySets: error validating built-in policy definition version for "+
+						"`%s`, referenced in policy set `%s`: %w",
 					definitionName,
 					JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
 					err,
@@ -1160,7 +1168,8 @@ func (az *AlzLib) fetchLatestReferencedPolicyDefinition(
 	pdvLatest, err := assets.NewPolicyDefinitionValidate(pd.Definition)
 	if err != nil {
 		return fmt.Errorf(
-			"Alzlib.getBuiltInPolicySets: validating versionless built-in policy definition %s, referenced in policy set `%s`: %w",
+			"Alzlib.getBuiltInPolicySets: validating versionless built-in policy definition %s, "+
+				"referenced in policy set `%s`: %w",
 			definitionName,
 			JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
 			err,

@@ -67,7 +67,9 @@ func NewPolicySetDefinitionFromVersionValidate(psd armpolicy.SetDefinitionVersio
 
 	jsonBytes, err := json.Marshal(psd)
 	if err != nil {
-		return nil, fmt.Errorf("NewPolicySetDefinitionFromVersionValidate: marshalling policy set definition version: %w", err)
+		return nil, fmt.Errorf(
+			"NewPolicySetDefinitionFromVersionValidate: marshalling policy set definition version: %w", err,
+		)
 	}
 
 	var psdDef armpolicy.SetDefinition
