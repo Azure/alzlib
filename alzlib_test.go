@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	corepolicy "github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
@@ -956,4 +957,53 @@ func TestAssignmentReferencedDefinitionHasParameterPolicySet(t *testing.T) {
 
 	// Test with non-existing parameter
 	assert.False(t, az.AssignmentReferencedDefinitionHasParameter(resID, to.Ptr("1.0.*"), "nonExistentParam"))
+}
+
+func TestIntegrationGetDefinitionsFromAzure(t *testing.T) {
+	policyDefAzureBackupShouldBeEnabledForVirtualMachines, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/013e242c-8828-4970-87b3-ab247555486d")
+	require.NoError(t, err)
+	policyDefKubernetesContainerImagesSHouldNotIncludeLatest, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/021f8078-41a0-40e6-81b6-c6597da9f3ee")
+	require.NoError(t, err)
+	policySetDefAzureCISFoundation, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/1a5bb27d-173f-493e-9568-eb56638dde4d")
+	require.NoError(t, err)
+	policySetDefAllowUsageCostResources, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/0a2ebd47-3fb9-4735-a006-b7f31ddadd9f")
+	require.NoError(t, err)
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: policyDefAzureBackupShouldBeEnabledForVirtualMachines,
+			Version:    to.Ptr("3.0.*"),
+		},
+		{
+			ResourceID: policyDefKubernetesContainerImagesSHouldNotIncludeLatest,
+		},
+		{
+			ResourceID: policySetDefAzureCISFoundation,
+			Version:    to.Ptr("16.*.*"),
+		},
+		{
+			ResourceID: policySetDefAzureCISFoundation,
+			Version:    to.Ptr("16.*.*"),
+		},
+		{
+			ResourceID: policySetDefAllowUsageCostResources,
+		},
+	}
+
+	az := NewAlzLib(nil)
+	tok, err := auth.NewToken()
+	require.NoError(t, err)
+	cf, err := armpolicy.NewClientFactory("", tok, &arm.ClientOptions{
+		ClientOptions: corepolicy.ClientOptions{
+			Cloud: auth.GetCloudFromEnv(),
+		},
+	})
+	require.NoError(t, err)
+	az.AddPolicyClient(cf)
+	ctx := t.Context()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	require.NoError(t, err)
+	assert.True(t, az.PolicyDefinitionExists("013e242c-8828-4970-87b3-ab247555486d", to.Ptr("3.0.*")))
+	assert.True(t, az.PolicyDefinitionExists("021f8078-41a0-40e6-81b6-c6597da9f3ee", nil))
+	assert.True(t, az.PolicySetDefinitionExists("1a5bb27d-173f-493e-9568-eb56638dde4d", to.Ptr("16.*.*")))
+	assert.True(t, az.PolicySetDefinitionExists("0a2ebd47-3fb9-4735-a006-b7f31ddadd9f", nil))
 }
