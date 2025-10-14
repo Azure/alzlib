@@ -13,6 +13,7 @@ import (
 // Validator is a struct that holds a list of checks to be performed.
 type Validator struct {
 	checks []ValidatorCheck
+	quiet  bool // whether to suppress check start/finish messages
 }
 
 // ValidatorCheck is a struct that holds the name and function of a check to be performed.
@@ -41,6 +42,14 @@ func NewValidator(c ...ValidatorCheck) Validator {
 	}
 }
 
+// NewValidatorQuiet creates a new Validator with the given checks, which suppresses check start/finish messages.
+func NewValidatorQuiet(c ...ValidatorCheck) Validator {
+	return Validator{
+		checks: c,
+		quiet:  true,
+	}
+}
+
 // AddChecks adds additional checks to the Validator.
 func (v Validator) AddChecks(c ...ValidatorCheck) Validator {
 	v.checks = append(v.checks, c...)
@@ -52,13 +61,17 @@ func (v Validator) Validate() error {
 	var errs error
 
 	for _, c := range v.checks {
-		io.WriteString(os.Stdout, "==> Starting check: "+c.name+"\n") // nolint: errcheck
+		if !v.quiet {
+			io.WriteString(os.Stdout, "==> Starting check: "+c.name+"\n") // nolint: errcheck
+		}
 
 		if err := c.f(); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 
-		io.WriteString(os.Stdout, "==> Finished check: "+c.name+"\n") // nolint: errcheck
+		if !v.quiet {
+			io.WriteString(os.Stdout, "==> Finished check: "+c.name+"\n") // nolint: errcheck
+		}
 	}
 
 	return errs

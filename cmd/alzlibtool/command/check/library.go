@@ -24,21 +24,30 @@ var libraryCmd = cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		az := alzlib.NewAlzLib(nil)
-		creds, err := auth.NewToken()
+		offline, err := cmd.Flags().GetBool("offline")
 		if err != nil {
-			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
+			cmd.PrintErrf("%s could not get offline flag: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
-		cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
-			ClientOptions: policy.ClientOptions{
-				Cloud: auth.GetCloudFromEnv(),
-			},
-		})
-		if err != nil {
-			cmd.PrintErrf("%s could not create Azure policy client factory: %v\n", cmd.ErrPrefix(), err)
-			os.Exit(1)
+
+		if !offline {
+			creds, err := auth.NewToken()
+			if err != nil {
+				cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
+				os.Exit(1)
+			}
+			cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
+				ClientOptions: policy.ClientOptions{
+					Cloud: auth.GetCloudFromEnv(),
+				},
+			})
+			if err != nil {
+				cmd.PrintErrf("%s could not create Azure policy client factory: %v\n", cmd.ErrPrefix(), err)
+				os.Exit(1)
+			}
+			az.AddPolicyClient(cf)
 		}
-		az.AddPolicyClient(cf)
+
 		thisRef := alzlib.NewCustomLibraryReference(args[0])
 		libs, err := thisRef.FetchWithDependencies(cmd.Context())
 		if err != nil {
@@ -63,13 +72,19 @@ var libraryCmd = cobra.Command{
 
 		chk := checker.NewValidator(
 			checks.CheckAllDefinitionsAreReferenced(az),
-			checks.CheckAllArchitectures(az),
 			checks.CheckLibraryMemberPath(az),
 			checks.CheckDefaults(az),
 			checks.CheckLibraryFileNames(args[0], &checks.CheckLibraryFileNameOptions{
 				Fix: shouldFix,
 			}),
 		)
+
+		if !offline {
+			chk = chk.AddChecks(
+				checks.CheckAllArchitectures(az),
+			)
+		}
+
 		err = chk.Validate()
 		if err != nil {
 			cmd.PrintErrf("%s library check error: %v\n", cmd.ErrPrefix(), err)
@@ -82,4 +97,6 @@ func init() {
 	libraryCmd.Flags().
 		BoolP("fix", "f", false,
 			"Whether to fix any fixable issues (currently only filename issues).")
+	libraryCmd.Flags().
+		Bool("offline", false, "Whether to run the checks in offline mode (no Azure calls).")
 }
