@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	versionlessLibraryFileNameParts = 3
+	versionlessLibraryFileNameParts = 3 // name.type.ext (no version segment), e.g. myRoleDef.alz_role_definition.json
 )
 
 // libraryFileNameCheckModel is a model for checking library file names.
@@ -37,7 +37,7 @@ type libraryFileNameCheckModelProperties struct {
 }
 
 func (m *libraryFileNameCheckModel) check(p libraryFileNameParts) error {
-	v := checker.NewValidator(
+	v := checker.NewValidatorQuiet(
 		checkType(m, p),
 		checkName(m, p),
 		checkVersion(m, p),
