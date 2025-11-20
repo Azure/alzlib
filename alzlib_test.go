@@ -1129,7 +1129,9 @@ func TestIntegrationGetDefinitionsFromAzure(t *testing.T) {
 
 func testPolicyDefinition(t *testing.T, name, version string) *assets.PolicyDefinition {
 	t.Helper()
+
 	desc := name + " description"
+
 	return &assets.PolicyDefinition{
 		Definition: armpolicy.Definition{
 			Name: to.Ptr(name),
@@ -1146,7 +1148,9 @@ func testPolicyDefinition(t *testing.T, name, version string) *assets.PolicyDefi
 
 func testPolicySetDefinition(t *testing.T, name, version string) *assets.PolicySetDefinition {
 	t.Helper()
+
 	desc := name + " description"
+
 	return &assets.PolicySetDefinition{
 		SetDefinition: armpolicy.SetDefinition{
 			Name: to.Ptr(name),

@@ -1203,6 +1203,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 			if err := v.Upsert(pdv, az.Options.AllowOverwrite); err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("policy definition %s: %w", k, err))
 			}
+
 			continue
 		}
 
@@ -1220,6 +1221,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 			if err := v.Upsert(psdv, az.Options.AllowOverwrite); err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("policy set definition %s: %w", k, err))
 			}
+
 			continue
 		}
 
