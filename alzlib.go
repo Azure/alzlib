@@ -1196,32 +1196,38 @@ func (az *AlzLib) fetchLatestReferencedPolicyDefinition(
 
 // addPolicyAndRoleAssets adds the results of a processed library to the AlzLib.
 func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
-	var merr multierror.Error
+	var merr error
 
 	for k, v := range res.PolicyDefinitions {
 		if pdv, exists := az.policyDefinitions[k]; exists {
-			merr.Errors = append(merr.Errors, v.Upsert(pdv, az.Options.AllowOverwrite))
+			if err := v.Upsert(pdv, az.Options.AllowOverwrite); err != nil {
+				merr = multierror.Append(merr, fmt.Errorf("policy definition %s: %w", k, err))
+			}
 			continue
 		}
 
 		az.policyDefinitions[k] = v
 	}
 
-	if err := merr.ErrorOrNil(); err != nil {
-		return fmt.Errorf("Alzlib.addProcessedResult: error adding policy definition versions: %w", err)
+	if merr != nil {
+		return fmt.Errorf("Alzlib.addProcessedResult: error adding policy definition versions: %w", merr)
 	}
+
+	merr = nil
 
 	for k, v := range res.PolicySetDefinitions {
 		if psdv, exists := az.policySetDefinitions[k]; exists {
-			merr.Errors = append(merr.Errors, v.Upsert(psdv, az.Options.AllowOverwrite))
+			if err := v.Upsert(psdv, az.Options.AllowOverwrite); err != nil {
+				merr = multierror.Append(merr, fmt.Errorf("policy set definition %s: %w", k, err))
+			}
 			continue
 		}
 
 		az.policySetDefinitions[k] = v
 	}
 
-	if err := merr.ErrorOrNil(); err != nil {
-		return fmt.Errorf("Alzlib.addProcessedResult: error adding policy set definition versions: %w", err)
+	if merr != nil {
+		return fmt.Errorf("Alzlib.addProcessedResult: error adding policy set definition versions: %w", merr)
 	}
 
 	for k, v := range res.PolicyAssignments {

@@ -39,6 +39,45 @@ func TestNewAlzLibCustomOptions(t *testing.T) {
 	assert.False(t, az.Options.UniqueRoleDefinitions)
 }
 
+func TestAddPolicyAndRoleAssetsAllowsDuplicateVersions(t *testing.T) {
+	testCases := []struct {
+		name           string
+		allowOverwrite bool
+	}{
+		{name: "disallow overwrite", allowOverwrite: false},
+		{name: "allow overwrite", allowOverwrite: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			az := NewAlzLib(&Options{
+				AllowOverwrite:        tc.allowOverwrite,
+				Parallelism:           defaultParallelism,
+				UniqueRoleDefinitions: defaultUniqueRoleDefinitions,
+			})
+
+			existingPolicyDefs := assets.NewPolicyDefinitionVersions()
+			require.NoError(t, existingPolicyDefs.Add(testPolicyDefinition(t, "dup-policy", "1.0.0"), false))
+			az.policyDefinitions["dup-policy"] = existingPolicyDefs
+
+			existingPolicySetDefs := assets.NewPolicySetDefinitionVersions()
+			require.NoError(t, existingPolicySetDefs.Add(testPolicySetDefinition(t, "dup-policy-set", "1.0.0"), false))
+			az.policySetDefinitions["dup-policy-set"] = existingPolicySetDefs
+
+			res := processor.NewResult()
+			dupPolicyDefs := assets.NewPolicyDefinitionVersions()
+			require.NoError(t, dupPolicyDefs.Add(testPolicyDefinition(t, "dup-policy", "1.0.0"), false))
+			res.PolicyDefinitions["dup-policy"] = dupPolicyDefs
+
+			dupPolicySetDefs := assets.NewPolicySetDefinitionVersions()
+			require.NoError(t, dupPolicySetDefs.Add(testPolicySetDefinition(t, "dup-policy-set", "1.0.0"), false))
+			res.PolicySetDefinitions["dup-policy-set"] = dupPolicySetDefs
+
+			require.NoError(t, az.addPolicyAndRoleAssets(res))
+		})
+	}
+}
+
 // Test_NewAlzLib_noDir tests the creation of a new AlzLib when supplied with a path
 // that does not exist.
 // The error details are checked for the expected error message.
@@ -1086,4 +1125,40 @@ func TestIntegrationGetDefinitionsFromAzure(t *testing.T) {
 	assert.True(t, az.PolicyDefinitionExists("021f8078-41a0-40e6-81b6-c6597da9f3ee", nil))
 	assert.True(t, az.PolicySetDefinitionExists("1a5bb27d-173f-493e-9568-eb56638dde4d", to.Ptr("16.*.*")))
 	assert.True(t, az.PolicySetDefinitionExists("0a2ebd47-3fb9-4735-a006-b7f31ddadd9f", nil))
+}
+
+func testPolicyDefinition(t *testing.T, name, version string) *assets.PolicyDefinition {
+	t.Helper()
+	desc := name + " description"
+	return &assets.PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Name: to.Ptr(name),
+			Properties: &armpolicy.DefinitionProperties{
+				DisplayName: to.Ptr(name),
+				Description: &desc,
+				Metadata:    map[string]any{},
+				PolicyRule:  map[string]any{"if": map[string]any{}, "then": map[string]any{}},
+				Version:     to.Ptr(version),
+			},
+		},
+	}
+}
+
+func testPolicySetDefinition(t *testing.T, name, version string) *assets.PolicySetDefinition {
+	t.Helper()
+	desc := name + " description"
+	return &assets.PolicySetDefinition{
+		SetDefinition: armpolicy.SetDefinition{
+			Name: to.Ptr(name),
+			Properties: &armpolicy.SetDefinitionProperties{
+				DisplayName:       to.Ptr(name),
+				Description:       &desc,
+				Metadata:          map[string]any{},
+				PolicyDefinitions: []*armpolicy.DefinitionReference{},
+				Parameters:        map[string]*armpolicy.ParameterDefinitionsValue{},
+				PolicyType:        to.Ptr(armpolicy.PolicyTypeCustom),
+				Version:           to.Ptr(version),
+			},
+		},
+	}
 }
