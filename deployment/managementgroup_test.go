@@ -1000,6 +1000,25 @@ func TestModifyPolicyAssignment_WithNotScopes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, newNotScopes, alzmg.policyAssignments["test-policy-assignment"].Properties.NotScopes)
 	assert.Len(t, alzmg.policyAssignments["test-policy-assignment"].Properties.NotScopes, 1)
+
+	// Test filtering out nil values
+	notScopesWithNils := []*string{
+		to.Ptr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg1"),
+		nil,
+		to.Ptr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg2"),
+		nil,
+		to.Ptr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg3"),
+	}
+	err = alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		WithNotScopes(notScopesWithNils),
+	)
+	require.NoError(t, err)
+	assert.Len(t, alzmg.policyAssignments["test-policy-assignment"].Properties.NotScopes, 3)
+	// Verify no nil values in the result
+	for _, ns := range alzmg.policyAssignments["test-policy-assignment"].Properties.NotScopes {
+		assert.NotNil(t, ns)
+	}
 }
 
 func TestHasParent(t *testing.T) {

@@ -619,10 +619,12 @@ func WithOverrides(overrides []*armpolicy.Override) ModifyPolicyAssignmentOption
 // WithNotScopes sets the not scopes for the policy assignment.
 // If supplied, the existing value of NotScopes is overwritten.
 // Each string value should be a valid ARM resource ID.
+// Nil values in the supplied slice are filtered out.
 func WithNotScopes(notScopes []*string) ModifyPolicyAssignmentOption {
 	return func(mg *HierarchyManagementGroup, name string) error {
 		if notScopes != nil {
-			// Validate each notScope is a valid ARM resource ID
+			// Filter out nil values and validate each notScope is a valid ARM resource ID
+			filtered := make([]*string, 0, len(notScopes))
 			for _, notScope := range notScopes {
 				if notScope == nil {
 					continue
@@ -636,9 +638,11 @@ func WithNotScopes(notScopes []*string) ModifyPolicyAssignmentOption {
 						err,
 					)
 				}
+
+				filtered = append(filtered, notScope)
 			}
 
-			mg.policyAssignments[name].Properties.NotScopes = notScopes
+			mg.policyAssignments[name].Properties.NotScopes = filtered
 		}
 
 		return nil
