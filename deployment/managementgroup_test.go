@@ -934,6 +934,74 @@ func TestModifyPolicyAssignment_WithPartialOptions(t *testing.T) {
 	assert.Equal(t, armpolicy.ResourceIdentityTypeUserAssigned, *alzmg.policyAssignments["test-policy-assignment"].Identity.Type)
 }
 
+func TestModifyPolicyAssignment_WithNotScopes(t *testing.T) {
+	// Test that we can set NotScopes with valid ARM resource IDs
+	alzmg := &HierarchyManagementGroup{
+		policyAssignments: make(map[string]*assets.PolicyAssignment),
+		policyDefinitions: make(map[string]*assets.PolicyDefinition),
+	}
+
+	// Add a policy assignment to the management group
+	pa := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("test-policy-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+		Properties: &armpolicy.AssignmentProperties{
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition"),
+		},
+	})
+
+	pd := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("test-policy-definition"),
+		Properties: &armpolicy.DefinitionProperties{
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{},
+		},
+	})
+
+	az := alzlib.NewAlzLib(nil)
+	az.AddPolicyAssignments(pa) //nolint:errcheck
+	az.AddPolicyDefinitions(pd) //nolint:errcheck
+	h := NewHierarchy(az)
+	h.mgs["mg1"] = alzmg
+	alzmg.hierarchy = h
+	alzmg.policyAssignments["test-policy-assignment"] = pa
+	alzmg.policyDefinitions["test-policy-definition"] = pd
+
+	// Test with valid NotScopes
+	notScopes := []*string{
+		to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg"),
+		to.Ptr("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg2"),
+	}
+	err := alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		WithNotScopes(notScopes),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, notScopes, alzmg.policyAssignments["test-policy-assignment"].Properties.NotScopes)
+
+	// Test with invalid ARM resource ID
+	invalidNotScopes := []*string{
+		to.Ptr("invalid-resource-id"),
+	}
+	err = alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		WithNotScopes(invalidNotScopes),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid ARM resource ID")
+
+	// Test overwriting existing NotScopes
+	newNotScopes := []*string{
+		to.Ptr("/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/new-rg"),
+	}
+	err = alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		WithNotScopes(newNotScopes),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, newNotScopes, alzmg.policyAssignments["test-policy-assignment"].Properties.NotScopes)
+	assert.Len(t, alzmg.policyAssignments["test-policy-assignment"].Properties.NotScopes, 1)
+}
+
 func TestHasParent(t *testing.T) {
 	mg1 := &HierarchyManagementGroup{
 		id:             "mg1",
