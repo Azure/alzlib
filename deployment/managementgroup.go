@@ -556,6 +556,7 @@ func WithParameters(parameters map[string]*armpolicy.ParameterValuesValue) Modif
 
 			pa.Properties.Parameters[k] = v
 		}
+
 		return nil
 	}
 }
@@ -566,6 +567,7 @@ func WithEnforcementMode(enforcementMode *armpolicy.EnforcementMode) ModifyPolic
 		if enforcementMode != nil {
 			mg.policyAssignments[name].Properties.EnforcementMode = enforcementMode
 		}
+
 		return nil
 	}
 }
@@ -576,6 +578,7 @@ func WithNonComplianceMessages(nonComplianceMessages []*armpolicy.NonComplianceM
 		if nonComplianceMessages != nil {
 			mg.policyAssignments[name].Properties.NonComplianceMessages = nonComplianceMessages
 		}
+
 		return nil
 	}
 }
@@ -586,6 +589,7 @@ func WithIdentity(identity *armpolicy.Identity) ModifyPolicyAssignmentOption {
 		if identity != nil {
 			mg.policyAssignments[name].Identity = identity
 		}
+
 		return nil
 	}
 }
@@ -596,6 +600,7 @@ func WithResourceSelectors(resourceSelectors []*armpolicy.ResourceSelector) Modi
 		if resourceSelectors != nil {
 			mg.policyAssignments[name].Properties.ResourceSelectors = resourceSelectors
 		}
+
 		return nil
 	}
 }
@@ -606,6 +611,7 @@ func WithOverrides(overrides []*armpolicy.Override) ModifyPolicyAssignmentOption
 		if overrides != nil {
 			mg.policyAssignments[name].Properties.Overrides = overrides
 		}
+
 		return nil
 	}
 }
@@ -621,6 +627,7 @@ func WithNotScopes(notScopes []*string) ModifyPolicyAssignmentOption {
 				if notScope == nil {
 					continue
 				}
+
 				if _, err := arm.ParseResourceID(*notScope); err != nil {
 					return fmt.Errorf(
 						"HierarchyManagementGroup.ModifyPolicyAssignment: "+
@@ -630,8 +637,10 @@ func WithNotScopes(notScopes []*string) ModifyPolicyAssignmentOption {
 					)
 				}
 			}
+
 			mg.policyAssignments[name].Properties.NotScopes = notScopes
 		}
+
 		return nil
 	}
 }
