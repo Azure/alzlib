@@ -847,13 +847,13 @@ func TestModifyPolicyAssignment(t *testing.T) {
 	// Call the ModifyPolicyAssignment function
 	err := alzmg.ModifyPolicyAssignment(
 		"test-policy-assignment",
-		map[string]*armpolicy.ParameterValuesValue{
+		WithParameters(map[string]*armpolicy.ParameterValuesValue{
 			"parameter2": {Value: "value2"},
-		},
-		to.Ptr(armpolicy.EnforcementModeDefault),
-		[]*armpolicy.NonComplianceMessage{},
-		&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
-		[]*armpolicy.ResourceSelector{
+		}),
+		WithEnforcementMode(to.Ptr(armpolicy.EnforcementModeDefault)),
+		WithNonComplianceMessages([]*armpolicy.NonComplianceMessage{}),
+		WithIdentity(&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)}),
+		WithResourceSelectors([]*armpolicy.ResourceSelector{
 			{
 				Name: to.Ptr("resourceSelector1"),
 				Selectors: []*armpolicy.Selector{
@@ -863,8 +863,8 @@ func TestModifyPolicyAssignment(t *testing.T) {
 					},
 				},
 			},
-		},
-		[]*armpolicy.Override{},
+		}),
+		WithOverrides([]*armpolicy.Override{}),
 	)
 
 	// Check for errors
@@ -872,6 +872,66 @@ func TestModifyPolicyAssignment(t *testing.T) {
 
 	// Check if the policy assignment was modified correctly
 	assert.Equal(t, expected, alzmg.policyAssignments["test-policy-assignment"])
+}
+
+func TestModifyPolicyAssignment_WithPartialOptions(t *testing.T) {
+	// Test that we can call ModifyPolicyAssignment with only some options
+	alzmg := &HierarchyManagementGroup{
+		policyAssignments: make(map[string]*assets.PolicyAssignment),
+		policyDefinitions: make(map[string]*assets.PolicyDefinition),
+	}
+
+	// Add a policy assignment to the management group
+	pa := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("test-policy-assignment"),
+		Type: to.Ptr("Microsoft.Authorization/policyAssignments"),
+		Properties: &armpolicy.AssignmentProperties{
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/test-policy-definition"),
+			Parameters: map[string]*armpolicy.ParameterValuesValue{
+				"parameter1": {Value: "value1"},
+			},
+		},
+	})
+
+	pd := assets.NewPolicyDefinition(armpolicy.Definition{
+		Name: to.Ptr("test-policy-definition"),
+		Properties: &armpolicy.DefinitionProperties{
+			Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+				"parameter1": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+				},
+			},
+		},
+	})
+
+	az := alzlib.NewAlzLib(nil)
+	az.AddPolicyAssignments(pa) //nolint:errcheck
+	az.AddPolicyDefinitions(pd) //nolint:errcheck
+	h := NewHierarchy(az)
+	h.mgs["mg1"] = alzmg
+	alzmg.hierarchy = h
+	alzmg.policyAssignments["test-policy-assignment"] = pa
+	alzmg.policyDefinitions["test-policy-definition"] = pd
+
+	// Test with only enforcement mode
+	err := alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		WithEnforcementMode(to.Ptr(armpolicy.EnforcementModeDoNotEnforce)),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, armpolicy.EnforcementModeDoNotEnforce, *alzmg.policyAssignments["test-policy-assignment"].Properties.EnforcementMode)
+
+	// Test with no options
+	err = alzmg.ModifyPolicyAssignment("test-policy-assignment")
+	require.NoError(t, err)
+
+	// Test with only identity
+	err = alzmg.ModifyPolicyAssignment(
+		"test-policy-assignment",
+		WithIdentity(&armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeUserAssigned)}),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, armpolicy.ResourceIdentityTypeUserAssigned, *alzmg.policyAssignments["test-policy-assignment"].Identity.Type)
 }
 
 func TestHasParent(t *testing.T) {

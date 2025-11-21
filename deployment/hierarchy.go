@@ -199,7 +199,7 @@ func (h *Hierarchy) AddDefaultPolicyAssignmentValue(
 				newParams[param] = defaultValue
 			}
 
-			if err := mg.ModifyPolicyAssignment(assignment, newParams, nil, nil, nil, nil, nil); err != nil {
+			if err := mg.ModifyPolicyAssignment(assignment, WithParameters(newParams)); err != nil {
 				return fmt.Errorf(
 					"Hierarchy.AddDefaultPolicyAssignmentValue: adding default `%s` policy assignment value "+
 						"to management group `%s` for policy assignment `%s`: %w",

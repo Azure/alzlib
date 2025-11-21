@@ -517,16 +517,104 @@ func (mg *HierarchyManagementGroup) update(uniqueRoleDefinitions bool) error {
 	return nil
 }
 
+// ModifyPolicyAssignmentOption is a functional option for ModifyPolicyAssignment.
+type ModifyPolicyAssignmentOption func(*HierarchyManagementGroup, string) error
+
+// WithParameters sets the parameters for the policy assignment.
+func WithParameters(parameters map[string]*armpolicy.ParameterValuesValue) ModifyPolicyAssignmentOption {
+	return func(mg *HierarchyManagementGroup, name string) error {
+		pa := mg.policyAssignments[name]
+		if pa.Properties.Parameters == nil && len(parameters) > 0 {
+			pa.Properties.Parameters = make(
+				map[string]*armpolicy.ParameterValuesValue,
+				len(parameters),
+			)
+		}
+
+		for k, v := range parameters {
+			// Only add parameter if it exists in the referenced policy definition.
+			ref, policyDefinitionVersion, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
+			if err != nil {
+				return fmt.Errorf(
+					"HierarchyManagementGroup.ModifyPolicyAssignment: "+
+						"error getting referenced policy definition resource id for policy assignment %s: %w",
+					name,
+					err,
+				)
+			}
+
+			if !mg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, policyDefinitionVersion, k) {
+				return fmt.Errorf(
+					"HierarchyManagementGroup.ModifyPolicyAssignment: "+
+						"parameter `%s` not found in referenced %s `%s` for policy assignment `%s`",
+					k,
+					ref.ResourceType.Type,
+					ref.Name,
+					name,
+				)
+			}
+
+			pa.Properties.Parameters[k] = v
+		}
+		return nil
+	}
+}
+
+// WithEnforcementMode sets the enforcement mode for the policy assignment.
+func WithEnforcementMode(enforcementMode *armpolicy.EnforcementMode) ModifyPolicyAssignmentOption {
+	return func(mg *HierarchyManagementGroup, name string) error {
+		if enforcementMode != nil {
+			mg.policyAssignments[name].Properties.EnforcementMode = enforcementMode
+		}
+		return nil
+	}
+}
+
+// WithNonComplianceMessages sets the non-compliance messages for the policy assignment.
+func WithNonComplianceMessages(nonComplianceMessages []*armpolicy.NonComplianceMessage) ModifyPolicyAssignmentOption {
+	return func(mg *HierarchyManagementGroup, name string) error {
+		if nonComplianceMessages != nil {
+			mg.policyAssignments[name].Properties.NonComplianceMessages = nonComplianceMessages
+		}
+		return nil
+	}
+}
+
+// WithIdentity sets the identity for the policy assignment.
+func WithIdentity(identity *armpolicy.Identity) ModifyPolicyAssignmentOption {
+	return func(mg *HierarchyManagementGroup, name string) error {
+		if identity != nil {
+			mg.policyAssignments[name].Identity = identity
+		}
+		return nil
+	}
+}
+
+// WithResourceSelectors sets the resource selectors for the policy assignment.
+func WithResourceSelectors(resourceSelectors []*armpolicy.ResourceSelector) ModifyPolicyAssignmentOption {
+	return func(mg *HierarchyManagementGroup, name string) error {
+		if resourceSelectors != nil {
+			mg.policyAssignments[name].Properties.ResourceSelectors = resourceSelectors
+		}
+		return nil
+	}
+}
+
+// WithOverrides sets the overrides for the policy assignment.
+func WithOverrides(overrides []*armpolicy.Override) ModifyPolicyAssignmentOption {
+	return func(mg *HierarchyManagementGroup, name string) error {
+		if overrides != nil {
+			mg.policyAssignments[name].Properties.Overrides = overrides
+		}
+		return nil
+	}
+}
+
 // ModifyPolicyAssignment modifies an existing policy assignment in the management group.
 // It will deep merge the supplied assignments with the existing assignments.
 func (mg *HierarchyManagementGroup) ModifyPolicyAssignment(
 	name string,
-	parameters map[string]*armpolicy.ParameterValuesValue,
-	enforcementMode *armpolicy.EnforcementMode,
-	nonComplianceMessages []*armpolicy.NonComplianceMessage,
-	identity *armpolicy.Identity,
-	resourceSelectors []*armpolicy.ResourceSelector,
-	overrides []*armpolicy.Override,
+	opts ...ModifyPolicyAssignmentOption,
 ) error {
 	if _, ok := mg.policyAssignments[name]; !ok {
 		return fmt.Errorf(
@@ -544,57 +632,10 @@ func (mg *HierarchyManagementGroup) ModifyPolicyAssignment(
 		)
 	}
 
-	if mg.policyAssignments[name].Properties.Parameters == nil && len(parameters) > 0 {
-		mg.policyAssignments[name].Properties.Parameters = make(
-			map[string]*armpolicy.ParameterValuesValue,
-			len(parameters),
-		)
-	}
-
-	for k, v := range parameters {
-		// Only add parameter if it exists in the referenced policy definition.
-		ref, policyDefinitionVersion, err := mg.policyAssignments[name].ReferencedPolicyDefinitionResourceIDAndVersion()
-		if err != nil {
-			return fmt.Errorf(
-				"HierarchyManagementGroup.ModifyPolicyAssignment: "+
-					"error getting referenced policy definition resource id for policy assignment %s: %w",
-				name,
-				err,
-			)
+	for _, opt := range opts {
+		if err := opt(mg, name); err != nil {
+			return err
 		}
-
-		if !mg.hierarchy.alzlib.AssignmentReferencedDefinitionHasParameter(ref, policyDefinitionVersion, k) {
-			return fmt.Errorf(
-				"HierarchyManagementGroup.ModifyPolicyAssignment: "+
-					"parameter `%s` not found in referenced %s `%s` for policy assignment `%s`",
-				k,
-				ref.ResourceType.Type,
-				ref.Name,
-				name,
-			)
-		}
-
-		mg.policyAssignments[name].Properties.Parameters[k] = v
-	}
-
-	if enforcementMode != nil {
-		mg.policyAssignments[name].Properties.EnforcementMode = enforcementMode
-	}
-
-	if nonComplianceMessages != nil {
-		mg.policyAssignments[name].Properties.NonComplianceMessages = nonComplianceMessages
-	}
-
-	if resourceSelectors != nil {
-		mg.policyAssignments[name].Properties.ResourceSelectors = resourceSelectors
-	}
-
-	if overrides != nil {
-		mg.policyAssignments[name].Properties.Overrides = overrides
-	}
-
-	if identity != nil {
-		mg.policyAssignments[name].Identity = identity
 	}
 
 	return nil
