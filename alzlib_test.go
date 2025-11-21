@@ -86,6 +86,7 @@ func TestAddPolicyAndRoleAssetsAllowsDuplicateVersions(t *testing.T) {
 
 			res = processor.NewResult()
 			res.PolicyDefinitions["dup-policy"] = dupPolicyDefsDifferent
+
 			switch tc.allowOverwrite {
 			case true:
 				require.NoError(t, az.addPolicyAndRoleAssets(res))
