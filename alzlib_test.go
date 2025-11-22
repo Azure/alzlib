@@ -56,6 +56,9 @@ func TestAddPolicyAndRoleAssetsAllowsDuplicateVersions(t *testing.T) {
 				UniqueRoleDefinitions: defaultUniqueRoleDefinitions,
 			})
 
+			// We prime the alzlib with an existing policy and policy set definition
+			// that has the same name and version as those being added in the processor result.
+			// This tests that **IDENTICAL** duplicate versions are allowed regardless of the AllowOverwrite setting.
 			existingPolicyDefs := assets.NewPolicyDefinitionVersions()
 			require.NoError(t, existingPolicyDefs.Add(testPolicyDefinition(t, "dup-policy", "1.0.0"), false))
 			az.policyDefinitions["dup-policy"] = existingPolicyDefs
@@ -65,15 +68,31 @@ func TestAddPolicyAndRoleAssetsAllowsDuplicateVersions(t *testing.T) {
 			az.policySetDefinitions["dup-policy-set"] = existingPolicySetDefs
 
 			res := processor.NewResult()
-			dupPolicyDefs := assets.NewPolicyDefinitionVersions()
-			require.NoError(t, dupPolicyDefs.Add(testPolicyDefinition(t, "dup-policy", "1.0.0"), false))
-			res.PolicyDefinitions["dup-policy"] = dupPolicyDefs
+			dupPolicyDefsIdenical := assets.NewPolicyDefinitionVersions()
+			require.NoError(t, dupPolicyDefsIdenical.Add(testPolicyDefinition(t, "dup-policy", "1.0.0"), false))
+			res.PolicyDefinitions["dup-policy"] = dupPolicyDefsIdenical
 
-			dupPolicySetDefs := assets.NewPolicySetDefinitionVersions()
-			require.NoError(t, dupPolicySetDefs.Add(testPolicySetDefinition(t, "dup-policy-set", "1.0.0"), false))
-			res.PolicySetDefinitions["dup-policy-set"] = dupPolicySetDefs
+			dupPolicySetDefsIdentical := assets.NewPolicySetDefinitionVersions()
+			require.NoError(t, dupPolicySetDefsIdentical.Add(testPolicySetDefinition(t, "dup-policy-set", "1.0.0"), false))
+			res.PolicySetDefinitions["dup-policy-set"] = dupPolicySetDefsIdentical
 
 			require.NoError(t, az.addPolicyAndRoleAssets(res))
+
+			// Now we attempt to add duplicate versions that are different.
+			dupPolicyDefsDifferent := assets.NewPolicyDefinitionVersions()
+			testPd := testPolicyDefinition(t, "dup-policy", "1.0.0")
+			testPd.Properties.Description = to.Ptr("A different description to make this policy definition different")
+			require.NoError(t, dupPolicyDefsDifferent.Add(testPd, false))
+
+			res = processor.NewResult()
+			res.PolicyDefinitions["dup-policy"] = dupPolicyDefsDifferent
+
+			switch tc.allowOverwrite {
+			case true:
+				require.NoError(t, az.addPolicyAndRoleAssets(res))
+			case false:
+				require.Error(t, az.addPolicyAndRoleAssets(res))
+			}
 		})
 	}
 }
