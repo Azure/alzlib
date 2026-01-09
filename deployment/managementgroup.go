@@ -227,12 +227,7 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 			}
 
 			if len(rdids) == 0 {
-				return fmt.Errorf(
-					"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
-						"assignment `%s`, policy definition `%s` has no role definition ids",
-					paName,
-					*pd.Name,
-				)
+				continue
 			}
 
 			for _, rdid := range rdids {
@@ -361,6 +356,10 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 						pdName,
 						err,
 					)
+				}
+
+				if len(rdids) == 0 {
+					continue
 				}
 
 				for _, rdid := range rdids {

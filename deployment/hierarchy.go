@@ -147,21 +147,23 @@ func (h *Hierarchy) PolicyRoleAssignments(
 	for _, mg := range h.mgs {
 		if err := mg.generatePolicyAssignmentAdditionalRoleAssignments(); err != nil {
 			var thisErrs *PolicyRoleAssignmentErrors
-			if errors.As(err, &thisErrs) {
-				if errs == nil {
-					errs = NewPolicyRoleAssignmentErrors()
-				}
 
-				errs.Add(thisErrs.Errors()...)
-
-				continue
+			// If it's not of type PolicyRoleAssignmentErrors, return the error directly,
+			// without updating the results.
+			// Otherwise, accumulate the errors and add the valid results to the final set.
+			if !errors.As(err, &thisErrs) {
+				return nil, fmt.Errorf(
+					"Hierarchy.PolicyRoleAssignments: generating additional role assignments for management group `%s`: %w",
+					mg.id,
+					err,
+				)
 			}
 
-			return nil, fmt.Errorf(
-				"Hierarchy.PolicyRoleAssignments: generating additional role assignments for management group `%s`: %w",
-				mg.id,
-				err,
-			)
+			if errs == nil {
+				errs = NewPolicyRoleAssignmentErrors()
+			}
+
+			errs.Add(thisErrs.Errors()...)
 		}
 
 		res = res.Union(mg.policyRoleAssignments)
