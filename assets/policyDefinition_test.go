@@ -83,3 +83,53 @@ func TestUnsetAssignPermissionsOnParameter(t *testing.T) {
 	pd.UnsetAssignPermissionsOnParameter("test")
 	assert.Nil(t, pd.Properties.Parameters["test"].Metadata.AssignPermissions)
 }
+
+func TestNewPolicyDefinitionFromVersionSuccess(t *testing.T) {
+	versionID := "/subscriptions/00000000-0000-0000-0000-000000000000/providers/" +
+		"Microsoft.Authorization/policyDefinitions/myPolicy/versions/1.0.0"
+
+	pdVersion := armpolicy.DefinitionVersion{
+		ID: to.Ptr(versionID),
+		Properties: &armpolicy.DefinitionVersionProperties{
+			DisplayName: to.Ptr("My Policy"),
+			Description: to.Ptr("Policy description"),
+			PolicyRule:  map[string]any{"if": map[string]any{"field": "type", "equals": "Microsoft.Resources/subscriptions"}, "then": map[string]any{"effect": "audit"}},
+			Version:     to.Ptr("1.0.0"),
+		},
+	}
+
+	pd, err := NewPolicyDefinitionFromVersion(pdVersion)
+	assert.NoError(t, err)
+	assert.NotNil(t, pd)
+	assert.Equal(t, "myPolicy", *pd.Name)
+	assert.Equal(t, "1.0.0", *pd.Properties.Version)
+}
+
+func TestNewPolicyDefinitionFromVersionMissingID(t *testing.T) {
+	_, err := NewPolicyDefinitionFromVersion(armpolicy.DefinitionVersion{})
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "policy definition ID must be set")
+}
+
+func TestNewPolicyDefinitionFromVersionNoValidation(t *testing.T) {
+	// A definition with a display name exceeding the documented 128-char limit
+	// should still succeed because the non-validating constructor is used.
+	versionID := "/subscriptions/00000000-0000-0000-0000-000000000000/providers/" +
+		"Microsoft.Authorization/policyDefinitions/myPolicy/versions/1.0.0"
+	longDisplayName := "[Preview]: Microsoft Managed DevOps Pools should be provided with valid subnet resource in order to configure with own virtual network."
+
+	pdVersion := armpolicy.DefinitionVersion{
+		ID: to.Ptr(versionID),
+		Properties: &armpolicy.DefinitionVersionProperties{
+			DisplayName: to.Ptr(longDisplayName),
+			Description: to.Ptr("Description"),
+			PolicyRule:  map[string]any{"if": map[string]any{"field": "type", "equals": "Microsoft.Resources/subscriptions"}, "then": map[string]any{"effect": "audit"}},
+			Version:     to.Ptr("1.0.0"),
+		},
+	}
+
+	pd, err := NewPolicyDefinitionFromVersion(pdVersion)
+	assert.NoError(t, err)
+	assert.NotNil(t, pd)
+	assert.Equal(t, longDisplayName, *pd.Properties.DisplayName)
+}

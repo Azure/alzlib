@@ -36,6 +36,44 @@ func NewPolicyDefinition(pd armpolicy.Definition) *PolicyDefinition {
 	return &PolicyDefinition{pd}
 }
 
+// NewPolicyDefinitionFromVersion creates a new PolicyDefinition from a versioned policy definition
+// without running validation. This is useful for built-in definitions that may not comply
+// with documented property constraints.
+func NewPolicyDefinitionFromVersion(pd armpolicy.DefinitionVersion) (*PolicyDefinition, error) {
+	if pd.ID == nil || *pd.ID == "" {
+		return nil, errors.New("NewPolicyDefinitionFromVersion: policy definition ID must be set")
+	}
+
+	if pd.Properties == nil {
+		return nil, errors.New("NewPolicyDefinitionFromVersion: policy definition properties must be set")
+	}
+
+	if pd.Properties.Version == nil || *pd.Properties.Version == "" {
+		return nil, errors.New("NewPolicyDefinitionFromVersion: policy definition version must be set")
+	}
+
+	resID, err := arm.ParseResourceID(*pd.ID)
+	if err != nil {
+		return nil, fmt.Errorf("NewPolicyDefinitionFromVersion: parsing resource ID %s: %w", *pd.ID, err)
+	}
+
+	policyName := resID.Parent.Name
+
+	jsonBytes, err := json.Marshal(pd)
+	if err != nil {
+		return nil, fmt.Errorf("NewPolicyDefinitionFromVersion: marshalling policy definition version: %w", err)
+	}
+
+	var pdDef armpolicy.Definition
+	if err := json.Unmarshal(jsonBytes, &pdDef); err != nil {
+		return nil, fmt.Errorf("NewPolicyDefinitionFromVersion: unmarshaling to policy definition: %w", err)
+	}
+
+	pdDef.Name = &policyName
+
+	return NewPolicyDefinition(pdDef), nil
+}
+
 // NewPolicyDefinitionValidate creates a new PolicyDefinition instance and validates it.
 func NewPolicyDefinitionValidate(pd armpolicy.Definition) (*PolicyDefinition, error) {
 	pdObj := &PolicyDefinition{Definition: pd}
