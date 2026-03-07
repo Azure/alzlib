@@ -28,6 +28,9 @@ const (
 // and build the full ALZ hierarchy using a pre-populated cache and no Azure client.
 func BenchmarkFromArchitectureWithCache(b *testing.B) {
 	f, err := os.Open(cacheFile)
+	if os.IsNotExist(err) {
+		b.Skipf("skipping: cache file %q not found", cacheFile)
+	}
 	if err != nil {
 		b.Fatalf("opening cache file: %v", err)
 	}

@@ -27,6 +27,9 @@ func TestCacheHitsAvoidAzureAPICalls(t *testing.T) {
 	t.Parallel()
 
 	f, err := os.Open(cacheFile)
+	if os.IsNotExist(err) {
+		t.Skipf("skipping: cache file %q not found", cacheFile)
+	}
 	require.NoError(t, err)
 
 	defer f.Close()
@@ -60,6 +63,9 @@ func TestCacheInitWithLibrary(t *testing.T) {
 	t.Parallel()
 
 	f, err := os.Open(cacheFile)
+	if os.IsNotExist(err) {
+		t.Skipf("skipping: cache file %q not found", cacheFile)
+	}
 	require.NoError(t, err)
 
 	defer f.Close()

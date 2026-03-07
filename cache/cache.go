@@ -65,6 +65,10 @@ func NewCache(r io.Reader) (*Cache, error) {
 	}
 
 	for name, versions := range cf.PolicyDefinitions {
+		if versions == nil {
+			continue
+		}
+
 		pdvs := assets.NewPolicyDefinitionVersions()
 
 		if versions.Versionless != nil {
@@ -97,6 +101,10 @@ func NewCache(r io.Reader) (*Cache, error) {
 	}
 
 	for name, versions := range cf.PolicySetDefinitions {
+		if versions == nil {
+			continue
+		}
+
 		psdvs := assets.NewPolicySetDefinitionVersions()
 
 		if versions.Versionless != nil {
