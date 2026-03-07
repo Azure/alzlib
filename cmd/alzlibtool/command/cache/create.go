@@ -61,7 +61,7 @@ and writes them to a local cache file. Requires Azure credentials (e.g. az login
 			cmd.PrintErrf("%s could not create output file %s: %v\n", cmd.ErrPrefix(), outFile, err)
 			os.Exit(1)
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck
 
 		if err := c.Save(f); err != nil {
 			cmd.PrintErrf("%s could not write cache file: %v\n", cmd.ErrPrefix(), err)
@@ -69,8 +69,10 @@ and writes them to a local cache file. Requires Azure credentials (e.g. az login
 		}
 
 		cmd.Printf("Cache written to %s\n", outFile)
-		cmd.Printf("  Policy definitions:     %d names, %d total versions\n", c.PolicyDefinitionNames(), c.PolicyDefinitionCount())
-		cmd.Printf("  Policy set definitions:  %d names, %d total versions\n", c.PolicySetDefinitionNames(), c.PolicySetDefinitionCount())
+		cmd.Printf("  Policy definitions:     %d names, %d total versions\n",
+			c.PolicyDefinitionNames(), c.PolicyDefinitionCount())
+		cmd.Printf("  Policy set definitions:  %d names, %d total versions\n",
+			c.PolicySetDefinitionNames(), c.PolicySetDefinitionCount())
 	},
 }
 

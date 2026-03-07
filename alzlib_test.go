@@ -1440,7 +1440,7 @@ func TestCacheMissingSubReferencedPDFailsWithoutClient(t *testing.T) {
 
 	ctx := context.Background()
 	err = az.GetDefinitionsFromAzure(ctx, reqs)
-	assert.Error(t, err, "expected error when sub-referenced PD is missing from cache and no policy client")
+	require.Error(t, err, "expected error when sub-referenced PD is missing from cache and no policy client")
 	assert.Contains(t, err.Error(), "policy client not set")
 }
 
@@ -1471,7 +1471,7 @@ func TestCacheMissingDirectPDFailsWithoutClient(t *testing.T) {
 
 	ctx := context.Background()
 	err = az.GetDefinitionsFromAzure(ctx, reqs)
-	assert.Error(t, err, "expected error when PD is missing from cache and no policy client")
+	require.Error(t, err, "expected error when PD is missing from cache and no policy client")
 	assert.Contains(t, err.Error(), "policy client not set")
 }
 
@@ -1501,7 +1501,7 @@ func TestCacheMissingPSDFailsWithoutClient(t *testing.T) {
 
 	ctx := context.Background()
 	err = az.GetDefinitionsFromAzure(ctx, reqs)
-	assert.Error(t, err, "expected error when PSD is missing from cache and no policy client")
+	require.Error(t, err, "expected error when PSD is missing from cache and no policy client")
 	assert.Contains(t, err.Error(), "policy client not set")
 }
 
@@ -1536,7 +1536,7 @@ func TestCacheVersionMismatchFailsWithoutClient(t *testing.T) {
 
 	ctx := context.Background()
 	err = az.GetDefinitionsFromAzure(ctx, reqs)
-	assert.Error(t, err, "expected error when version constraint doesn't match cached version")
+	require.Error(t, err, "expected error when version constraint doesn't match cached version")
 	assert.Contains(t, err.Error(), "policy client not set")
 }
 
@@ -1867,7 +1867,7 @@ func TestCachePartialPSDMissOneSubPDOutOfMany(t *testing.T) {
 
 	ctx := context.Background()
 	err = az.GetDefinitionsFromAzure(ctx, reqs)
-	assert.Error(t, err, "expected error when one sub-referenced PD is missing from cache")
+	require.Error(t, err, "expected error when one sub-referenced PD is missing from cache")
 	assert.Contains(t, err.Error(), "policy client not set")
 }
 

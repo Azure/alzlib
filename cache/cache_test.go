@@ -74,12 +74,12 @@ func TestNewCacheRoundTrip(t *testing.T) {
 	cf := cacheFile{
 		PolicyDefinitions: map[string]*cacheVersionsJSON{
 			"test-pd": {
-				Versionless: (*json.RawMessage)(&versionless),
+				Versionless: &versionless,
 			},
 		},
 		PolicySetDefinitions: map[string]*cacheVersionsJSON{
 			"test-psd": {
-				Versionless: (*json.RawMessage)(&versionlessPsd),
+				Versionless: &versionlessPsd,
 			},
 		},
 	}
@@ -203,7 +203,7 @@ func TestNewCacheInvalidJSON(t *testing.T) {
 	t.Parallel()
 
 	_, err := NewCache(strings.NewReader("not json"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "creating gzip reader")
 }
 
@@ -305,7 +305,7 @@ func TestCacheMixedDefinitions(t *testing.T) {
 	cf := cacheFile{
 		PolicyDefinitions: map[string]*cacheVersionsJSON{
 			"pd-versionless": {
-				Versionless: (*json.RawMessage)(&versionless),
+				Versionless: &versionless,
 			},
 			"pd-versioned": {
 				Versions: map[string]json.RawMessage{
@@ -316,7 +316,7 @@ func TestCacheMixedDefinitions(t *testing.T) {
 		},
 		PolicySetDefinitions: map[string]*cacheVersionsJSON{
 			"psd-one": {
-				Versionless: (*json.RawMessage)(&psd),
+				Versionless: &psd,
 			},
 		},
 	}
@@ -352,7 +352,7 @@ func TestPolicyDefinitionsAccessor(t *testing.T) {
 	cf := cacheFile{
 		PolicyDefinitions: map[string]*cacheVersionsJSON{
 			"test-pd": {
-				Versionless: (*json.RawMessage)(&versionless),
+				Versionless: &versionless,
 			},
 		},
 		PolicySetDefinitions: map[string]*cacheVersionsJSON{},

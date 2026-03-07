@@ -50,7 +50,7 @@ func NewCache(r io.Reader) (*Cache, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cache.NewCache: creating gzip reader: %w", err)
 	}
-	defer gr.Close() //nolint:errcheck - best effort to release resources, no error handling needed
+	defer gr.Close() //nolint:errcheck
 
 	lr := io.LimitReader(gr, cacheBufferMaxSize)
 

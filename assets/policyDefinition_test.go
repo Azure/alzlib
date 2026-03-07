@@ -9,6 +9,7 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizedRoleDefinitionResourceIds(t *testing.T) {
@@ -99,7 +100,7 @@ func TestNewPolicyDefinitionFromVersionSuccess(t *testing.T) {
 	}
 
 	pd, err := NewPolicyDefinitionFromVersion(pdVersion)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, pd)
 	assert.Equal(t, "myPolicy", *pd.Name)
 	assert.Equal(t, "1.0.0", *pd.Properties.Version)
@@ -107,7 +108,7 @@ func TestNewPolicyDefinitionFromVersionSuccess(t *testing.T) {
 
 func TestNewPolicyDefinitionFromVersionMissingID(t *testing.T) {
 	_, err := NewPolicyDefinitionFromVersion(armpolicy.DefinitionVersion{})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorContains(t, err, "policy definition ID must be set")
 }
 
@@ -129,7 +130,7 @@ func TestNewPolicyDefinitionFromVersionNoValidation(t *testing.T) {
 	}
 
 	pd, err := NewPolicyDefinitionFromVersion(pdVersion)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, pd)
 	assert.Equal(t, longDisplayName, *pd.Properties.DisplayName)
 }

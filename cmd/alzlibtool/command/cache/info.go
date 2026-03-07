@@ -22,7 +22,7 @@ var infoCmd = cobra.Command{
 			cmd.PrintErrf("%s could not open cache file %s: %v\n", cmd.ErrPrefix(), args[0], err)
 			os.Exit(1)
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck
 
 		c, err := cache.NewCache(f)
 		if err != nil {
@@ -31,8 +31,10 @@ var infoCmd = cobra.Command{
 		}
 
 		cmd.Printf("Cache file: %s\n", args[0])
-		cmd.Printf("Policy definitions:     %d names, %d total versions\n", c.PolicyDefinitionNames(), c.PolicyDefinitionCount())
-		cmd.Printf("Policy set definitions:  %d names, %d total versions\n", c.PolicySetDefinitionNames(), c.PolicySetDefinitionCount())
+		cmd.Printf("Policy definitions:     %d names, %d total versions\n",
+			c.PolicyDefinitionNames(), c.PolicyDefinitionCount())
+		cmd.Printf("Policy set definitions:  %d names, %d total versions\n",
+			c.PolicySetDefinitionNames(), c.PolicySetDefinitionCount())
 
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		if !verbose {

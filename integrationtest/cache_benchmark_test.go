@@ -31,9 +31,11 @@ func BenchmarkFromArchitectureWithCache(b *testing.B) {
 	if os.IsNotExist(err) {
 		b.Skipf("skipping: cache file %q not found", cacheFile)
 	}
+
 	if err != nil {
 		b.Fatalf("opening cache file: %v", err)
 	}
+
 	defer f.Close()
 
 	c, err := cache.NewCache(f)

@@ -67,7 +67,11 @@ func NewCacheFromAzure(ctx context.Context, client *armpolicy.ClientFactory, log
 // and groups them by policy definition name.
 // It then lists all built-in definitions using the versionless client and adds any that
 // were not returned by the versioned API as versionless definitions.
-func (c *Cache) fetchPolicyDefinitions(ctx context.Context, client *armpolicy.ClientFactory, logger *slog.Logger) error {
+func (c *Cache) fetchPolicyDefinitions(
+	ctx context.Context,
+	client *armpolicy.ClientFactory,
+	logger *slog.Logger,
+) error {
 	verClient := client.NewDefinitionVersionsClient()
 
 	resp, err := verClient.ListAllBuiltins(ctx, nil)
@@ -163,7 +167,11 @@ func (c *Cache) fetchPolicyDefinitions(ctx context.Context, client *armpolicy.Cl
 // then fetches all versioned variants for each using the versioned client.
 // We cannot use ListAllBuiltins here because the response exceeds the API size limit.
 // If a policy set definition has no versioned variants, the versionless definition is stored instead.
-func (c *Cache) fetchPolicySetDefinitions(ctx context.Context, client *armpolicy.ClientFactory, logger *slog.Logger) error {
+func (c *Cache) fetchPolicySetDefinitions(
+	ctx context.Context,
+	client *armpolicy.ClientFactory,
+	logger *slog.Logger,
+) error {
 	setClient := client.NewSetDefinitionsClient()
 	pager := setClient.NewListBuiltInPager(nil)
 
@@ -276,9 +284,14 @@ func (c *Cache) fetchPolicySetDefinitionVersions(
 // library-defined (custom) policy set definitions may reference older major versions.
 // Since we cannot predict which versions will be needed, we fetch all of them.
 // Versionless-only definitions (those not available via the versioned API) are skipped.
-func (c *Cache) fetchAllHistoricalPolicyDefinitionVersions(ctx context.Context, client *armpolicy.ClientFactory, logger *slog.Logger) error {
+func (c *Cache) fetchAllHistoricalPolicyDefinitionVersions(
+	ctx context.Context,
+	client *armpolicy.ClientFactory,
+	logger *slog.Logger,
+) error {
 	// Collect the names of all versioned PDs (those that came from the versioned API).
 	var versionedNames []string
+
 	for name, pdvs := range c.policyDefinitions {
 		if len(pdvs.Versions()) > 0 {
 			versionedNames = append(versionedNames, name)
@@ -359,6 +372,7 @@ func (c *Cache) fetchAllPolicyDefinitionVersions(
 					err,
 				)
 			}
+
 			added++
 		}
 	}
