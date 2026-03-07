@@ -539,6 +539,42 @@ func (az *AlzLib) RoleDefinition(name string) *assets.RoleDefinition {
 	return deep.MustCopy(rd)
 }
 
+// BuiltInCache is an interface for providing cached built-in Azure policy definitions
+// and policy set definitions. When a complete cache is supplied via [AlzLib.AddCache],
+// the policy client ([AlzLib.AddPolicyClient]) is not required because
+// [AlzLib.GetDefinitionsFromAzure] will find every definition already present and skip
+// all Azure API calls.
+type BuiltInCache interface {
+	PolicyDefinitions() map[string]*assets.PolicyDefinitionVersions
+	PolicySetDefinitions() map[string]*assets.PolicySetDefinitionVersions
+}
+
+// AddCache pre-populates the AlzLib policy definition and policy set definition maps
+// from a [BuiltInCache]. Definitions already present in AlzLib are not overwritten.
+// Deep copies are made of every definition to ensure the cache is not mutated.
+func (az *AlzLib) AddCache(c BuiltInCache) {
+	az.mu.Lock()
+	defer az.mu.Unlock()
+
+	for name, pdvs := range c.PolicyDefinitions() {
+		if _, exists := az.policyDefinitions[name]; exists {
+			continue
+		}
+
+		cpy := deep.MustCopy(pdvs)
+		az.policyDefinitions[name] = cpy
+	}
+
+	for name, psdvs := range c.PolicySetDefinitions() {
+		if _, exists := az.policySetDefinitions[name]; exists {
+			continue
+		}
+
+		cpy := deep.MustCopy(psdvs)
+		az.policySetDefinitions[name] = cpy
+	}
+}
+
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.
 // This is needed to get policy objects from Azure.
 func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {

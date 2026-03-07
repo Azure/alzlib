@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/Azure/alzlib/cmd/alzlibtool/command/cache"
 	"github.com/Azure/alzlib/cmd/alzlibtool/command/check"
 	"github.com/Azure/alzlib/cmd/alzlibtool/command/convert"
 	"github.com/Azure/alzlib/cmd/alzlibtool/command/document"
@@ -47,6 +48,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.AddCommand(&cache.CacheBaseCmd)
 	rootCmd.AddCommand(&convert.ConvertBaseCmd)
 	rootCmd.AddCommand(&check.CheckCmd)
 	rootCmd.AddCommand(&document.DocumentBaseCmd)

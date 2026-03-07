@@ -37,3 +37,7 @@ coverage.html
 dist/
 
 .vscode/mcp.json
+
+# Generated cache files
+alzlib-cache.json.gz
+alzlib-cache.json

@@ -1146,6 +1146,731 @@ func TestIntegrationGetDefinitionsFromAzure(t *testing.T) {
 	assert.True(t, az.PolicySetDefinitionExists("0a2ebd47-3fb9-4735-a006-b7f31ddadd9f", nil))
 }
 
+// mockBuiltInCache implements the BuiltInCache interface for testing.
+type mockBuiltInCache struct {
+	policyDefs    map[string]*assets.PolicyDefinitionVersions
+	policySetDefs map[string]*assets.PolicySetDefinitionVersions
+}
+
+func (m *mockBuiltInCache) PolicyDefinitions() map[string]*assets.PolicyDefinitionVersions {
+	return m.policyDefs
+}
+
+func (m *mockBuiltInCache) PolicySetDefinitions() map[string]*assets.PolicySetDefinitionVersions {
+	return m.policySetDefs
+}
+
+func TestAddCachePopulatesDefinitions(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Build a mock cache with one policy definition and one policy set definition.
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "cached-pd", "1.0.0"), false))
+
+	psdvs := assets.NewPolicySetDefinitionVersions()
+	require.NoError(t, psdvs.Add(testPolicySetDefinition(t, "cached-psd", "1.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"cached-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{"cached-psd": psdvs},
+	}
+
+	az.AddCache(cache)
+
+	// Verify the definitions were added.
+	assert.True(t, az.PolicyDefinitionExists("cached-pd", to.Ptr("1.0.*")))
+	assert.True(t, az.PolicySetDefinitionExists("cached-psd", to.Ptr("1.0.*")))
+}
+
+func TestAddCacheDoesNotOverwriteExisting(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Pre-populate with a policy definition.
+	existingPd := testPolicyDefinition(t, "existing-pd", "1.0.0")
+	require.NoError(t, az.AddPolicyDefinitions(existingPd))
+
+	// Build a cache with the same name but different version.
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "existing-pd", "2.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"existing-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	// The pre-existing version 1.0.0 should still be there.
+	assert.True(t, az.PolicyDefinitionExists("existing-pd", to.Ptr("1.0.*")))
+
+	// The cache version 2.0.0 should NOT have been added because the name already existed.
+	assert.False(t, az.PolicyDefinitionExists("existing-pd", to.Ptr("2.0.*")))
+}
+
+func TestAddCacheDeepCopies(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "deep-copy-pd", "1.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"deep-copy-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	// Mutate the definition in AlzLib via SetAssignPermissionsOnDefinitionParameter.
+	// This should NOT affect the original cache.
+	az.SetAssignPermissionsOnDefinitionParameter("deep-copy-pd", "anyParam")
+
+	// Verify the original cache's definition is unmodified.
+	origPd, err := pdvs.GetVersion(to.Ptr("1.0.*"))
+	require.NoError(t, err)
+
+	// The original should not have any AssignPermissions set on any parameter.
+	if origPd.Properties.Parameters != nil {
+		for _, p := range origPd.Properties.Parameters {
+			if p.Metadata != nil && p.Metadata.AssignPermissions != nil {
+				t.Fatal("cache definition was mutated - deep copy failed")
+			}
+		}
+	}
+}
+
+func TestAddCacheEmptyCache(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	assert.Empty(t, az.PolicyDefinitions())
+	assert.Empty(t, az.PolicySetDefinitions())
+}
+
+// testPolicySetDefinitionWithRefs creates a policy set definition that references sub-policy definitions.
+func testPolicySetDefinitionWithRefs(t *testing.T, name, version string, refs []*armpolicy.DefinitionReference) *assets.PolicySetDefinition {
+	t.Helper()
+
+	desc := name + " description"
+
+	return &assets.PolicySetDefinition{
+		SetDefinition: armpolicy.SetDefinition{
+			Name: to.Ptr(name),
+			Properties: &armpolicy.SetDefinitionProperties{
+				DisplayName:       to.Ptr(name),
+				Description:       &desc,
+				Metadata:          map[string]any{},
+				PolicyDefinitions: refs,
+				Parameters:        map[string]*armpolicy.ParameterDefinitionsValue{},
+				PolicyType:        to.Ptr(armpolicy.PolicyTypeBuiltIn),
+				Version:           to.Ptr(version),
+			},
+		},
+	}
+}
+
+// TestCacheCompleteHitAvoidsPolicyClient verifies that when ALL built-in policy definitions
+// and policy set definitions (including sub-referenced PDs) are present in the cache,
+// GetDefinitionsFromAzure succeeds without a policy client.
+func TestCacheCompleteHitAvoidsPolicyClient(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a cached PD "sub-pd-1" version 1.0.0
+	subPdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, subPdvs.Add(testPolicyDefinition(t, "sub-pd-1", "1.0.0"), false))
+
+	// Create a cached PSD "cached-psd" version 2.0.0 that references "sub-pd-1"
+	psdvs := assets.NewPolicySetDefinitionVersions()
+	psd := testPolicySetDefinitionWithRefs(t, "cached-psd", "2.0.0", []*armpolicy.DefinitionReference{
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/sub-pd-1"),
+			PolicyDefinitionReferenceID: to.Ptr("sub-pd-1-ref"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+	})
+	require.NoError(t, psdvs.Add(psd, false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"sub-pd-1": subPdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{"cached-psd": psdvs},
+	}
+
+	az.AddCache(cache)
+
+	// No policy client is set - this is intentional.
+	// Build a request for the cached PSD.
+	psdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/cached-psd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: psdResID,
+			Version:    to.Ptr("2.0.*"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when all definitions are in cache")
+}
+
+// TestCacheCompleteHitForDirectPolicyDefinition verifies that a directly referenced
+// policy definition (not via a PSD) can be resolved from cache without a policy client.
+func TestCacheCompleteHitForDirectPolicyDefinition(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "direct-pd", "3.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"direct-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/direct-pd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: pdResID,
+			Version:    to.Ptr("3.0.*"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when policy definition is in cache")
+}
+
+// TestCacheCompleteHitForVersionlessRequest verifies that a request with no version
+// constraint (nil) can be resolved from cache when the cache has versioned entries.
+func TestCacheCompleteHitForVersionlessRequest(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "versionless-req-pd", "2.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"versionless-req-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/versionless-req-pd")
+	require.NoError(t, err)
+
+	// Request with nil version (no constraint) - should find the latest in cache.
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: pdResID,
+			Version:    nil,
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when requesting versionless and cache has versioned entry")
+}
+
+// TestCacheMissingSubReferencedPDFailsWithoutClient verifies that when a PSD is cached
+// but one of its sub-referenced policy definitions is NOT in the cache,
+// GetDefinitionsFromAzure fails because there is no policy client to fetch the missing PD.
+func TestCacheMissingSubReferencedPDFailsWithoutClient(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a cached PSD that references two PDs, but only cache one of them.
+	subPdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, subPdvs.Add(testPolicyDefinition(t, "present-pd", "1.0.0"), false))
+
+	psdvs := assets.NewPolicySetDefinitionVersions()
+	psd := testPolicySetDefinitionWithRefs(t, "incomplete-psd", "1.0.0", []*armpolicy.DefinitionReference{
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/present-pd"),
+			PolicyDefinitionReferenceID: to.Ptr("present-ref"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/missing-pd"),
+			PolicyDefinitionReferenceID: to.Ptr("missing-ref"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+	})
+	require.NoError(t, psdvs.Add(psd, false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"present-pd": subPdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{"incomplete-psd": psdvs},
+	}
+
+	az.AddCache(cache)
+
+	psdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/incomplete-psd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: psdResID,
+			Version:    to.Ptr("1.0.*"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	require.Error(t, err, "expected error when sub-referenced PD is missing from cache and no policy client")
+	assert.Contains(t, err.Error(), "policy client not set")
+}
+
+// TestCacheMissingDirectPDFailsWithoutClient verifies that when a directly referenced
+// policy definition is NOT in the cache, GetDefinitionsFromAzure fails.
+func TestCacheMissingDirectPDFailsWithoutClient(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Empty cache.
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/not-in-cache")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: pdResID,
+			Version:    to.Ptr("1.0.*"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	require.Error(t, err, "expected error when PD is missing from cache and no policy client")
+	assert.Contains(t, err.Error(), "policy client not set")
+}
+
+// TestCacheMissingPSDFailsWithoutClient verifies that when a referenced policy set definition
+// is NOT in the cache, GetDefinitionsFromAzure fails.
+func TestCacheMissingPSDFailsWithoutClient(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	psdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/not-in-cache")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: psdResID,
+			Version:    to.Ptr("1.0.*"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	require.Error(t, err, "expected error when PSD is missing from cache and no policy client")
+	assert.Contains(t, err.Error(), "policy client not set")
+}
+
+// TestCacheVersionMismatchFailsWithoutClient verifies that when a cached definition exists
+// but the requested version constraint doesn't match any cached version,
+// GetDefinitionsFromAzure tries to fetch from Azure and fails.
+func TestCacheVersionMismatchFailsWithoutClient(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Cache has version 1.0.0, but we request 2.0.*
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "version-mismatch-pd", "1.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"version-mismatch-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/version-mismatch-pd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: pdResID,
+			Version:    to.Ptr("2.0.*"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	require.Error(t, err, "expected error when version constraint doesn't match cached version")
+	assert.Contains(t, err.Error(), "policy client not set")
+}
+
+// TestCacheMultiplePDVersionsMatchesConstraint verifies that when the cache has multiple
+// versions of a PD, the correct version is matched by a constraint.
+func TestCacheMultiplePDVersionsMatchesConstraint(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "multi-ver-pd", "1.0.0"), false))
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "multi-ver-pd", "2.0.0"), false))
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "multi-ver-pd", "3.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"multi-ver-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/multi-ver-pd")
+	require.NoError(t, err)
+
+	// Request version 2.0.* - should match 2.0.0 in cache.
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: pdResID,
+			Version:    to.Ptr("2.0.*"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when constraint matches a cached version")
+}
+
+// TestCacheCompleteHitMultiplePSDsAndPDs verifies that multiple PSDs and PDs from cache
+// can all be resolved without a policy client.
+func TestCacheCompleteHitMultiplePSDsAndPDs(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create sub PDs
+	pd1vs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pd1vs.Add(testPolicyDefinition(t, "pd-a", "1.0.0"), false))
+
+	pd2vs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pd2vs.Add(testPolicyDefinition(t, "pd-b", "2.0.0"), false))
+
+	pd3vs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pd3vs.Add(testPolicyDefinition(t, "pd-c", "1.0.0"), false))
+
+	// PSD-1 references pd-a and pd-b
+	psd1vs := assets.NewPolicySetDefinitionVersions()
+	psd1 := testPolicySetDefinitionWithRefs(t, "psd-1", "1.0.0", []*armpolicy.DefinitionReference{
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/pd-a"),
+			PolicyDefinitionReferenceID: to.Ptr("ref-a"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/pd-b"),
+			PolicyDefinitionReferenceID: to.Ptr("ref-b"),
+			DefinitionVersion:           to.Ptr("2.0.*"),
+		},
+	})
+	require.NoError(t, psd1vs.Add(psd1, false))
+
+	// PSD-2 references pd-c
+	psd2vs := assets.NewPolicySetDefinitionVersions()
+	psd2 := testPolicySetDefinitionWithRefs(t, "psd-2", "1.0.0", []*armpolicy.DefinitionReference{
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/pd-c"),
+			PolicyDefinitionReferenceID: to.Ptr("ref-c"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+	})
+	require.NoError(t, psd2vs.Add(psd2, false))
+
+	cache := &mockBuiltInCache{
+		policyDefs: map[string]*assets.PolicyDefinitionVersions{
+			"pd-a": pd1vs,
+			"pd-b": pd2vs,
+			"pd-c": pd3vs,
+		},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{
+			"psd-1": psd1vs,
+			"psd-2": psd2vs,
+		},
+	}
+
+	az.AddCache(cache)
+
+	psd1ResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/psd-1")
+	require.NoError(t, err)
+	psd2ResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/psd-2")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{ResourceID: psd1ResID, Version: to.Ptr("1.0.*")},
+		{ResourceID: psd2ResID, Version: to.Ptr("1.0.*")},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when all PSDs and their sub-PDs are in cache")
+}
+
+// TestCachePSDWithNilDefinitionVersionRefs verifies that when a cached PSD references
+// sub-PDs without a DefinitionVersion (nil), the cache resolves them correctly.
+func TestCachePSDWithNilDefinitionVersionRefs(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "no-ver-ref-pd", "1.0.0"), false))
+
+	psdvs := assets.NewPolicySetDefinitionVersions()
+	psd := testPolicySetDefinitionWithRefs(t, "psd-nil-ver-refs", "1.0.0", []*armpolicy.DefinitionReference{
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/no-ver-ref-pd"),
+			PolicyDefinitionReferenceID: to.Ptr("ref-no-ver"),
+			DefinitionVersion:           nil, // no version constraint
+		},
+	})
+	require.NoError(t, psdvs.Add(psd, false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"no-ver-ref-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{"psd-nil-ver-refs": psdvs},
+	}
+
+	az.AddCache(cache)
+
+	psdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/psd-nil-ver-refs")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{ResourceID: psdResID, Version: to.Ptr("1.0.*")},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when PSD references sub-PDs without version constraint and PDs are cached")
+}
+
+// TestCachePreviewVersionConstraintMatch verifies that preview version constraints
+// (e.g., "1.*.*-preview") are correctly matched against cached preview versions.
+func TestCachePreviewVersionConstraintMatch(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "preview-pd", "1.0.0-preview"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"preview-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/preview-pd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{
+			ResourceID: pdResID,
+			Version:    to.Ptr("1.*.*-preview"),
+		},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when preview version constraint matches cached preview version")
+}
+
+// TestCacheMixedDirectAndPSDRequests verifies that a mix of direct PD requests and
+// PSD requests (with sub-referenced PDs) can all be resolved from cache.
+func TestCacheMixedDirectAndPSDRequests(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Direct PD
+	directPdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, directPdvs.Add(testPolicyDefinition(t, "direct-only-pd", "2.0.0"), false))
+
+	// Sub PD referenced by PSD
+	subPdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, subPdvs.Add(testPolicyDefinition(t, "sub-only-pd", "1.0.0"), false))
+
+	psdvs := assets.NewPolicySetDefinitionVersions()
+	psd := testPolicySetDefinitionWithRefs(t, "mixed-psd", "1.0.0", []*armpolicy.DefinitionReference{
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/sub-only-pd"),
+			PolicyDefinitionReferenceID: to.Ptr("sub-ref"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+	})
+	require.NoError(t, psdvs.Add(psd, false))
+
+	cache := &mockBuiltInCache{
+		policyDefs: map[string]*assets.PolicyDefinitionVersions{
+			"direct-only-pd": directPdvs,
+			"sub-only-pd":    subPdvs,
+		},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{"mixed-psd": psdvs},
+	}
+
+	az.AddCache(cache)
+
+	directResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/direct-only-pd")
+	require.NoError(t, err)
+	psdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/mixed-psd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{ResourceID: directResID, Version: to.Ptr("2.0.*")},
+		{ResourceID: psdResID, Version: to.Ptr("1.0.*")},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when both direct PDs and PSD sub-refs are in cache")
+}
+
+// TestCacheVersionlessDefinitionInCache verifies that versionless definitions
+// (no Properties.Version set) in the cache can be resolved for requests with nil version.
+func TestCacheVersionlessDefinitionInCache(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create a versionless PD (Version is nil).
+	versionlessPd := &assets.PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Name: to.Ptr("versionless-pd"),
+			Properties: &armpolicy.DefinitionProperties{
+				DisplayName: to.Ptr("versionless-pd"),
+				Description: to.Ptr("versionless description"),
+				Metadata:    map[string]any{},
+				PolicyRule:  map[string]any{"if": map[string]any{}, "then": map[string]any{}},
+				Version:     nil,
+			},
+		},
+	}
+
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(versionlessPd, false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"versionless-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/versionless-pd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{ResourceID: pdResID, Version: nil},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	assert.NoError(t, err, "expected no error when versionless definition is in cache and request has nil version")
+}
+
+// TestCachePartialPSDMissOneSubPDOutOfMany verifies that even if only one sub-referenced PD
+// is missing from cache (out of many), GetDefinitionsFromAzure fails.
+func TestCachePartialPSDMissOneSubPDOutOfMany(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Create 3 sub PDs but only cache 2 of them
+	pd1vs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pd1vs.Add(testPolicyDefinition(t, "cached-sub-1", "1.0.0"), false))
+
+	pd2vs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pd2vs.Add(testPolicyDefinition(t, "cached-sub-2", "1.0.0"), false))
+
+	// pd3 ("missing-sub-3") is NOT added to cache
+
+	psdvs := assets.NewPolicySetDefinitionVersions()
+	psd := testPolicySetDefinitionWithRefs(t, "partial-psd", "1.0.0", []*armpolicy.DefinitionReference{
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/cached-sub-1"),
+			PolicyDefinitionReferenceID: to.Ptr("ref-1"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/cached-sub-2"),
+			PolicyDefinitionReferenceID: to.Ptr("ref-2"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+		{
+			PolicyDefinitionID:          to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/missing-sub-3"),
+			PolicyDefinitionReferenceID: to.Ptr("ref-3"),
+			DefinitionVersion:           to.Ptr("1.0.*"),
+		},
+	})
+	require.NoError(t, psdvs.Add(psd, false))
+
+	cache := &mockBuiltInCache{
+		policyDefs: map[string]*assets.PolicyDefinitionVersions{
+			"cached-sub-1": pd1vs,
+			"cached-sub-2": pd2vs,
+		},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{"partial-psd": psdvs},
+	}
+
+	az.AddCache(cache)
+
+	psdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policySetDefinitions/partial-psd")
+	require.NoError(t, err)
+
+	reqs := []BuiltInRequest{
+		{ResourceID: psdResID, Version: to.Ptr("1.0.*")},
+	}
+
+	ctx := context.Background()
+	err = az.GetDefinitionsFromAzure(ctx, reqs)
+	require.Error(t, err, "expected error when one sub-referenced PD is missing from cache")
+	assert.Contains(t, err.Error(), "policy client not set")
+}
+
 func testPolicyDefinition(t *testing.T, name, version string) *assets.PolicyDefinition {
 	t.Helper()
 
