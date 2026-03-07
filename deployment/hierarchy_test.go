@@ -359,7 +359,7 @@ func TestPolicyRoleAssignments(t *testing.T) {
 
 		var policyRoleAssignmentErrs *PolicyRoleAssignmentErrors
 
-		assert.ErrorAs(t, err, &policyRoleAssignmentErrs, "expected PolicyRoleAssignmentErrors error")
+		require.ErrorAs(t, err, &policyRoleAssignmentErrs, "expected PolicyRoleAssignmentErrors error")
 		// Results should be non-nil but empty since no valid role assignments could be generated.
 		require.NotNil(t, res, "expected non-nil result with PolicyRoleAssignmentErrors")
 		assert.Equal(t, 0, res.Cardinality(), "expected 0 role assignments")
