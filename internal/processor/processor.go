@@ -221,10 +221,12 @@ func (client *Client) Process(res *Result) error {
 		if !slices.Contains(supportedFileTypes, strings.ToLower(filepath.Ext(path))) {
 			return nil
 		}
+
 		file, err := client.fs.Open(path)
 		if err != nil {
 			return fmt.Errorf("ProcessorClient.Process: opening file %s: %w", path, err)
 		}
+
 		return classifyLibFile(res, file, d.Name())
 	}); err != nil {
 		return err //nolint:wrapcheck
