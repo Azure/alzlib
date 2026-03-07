@@ -323,7 +323,7 @@ func TestPolicyRoleAssignments(t *testing.T) {
 		}))
 	})
 
-	t.Run("returns non-PolicyRoleAssignmentErrors error without partial results", func(t *testing.T) {
+	t.Run("returns PolicyRoleAssignmentErrors with partial results when policy definition not found", func(t *testing.T) {
 		t.Parallel()
 
 		az := alzlib.NewAlzLib(nil)
@@ -354,16 +354,94 @@ func TestPolicyRoleAssignments(t *testing.T) {
 
 		res, err := h.PolicyRoleAssignments(context.Background())
 
-		// Verify that we got a non-PolicyRoleAssignmentErrors error.
+		// Verify that we got a PolicyRoleAssignmentErrors (soft error, not a hard fail).
 		require.Error(t, err)
 
 		var policyRoleAssignmentErrs *PolicyRoleAssignmentErrors
 
-		assert.NotErrorAs(t, err, &policyRoleAssignmentErrs, "expected non-PolicyRoleAssignmentErrors error")
-		assert.Nil(t, res, "expected nil result on non-PolicyRoleAssignmentErrors error")
+		require.ErrorAs(t, err, &policyRoleAssignmentErrs, "expected PolicyRoleAssignmentErrors error")
+		// Results should be non-nil but empty since no valid role assignments could be generated.
+		require.NotNil(t, res, "expected non-nil result with PolicyRoleAssignmentErrors")
+		assert.Equal(t, 0, res.Cardinality(), "expected 0 role assignments")
+	})
+
+	t.Run("preserves valid role assignments from other policies in same MG when one policy fails", func(t *testing.T) {
+		t.Parallel()
+
+		az := alzlib.NewAlzLib(nil)
+
+		// Create a valid policy definition.
+		pd1 := assets.NewPolicyDefinition(armpolicy.Definition{
+			Name: to.Ptr("valid-policy-definition"),
+			Properties: &armpolicy.DefinitionProperties{
+				PolicyRule: map[string]any{
+					"then": map[string]any{
+						"details": map[string]any{
+							"roleDefinitionIds": []any{"/providers/Microsoft.Authorization/roleDefinitions/valid-role-definition"},
+						},
+					},
+				},
+				Parameters: map[string]*armpolicy.ParameterDefinitionsValue{},
+			},
+		})
+
+		_ = az.AddPolicyDefinitions(pd1)
+
+		// Create a valid policy assignment.
+		paValid := assets.NewPolicyAssignment(armpolicy.Assignment{
+			Name:     to.Ptr("valid-policy-assignment"),
+			Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+			Properties: &armpolicy.AssignmentProperties{
+				PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/valid-policy-definition"),
+			},
+		})
+
+		// Create an invalid policy assignment that references a non-existent policy definition.
+		paInvalid := assets.NewPolicyAssignment(armpolicy.Assignment{
+			Name:     to.Ptr("invalid-policy-assignment"),
+			Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
+			Properties: &armpolicy.AssignmentProperties{
+				PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policyDefinitions/non-existent-policy"),
+			},
+		})
+
+		_ = az.AddPolicyAssignments(paValid, paInvalid)
+
+		h := NewHierarchy(az)
+
+		// Both valid and invalid assignments in the same management group.
+		mg1 := &HierarchyManagementGroup{
+			id:                    "mg1",
+			hierarchy:             h,
+			policyRoleAssignments: mapset.NewThreadUnsafeSet[PolicyRoleAssignment](),
+			policyDefinitions:     make(map[string]*assets.PolicyDefinition),
+			policySetDefinitions:  make(map[string]*assets.PolicySetDefinition),
+			policyAssignments: map[string]*assets.PolicyAssignment{
+				*paValid.Name:   paValid,
+				*paInvalid.Name: paInvalid,
+			},
+		}
+
+		h.mgs["mg1"] = mg1
+
+		res, err := h.PolicyRoleAssignments(context.Background())
+
+		// Verify that we got a PolicyRoleAssignmentErrors (soft error).
+		var policyRoleAssignmentErrs *PolicyRoleAssignmentErrors
+		require.ErrorAs(t, err, &policyRoleAssignmentErrs, "expected PolicyRoleAssignmentErrors")
+
+		// Verify that valid role assignments from the working policy are preserved.
+		require.NotNil(t, res, "expected non-nil result")
+		assert.True(t, res.Contains(PolicyRoleAssignment{
+			AssignmentName:    *paValid.Name,
+			RoleDefinitionID:  "/providers/Microsoft.Authorization/roleDefinitions/valid-role-definition",
+			Scope:             mg1.ResourceID(),
+			ManagementGroupID: "mg1",
+		}), "expected valid policy's role assignment to be preserved")
+
+		assert.Equal(t, 1, res.Cardinality(), "expected exactly 1 role assignment from the valid policy")
 	})
 }
-
 func TestAddDefaultPolicyAssignmentValue(t *testing.T) {
 	t.Parallel()
 
