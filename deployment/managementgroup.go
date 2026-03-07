@@ -511,7 +511,8 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 							nil,
 							fmt.Errorf(
 								"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
-									"assignment `%s`, error getting role definition ids referenced in policy set `%s` for policy definition %s: %w",
+									"assignment `%s`, error getting role definition ids referenced in "+
+									"policy set `%s` for policy definition %s: %w",
 								paName,
 								*psd.Name,
 								pdName,
