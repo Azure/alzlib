@@ -18,6 +18,7 @@ var documentLibraryBaseCmd = cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		thislib := alzlib.NewCustomLibraryReference(args[0])
+
 		alllibs, err := thislib.FetchWithDependencies(cmd.Context())
 		if err != nil {
 			cmd.PrintErrf(
@@ -27,6 +28,7 @@ var documentLibraryBaseCmd = cobra.Command{
 			)
 			os.Exit(1)
 		}
+
 		err = doc.AlzlibReadmeMd(cmd.Context(), os.Stdout, alllibs...)
 		if err != nil {
 			cmd.PrintErrf("%s library documentation error: %v\n", cmd.ErrPrefix(), err)
