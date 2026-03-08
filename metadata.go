@@ -174,10 +174,10 @@ func NewCustomLibraryReference(url string) *CustomLibraryReference {
 }
 
 // NewCustomLibraryReferenceFromFS creates a new CustomLibraryReference with the given URL and filesystem.
-func NewCustomLibraryReferenceFromFS(url string, fs fs.FS) *CustomLibraryReference {
+func NewCustomLibraryReferenceFromFS(url string, filesystem fs.FS) *CustomLibraryReference {
 	return &CustomLibraryReference{
 		url:        url,
-		filesystem: fs,
+		filesystem: filesystem,
 	}
 }
 
