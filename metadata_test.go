@@ -5,8 +5,10 @@ package alzlib
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,4 +72,28 @@ func TestFetchLibrariesWithCommonDependency(t *testing.T) {
 	}
 
 	assert.ElementsMatch(t, expcted, result)
+}
+
+// TestNewAlzLibraryReferenceFromFS verifies that Fetch returns the pre-supplied fs.FS
+// without performing a download.
+func TestNewAlzLibraryReferenceFromFS(t *testing.T) {
+	memfs := fstest.MapFS{
+		"somefile.txt": &fstest.MapFile{Data: []byte("content")},
+	}
+	ref := NewAlzLibraryReferenceFromFS("somepath", "someref", memfs)
+	got, err := ref.Fetch(context.Background(), t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, fs.FS(memfs), got)
+}
+
+// TestNewCustomLibraryReferenceFromFS verifies that Fetch returns the pre-supplied fs.FS
+// without invoking go-getter or touching any filesystem cache directory.
+func TestNewCustomLibraryReferenceFromFS(t *testing.T) {
+	memfs := fstest.MapFS{
+		"somefile.txt": &fstest.MapFile{Data: []byte("content")},
+	}
+	ref := NewCustomLibraryReferenceFromFS("someurl", memfs)
+	got, err := ref.Fetch(context.Background(), t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, fs.FS(memfs), got)
 }
