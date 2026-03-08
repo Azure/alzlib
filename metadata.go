@@ -97,12 +97,12 @@ func NewAlzLibraryReference(path, ref string) *AlzLibraryReference {
 	}
 }
 
-// NewAlzLibraryReferenceFromFS creates a new AlzLibraryReference with the given filesystem, path and ref.
-func NewAlzLibraryReferenceFromFS(filesystem fs.FS, path, ref string) *AlzLibraryReference {
+// NewAlzLibraryReferenceFromFS creates a new AlzLibraryReference with the given path, ref and filesystem.
+func NewAlzLibraryReferenceFromFS(path, ref string, filesystem fs.FS) *AlzLibraryReference {
 	return &AlzLibraryReference{
-		filesystem: filesystem,
 		path:       path,
 		ref:        ref,
+		filesystem: filesystem,
 	}
 }
 
@@ -174,10 +174,10 @@ func NewCustomLibraryReference(url string) *CustomLibraryReference {
 }
 
 // NewCustomLibraryReferenceFromFS creates a new CustomLibraryReference with the given URL and filesystem.
-func NewCustomLibraryReferenceFromFS(url string, fs fs.FS) *CustomLibraryReference {
+func NewCustomLibraryReferenceFromFS(url string, filesystem fs.FS) *CustomLibraryReference {
 	return &CustomLibraryReference{
 		url:        url,
-		filesystem: fs,
+		filesystem: filesystem,
 	}
 }
 
