@@ -74,8 +74,10 @@ type LibraryReference interface {
 	FS() fs.FS // FS returns the filesystem of the library member, can be used in Alzlib.Init()
 }
 
-var _ LibraryReference = (*AlzLibraryReference)(nil)
-var _ LibraryReference = (*CustomLibraryReference)(nil)
+var (
+	_ LibraryReference = (*AlzLibraryReference)(nil)
+	_ LibraryReference = (*CustomLibraryReference)(nil)
+)
 
 // AlzLibraryReference is a struct that represents a dependency of a library member that is fetched
 // from the ALZ
@@ -92,6 +94,15 @@ func NewAlzLibraryReference(path, ref string) *AlzLibraryReference {
 		path:       path,
 		ref:        ref,
 		filesystem: nil,
+	}
+}
+
+// NewAlzLibraryReferenceFromFS creates a new AlzLibraryReference with the given path, ref and filesystem.
+func NewAlzLibraryReferenceFromFS(path, ref string, filesystem fs.FS) *AlzLibraryReference {
+	return &AlzLibraryReference{
+		path:       path,
+		ref:        ref,
+		filesystem: filesystem,
 	}
 }
 
@@ -159,6 +170,14 @@ func NewCustomLibraryReference(url string) *CustomLibraryReference {
 	return &CustomLibraryReference{
 		url:        url,
 		filesystem: nil,
+	}
+}
+
+// NewCustomLibraryReferenceFromFS creates a new CustomLibraryReference with the given URL and filesystem.
+func NewCustomLibraryReferenceFromFS(url string, filesystem fs.FS) *CustomLibraryReference {
+	return &CustomLibraryReference{
+		url:        url,
+		filesystem: filesystem,
 	}
 }
 
