@@ -31,6 +31,7 @@ var generateArchitectureBaseCmd = cobra.Command{
 	Args: cobra.ExactArgs(RequiredArchitectureArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		thisLib := alzlib.NewCustomLibraryReference(args[0])
+
 		allLibs, err := thisLib.FetchWithDependencies(cmd.Context())
 		if err != nil {
 			cmd.PrintErrf(
@@ -40,12 +41,15 @@ var generateArchitectureBaseCmd = cobra.Command{
 			)
 			os.Exit(1)
 		}
+
 		az := alzlib.NewAlzLib(nil)
+
 		creds, err := auth.NewToken()
 		if err != nil {
 			cmd.PrintErrf("%s could not get Azure credential: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
+
 		cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
 			ClientOptions: policy.ClientOptions{
 				Cloud: auth.GetCloudFromEnv(),
@@ -55,13 +59,17 @@ var generateArchitectureBaseCmd = cobra.Command{
 			cmd.PrintErrf("%s could not add client to alzlib: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
+
 		az.AddPolicyClient(cf)
+
 		if err := az.Init(cmd.Context(), allLibs...); err != nil {
 			cmd.PrintErrf("%s could not initialize alzlib: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
+
 		h := deployment.NewHierarchy(az)
 		rootMg, _ := cmd.Flags().GetString("rootmg")
+
 		location, _ := cmd.Flags().GetString("location")
 		if err := h.FromArchitecture(cmd.Context(), args[1], rootMg, location); err != nil {
 			cmd.PrintErrf("%s could not generate architecture: %v\n", cmd.ErrPrefix(), err)
@@ -86,14 +94,18 @@ var generateArchitectureBaseCmd = cobra.Command{
 					},
 				}
 			}
+
 			w := deployment.NewFSWriter(opts)
 			if err := w.Write(cmd.Context(), h, outDir); err != nil {
 				cmd.PrintErrf("%s could not write filesystem output: %v\n", cmd.ErrPrefix(), err)
 				os.Exit(1)
 			}
+
 			cmd.Printf("filesystem export written to %s\n", outDir)
+
 			return
 		}
+
 		output := make([]*deployment.HierarchyManagementGroup, len(h.ManagementGroupNames()))
 		for i, mgName := range h.ManagementGroupNames() {
 			output[i] = h.ManagementGroup(mgName)
@@ -104,6 +116,7 @@ var generateArchitectureBaseCmd = cobra.Command{
 			cmd.PrintErrf("%s could not marshal output: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
+
 		cmd.SetOut(os.Stdout)
 		cmd.Println(string(outputBytes))
 	},

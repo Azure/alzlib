@@ -168,3 +168,53 @@ func TestNewPolicySetDefinitionFromVersionValidateValidationFailure(t *testing.T
 	require.Error(t, err)
 	require.ErrorContains(t, err, "'properties.displayName' must not be nil")
 }
+
+func TestNewPolicySetDefinitionFromVersionSuccess(t *testing.T) {
+	versionID := "/subscriptions/00000000-0000-0000-0000-000000000000/providers/" +
+		"Microsoft.Authorization/policySetDefinitions/myPolicySet/versions/1.0.0"
+
+	psdVersion := armpolicy.SetDefinitionVersion{
+		ID: to.Ptr(versionID),
+		Properties: &armpolicy.SetDefinitionVersionProperties{
+			DisplayName:       to.Ptr("My Policy Set"),
+			Description:       to.Ptr("Description"),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+			Version:           to.Ptr("1.0.0"),
+		},
+	}
+
+	psd, err := NewPolicySetDefinitionFromVersion(psdVersion)
+	require.NoError(t, err)
+	require.NotNil(t, psd)
+	assert.Equal(t, "myPolicySet", *psd.Name)
+	assert.Equal(t, "1.0.0", *psd.Properties.Version)
+}
+
+func TestNewPolicySetDefinitionFromVersionMissingID(t *testing.T) {
+	_, err := NewPolicySetDefinitionFromVersion(armpolicy.SetDefinitionVersion{})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "policy set definition ID must be set")
+}
+
+func TestNewPolicySetDefinitionFromVersionNoValidation(t *testing.T) {
+	// A set definition with a display name exceeding the documented 128-char limit
+	// should still succeed because the non-validating constructor is used.
+	versionID := "/subscriptions/00000000-0000-0000-0000-000000000000/providers/" +
+		"Microsoft.Authorization/policySetDefinitions/myPolicySet/versions/1.0.0"
+	longDisplayName := "[Preview]: Microsoft Managed DevOps Pools should be provided with valid subnet resource in order to configure with own virtual network."
+
+	psdVersion := armpolicy.SetDefinitionVersion{
+		ID: to.Ptr(versionID),
+		Properties: &armpolicy.SetDefinitionVersionProperties{
+			DisplayName:       to.Ptr(longDisplayName),
+			Description:       to.Ptr("Description"),
+			PolicyDefinitions: []*armpolicy.DefinitionReference{},
+			Version:           to.Ptr("1.0.0"),
+		},
+	}
+
+	psd, err := NewPolicySetDefinitionFromVersion(psdVersion)
+	require.NoError(t, err)
+	require.NotNil(t, psd)
+	assert.Equal(t, longDisplayName, *psd.Properties.DisplayName)
+}
