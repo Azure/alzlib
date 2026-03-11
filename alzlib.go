@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/cache"
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -565,6 +566,77 @@ func (az *AlzLib) AddCache(c BuiltInCache) {
 	defer az.mu.Unlock()
 
 	az.cache = c
+}
+
+// ExportBuiltInCache creates a [cache.Cache] from the built-in policy definitions and policy
+// set definitions that are currently loaded in AlzLib. Only definitions with a
+// [armpolicy.PolicyTypeBuiltIn] or [armpolicy.PolicyTypeStatic] policy type are included;
+// custom definitions (loaded from library files) are excluded.
+//
+// This is useful when callers want to persist a minimal cache covering only the definitions
+// referenced by their specific library — rather than using alzlibtool to cache everything.
+// The returned cache can be saved with [cache.Cache.Save] and reloaded later with
+// [cache.NewCache], then re-injected via [AlzLib.AddCache] to skip Azure API calls on
+// subsequent runs.
+func (az *AlzLib) ExportBuiltInCache() *cache.Cache {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+
+	pds := make(map[string]*assets.PolicyDefinitionVersions)
+	psds := make(map[string]*assets.PolicySetDefinitionVersions)
+
+	for name, pdvs := range az.policyDefinitions {
+		if !isBuiltInPolicyDefinitionVersions(pdvs) {
+			continue
+		}
+
+		pds[name] = pdvs
+	}
+
+	for name, psdvs := range az.policySetDefinitions {
+		if !isBuiltInPolicySetDefinitionVersions(psdvs) {
+			continue
+		}
+
+		psds[name] = psdvs
+	}
+
+	return cache.NewCacheFromDefinitions(pds, psds)
+}
+
+// isBuiltInPolicyDefinitionVersions returns true if any version in the collection has a
+// built-in or static policy type. Collections with no type set are treated as built-in to
+// ensure definitions fetched from Azure (which always set PolicyType) are never excluded.
+func isBuiltInPolicyDefinitionVersions(pdvs *assets.PolicyDefinitionVersions) bool {
+	for def := range pdvs.AllVersions() {
+		if def.Properties == nil || def.Properties.PolicyType == nil {
+			return true
+		}
+
+		switch *def.Properties.PolicyType {
+		case armpolicy.PolicyTypeBuiltIn, armpolicy.PolicyTypeStatic:
+			return true
+		}
+	}
+
+	return false
+}
+
+// isBuiltInPolicySetDefinitionVersions returns true if any version in the collection has a
+// built-in or static policy type. Collections with no type set are treated as built-in.
+func isBuiltInPolicySetDefinitionVersions(psdvs *assets.PolicySetDefinitionVersions) bool {
+	for def := range psdvs.AllVersions() {
+		if def.Properties == nil || def.Properties.PolicyType == nil {
+			return true
+		}
+
+		switch *def.Properties.PolicyType {
+		case armpolicy.PolicyTypeBuiltIn, armpolicy.PolicyTypeStatic:
+			return true
+		}
+	}
+
+	return false
 }
 
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.

@@ -141,6 +141,31 @@ func NewCache(r io.Reader) (*Cache, error) {
 	return c, nil
 }
 
+// NewCacheFromDefinitions creates a [Cache] from pre-loaded policy definition and policy set
+// definition version collections. This is useful when callers want to generate a cache that
+// is tailored to their specific use case — for example, after calling
+// [alzlib.AlzLib.GetDefinitionsFromAzure] to load only the definitions referenced by a
+// particular library.
+//
+// The supplied maps are shallow-copied: the keys are copied but the value pointers are
+// shared. Callers should not modify the values after creating the cache.
+func NewCacheFromDefinitions(
+	pds map[string]*assets.PolicyDefinitionVersions,
+	psds map[string]*assets.PolicySetDefinitionVersions,
+) *Cache {
+	c := &Cache{
+		policyDefinitions:    make(map[string]*assets.PolicyDefinitionVersions, len(pds)),
+		policySetDefinitions: make(map[string]*assets.PolicySetDefinitionVersions, len(psds)),
+	}
+
+	maps.Copy(c.policyDefinitions, pds)
+	maps.Copy(c.policySetDefinitions, psds)
+
+	c.computeCounts()
+
+	return c
+}
+
 // computeCounts calculates and stores the total version counts for
 // policy definitions and policy set definitions.
 func (c *Cache) computeCounts() {

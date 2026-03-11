@@ -4,12 +4,14 @@
 package alzlib
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/cache"
 	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/alzlib/to"
@@ -1968,4 +1970,146 @@ func testPolicySetDefinition(t *testing.T, name, version string) *assets.PolicyS
 			},
 		},
 	}
+}
+
+// testBuiltInPolicyDefinition creates a policy definition with PolicyTypeBuiltIn.
+func testBuiltInPolicyDefinition(t *testing.T, name, version string) *assets.PolicyDefinition {
+	t.Helper()
+
+	desc := name + " description"
+
+	return &assets.PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Name: to.Ptr(name),
+			Properties: &armpolicy.DefinitionProperties{
+				DisplayName: to.Ptr(name),
+				Description: &desc,
+				Metadata:    map[string]any{},
+				PolicyRule:  map[string]any{"if": map[string]any{}, "then": map[string]any{}},
+				PolicyType:  to.Ptr(armpolicy.PolicyTypeBuiltIn),
+				Version:     to.Ptr(version),
+			},
+		},
+	}
+}
+
+// testBuiltInPolicySetDefinition creates a policy set definition with PolicyTypeBuiltIn.
+func testBuiltInPolicySetDefinition(t *testing.T, name, version string) *assets.PolicySetDefinition {
+	t.Helper()
+
+	desc := name + " description"
+
+	return &assets.PolicySetDefinition{
+		SetDefinition: armpolicy.SetDefinition{
+			Name: to.Ptr(name),
+			Properties: &armpolicy.SetDefinitionProperties{
+				DisplayName:       to.Ptr(name),
+				Description:       &desc,
+				Metadata:          map[string]any{},
+				PolicyDefinitions: []*armpolicy.DefinitionReference{},
+				Parameters:        map[string]*armpolicy.ParameterDefinitionsValue{},
+				PolicyType:        to.Ptr(armpolicy.PolicyTypeBuiltIn),
+				Version:           to.Ptr(version),
+			},
+		},
+	}
+}
+
+// TestExportBuiltInCacheOnlyIncludesBuiltIns verifies that ExportBuiltInCache filters out
+// custom policy definitions and set definitions, keeping only built-ins.
+func TestExportBuiltInCacheOnlyIncludesBuiltIns(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Add a built-in policy definition.
+	require.NoError(t, az.AddPolicyDefinitions(testBuiltInPolicyDefinition(t, "builtin-pd", "1.0.0")))
+
+	// Add a custom policy definition (PolicyTypeCustom).
+	customPd := testPolicyDefinition(t, "custom-pd", "1.0.0")
+	customPd.Properties.PolicyType = to.Ptr(armpolicy.PolicyTypeCustom)
+	require.NoError(t, az.AddPolicyDefinitions(customPd))
+
+	// Add a built-in policy set definition.
+	require.NoError(t, az.AddPolicySetDefinitions(testBuiltInPolicySetDefinition(t, "builtin-psd", "1.0.0")))
+
+	// Add a custom policy set definition.
+	customPsd := testPolicySetDefinition(t, "custom-psd", "1.0.0")
+	require.NoError(t, az.AddPolicySetDefinitions(customPsd))
+
+	c := az.ExportBuiltInCache()
+
+	// Only built-in definitions should be in the exported cache.
+	pds := c.PolicyDefinitions()
+	psds := c.PolicySetDefinitions()
+
+	assert.Contains(t, pds, "builtin-pd", "built-in policy definition should be in cache")
+	assert.NotContains(t, pds, "custom-pd", "custom policy definition should not be in cache")
+	assert.Contains(t, psds, "builtin-psd", "built-in policy set definition should be in cache")
+	assert.NotContains(t, psds, "custom-psd", "custom policy set definition should not be in cache")
+}
+
+// TestExportBuiltInCacheStaticIsIncluded verifies that StaticBuiltIn definitions are included.
+func TestExportBuiltInCacheStaticIsIncluded(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	staticPd := testPolicyDefinition(t, "static-pd", "1.0.0")
+	staticPd.Properties.PolicyType = to.Ptr(armpolicy.PolicyTypeStatic)
+	require.NoError(t, az.AddPolicyDefinitions(staticPd))
+
+	c := az.ExportBuiltInCache()
+
+	assert.Contains(t, c.PolicyDefinitions(), "static-pd", "static policy definition should be in cache")
+}
+
+// TestExportBuiltInCacheNilPolicyTypeIsIncluded verifies that definitions with nil PolicyType
+// are treated as built-in and included in the exported cache.
+func TestExportBuiltInCacheNilPolicyTypeIsIncluded(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// testPolicyDefinition does not set PolicyType (nil).
+	require.NoError(t, az.AddPolicyDefinitions(testPolicyDefinition(t, "nil-type-pd", "1.0.0")))
+
+	c := az.ExportBuiltInCache()
+
+	assert.Contains(t, c.PolicyDefinitions(), "nil-type-pd",
+		"definition with nil PolicyType should be treated as built-in")
+}
+
+// TestExportBuiltInCacheEmpty verifies that an empty AlzLib produces an empty cache.
+func TestExportBuiltInCacheEmpty(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+	c := az.ExportBuiltInCache()
+
+	assert.Empty(t, c.PolicyDefinitions())
+	assert.Empty(t, c.PolicySetDefinitions())
+}
+
+// TestExportBuiltInCacheCanSaveAndReload verifies that the exported cache can be saved and
+// re-loaded via cache.NewCache without errors.
+func TestExportBuiltInCacheCanSaveAndReload(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+	require.NoError(t, az.AddPolicyDefinitions(testBuiltInPolicyDefinition(t, "save-pd", "2.0.0")))
+	require.NoError(t, az.AddPolicySetDefinitions(testBuiltInPolicySetDefinition(t, "save-psd", "2.0.0")))
+
+	exported := az.ExportBuiltInCache()
+
+	var buf bytes.Buffer
+	require.NoError(t, exported.Save(&buf))
+
+	reloaded, err := cache.NewCache(&buf)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, reloaded.PolicyDefinitionNames())
+	assert.Equal(t, 1, reloaded.PolicySetDefinitionNames())
+	assert.Equal(t, 1, reloaded.PolicyDefinitionCount())
+	assert.Equal(t, 1, reloaded.PolicySetDefinitionCount())
 }
