@@ -1160,7 +1160,17 @@ func (m *mockBuiltInCache) PolicySetDefinitions() map[string]*assets.PolicySetDe
 	return m.policySetDefs
 }
 
-func TestAddCachePopulatesDefinitions(t *testing.T) {
+func (m *mockBuiltInCache) PolicyDefinitionVersionsByName(name string) *assets.PolicyDefinitionVersions {
+	return m.policyDefs[name]
+}
+
+func (m *mockBuiltInCache) PolicySetDefinitionVersionsByName(name string) *assets.PolicySetDefinitionVersions {
+	return m.policySetDefs[name]
+}
+
+// TestAddCacheStoresCacheReference verifies that AddCache stores the cache reference for
+// lazy lookup, and that definitions are not immediately loaded into AlzLib.
+func TestAddCacheStoresCacheReference(t *testing.T) {
 	t.Parallel()
 
 	az := NewAlzLib(nil)
@@ -1179,23 +1189,56 @@ func TestAddCachePopulatesDefinitions(t *testing.T) {
 
 	az.AddCache(cache)
 
-	// Verify the definitions were added.
-	assert.True(t, az.PolicyDefinitionExists("cached-pd", to.Ptr("1.0.*")))
-	assert.True(t, az.PolicySetDefinitionExists("cached-psd", to.Ptr("1.0.*")))
+	// Definitions must NOT be loaded eagerly - they are only fetched on demand.
+	assert.False(t, az.PolicyDefinitionExists("cached-pd", to.Ptr("1.0.*")),
+		"cached-pd should not be eagerly loaded into AlzLib by AddCache")
+	assert.False(t, az.PolicySetDefinitionExists("cached-psd", to.Ptr("1.0.*")),
+		"cached-psd should not be eagerly loaded into AlzLib by AddCache")
 }
 
-func TestAddCacheDoesNotOverwriteExisting(t *testing.T) {
+// TestAddCacheDefinitionsLoadedOnDemand verifies that definitions are fetched from cache
+// during GetDefinitionsFromAzure and are accessible in AlzLib afterwards.
+func TestAddCacheDefinitionsLoadedOnDemand(t *testing.T) {
 	t.Parallel()
 
 	az := NewAlzLib(nil)
 
-	// Pre-populate with a policy definition.
+	pdvs := assets.NewPolicyDefinitionVersions()
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "cached-pd", "1.0.0"), false))
+
+	cache := &mockBuiltInCache{
+		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"cached-pd": pdvs},
+		policySetDefs: map[string]*assets.PolicySetDefinitionVersions{},
+	}
+
+	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/cached-pd")
+	require.NoError(t, err)
+
+	err = az.GetDefinitionsFromAzure(context.Background(), []BuiltInRequest{
+		{ResourceID: pdResID, Version: to.Ptr("1.0.*")},
+	})
+	require.NoError(t, err)
+
+	// After GetDefinitionsFromAzure, the definition should be in AlzLib.
+	assert.True(t, az.PolicyDefinitionExists("cached-pd", to.Ptr("1.0.*")))
+}
+
+// TestAddCacheExistingDefinitionNotOverwritten verifies that definitions already in AlzLib
+// are not replaced by a cache lookup - they are found first in AlzLib and skipped.
+func TestAddCacheExistingDefinitionNotOverwritten(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Pre-populate with a specific version.
 	existingPd := testPolicyDefinition(t, "existing-pd", "1.0.0")
 	require.NoError(t, az.AddPolicyDefinitions(existingPd))
 
-	// Build a cache with the same name but different version.
+	// Cache has the same version.
 	pdvs := assets.NewPolicyDefinitionVersions()
-	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "existing-pd", "2.0.0"), false))
+	require.NoError(t, pdvs.Add(testPolicyDefinition(t, "existing-pd", "1.0.0"), false))
 
 	cache := &mockBuiltInCache{
 		policyDefs:    map[string]*assets.PolicyDefinitionVersions{"existing-pd": pdvs},
@@ -1204,13 +1247,21 @@ func TestAddCacheDoesNotOverwriteExisting(t *testing.T) {
 
 	az.AddCache(cache)
 
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/existing-pd")
+	require.NoError(t, err)
+
+	// Requesting a version that already exists in AlzLib should succeed without error.
+	err = az.GetDefinitionsFromAzure(context.Background(), []BuiltInRequest{
+		{ResourceID: pdResID, Version: to.Ptr("1.0.*")},
+	})
+	require.NoError(t, err)
+
 	// The pre-existing version 1.0.0 should still be there.
 	assert.True(t, az.PolicyDefinitionExists("existing-pd", to.Ptr("1.0.*")))
-
-	// The cache version 2.0.0 should NOT have been added because the name already existed.
-	assert.False(t, az.PolicyDefinitionExists("existing-pd", to.Ptr("2.0.*")))
 }
 
+// TestAddCacheDeepCopies verifies that definitions fetched from cache are deep-copied so
+// that subsequent mutations to AlzLib do not affect the original cache entries.
 func TestAddCacheDeepCopies(t *testing.T) {
 	t.Parallel()
 
@@ -1225,6 +1276,14 @@ func TestAddCacheDeepCopies(t *testing.T) {
 	}
 
 	az.AddCache(cache)
+
+	pdResID, err := arm.ParseResourceID("/providers/Microsoft.Authorization/policyDefinitions/deep-copy-pd")
+	require.NoError(t, err)
+
+	// Fetch the definition from cache via GetDefinitionsFromAzure.
+	require.NoError(t, az.GetDefinitionsFromAzure(context.Background(), []BuiltInRequest{
+		{ResourceID: pdResID, Version: to.Ptr("1.0.*")},
+	}))
 
 	// Mutate the definition in AlzLib via SetAssignPermissionsOnDefinitionParameter.
 	// This should NOT affect the original cache.

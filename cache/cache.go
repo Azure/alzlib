@@ -282,3 +282,15 @@ func (c *Cache) PolicySetDefinitionVersionsForName(name string) []semver.Version
 
 	return psdvs.Versions()
 }
+
+// PolicyDefinitionVersionsByName returns the policy definition versions for the given name,
+// or nil if not found.
+func (c *Cache) PolicyDefinitionVersionsByName(name string) *assets.PolicyDefinitionVersions {
+	return c.policyDefinitions[name]
+}
+
+// PolicySetDefinitionVersionsByName returns the policy set definition versions for the given name,
+// or nil if not found.
+func (c *Cache) PolicySetDefinitionVersionsByName(name string) *assets.PolicySetDefinitionVersions {
+	return c.policySetDefinitions[name]
+}
