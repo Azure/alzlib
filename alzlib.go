@@ -570,9 +570,10 @@ func (az *AlzLib) AddCache(c BuiltInCache) {
 }
 
 // ExportBuiltInCache creates a [cache.Cache] from the built-in policy definitions and policy
-// set definitions that are currently loaded in AlzLib. Only definitions with a
-// [armpolicy.PolicyTypeBuiltIn] or [armpolicy.PolicyTypeStatic] policy type are included;
-// custom definitions (loaded from library files) are excluded.
+// set definitions that are currently loaded in AlzLib. Definitions are included when their
+// policy type is [armpolicy.PolicyTypeBuiltIn], [armpolicy.PolicyTypeStatic], or is
+// unspecified/nil (which is treated as built-in); custom definitions (loaded from library
+// files) are excluded.
 //
 // This is useful when callers want to persist a minimal cache covering only the definitions
 // referenced by their specific library — rather than using alzlibtool to cache everything.
@@ -937,14 +938,18 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest)
 		}
 
 		// Fall back to Azure.
-		if az.clients.policyClient == nil {
+		az.mu.RLock()
+		policyClient := az.clients.policyClient
+		az.mu.RUnlock()
+
+		if policyClient == nil {
 			return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
 		}
 
 		// Lazily initialise clients on first Azure call.
 		if client == nil {
-			versionedClient = az.clients.policyClient.NewDefinitionVersionsClient()
-			client = az.clients.policyClient.NewDefinitionsClient()
+			versionedClient = policyClient.NewDefinitionVersionsClient()
+			client = policyClient.NewDefinitionsClient()
 		}
 
 		var err error
@@ -995,14 +1000,18 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInReques
 		}
 
 		// Fall back to Azure.
-		if az.clients.policyClient == nil {
+		az.mu.RLock()
+		policyClient := az.clients.policyClient
+		az.mu.RUnlock()
+
+		if policyClient == nil {
 			return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
 		}
 
 		// Lazily initialise clients on first Azure call.
 		if client == nil {
-			versionedClient = az.clients.policyClient.NewSetDefinitionVersionsClient()
-			client = az.clients.policyClient.NewSetDefinitionsClient()
+			versionedClient = policyClient.NewSetDefinitionVersionsClient()
+			client = policyClient.NewSetDefinitionsClient()
 		}
 
 		var (
@@ -1308,20 +1317,24 @@ func (az *AlzLib) ensureReferencedPolicyDefinition(
 	}
 
 	// Fall back to Azure.
-	if az.clients.policyClient == nil {
+	az.mu.RLock()
+	policyClient := az.clients.policyClient
+	az.mu.RUnlock()
+
+	if policyClient == nil {
 		return errors.New("Alzlib.ensureReferencedPolicyDefinition: policy client not set")
 	}
 
 	if ref.DefinitionVersion != nil {
 		if *definitionsVersionedClient == nil {
-			*definitionsVersionedClient = az.clients.policyClient.NewDefinitionVersionsClient()
+			*definitionsVersionedClient = policyClient.NewDefinitionVersionsClient()
 		}
 
 		return az.fetchReferencedPolicyDefinitionVersions(ctx, *definitionsVersionedClient, resID.Name, setDefinition, ref)
 	}
 
 	if *definitionsClient == nil {
-		*definitionsClient = az.clients.policyClient.NewDefinitionsClient()
+		*definitionsClient = policyClient.NewDefinitionsClient()
 	}
 
 	return az.fetchLatestReferencedPolicyDefinition(
