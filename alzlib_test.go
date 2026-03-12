@@ -1993,6 +1993,19 @@ func testBuiltInPolicyDefinition(t *testing.T, name, version string) *assets.Pol
 	}
 }
 
+// testBuiltInPolicyDefinitionWithParam creates a built-in policy definition that includes a named
+// parameter, allowing tests that exercise parameter mutation (e.g. SetAssignPermissionsOnDefinitionParameter).
+func testBuiltInPolicyDefinitionWithParam(t *testing.T, name, version, paramName string) *assets.PolicyDefinition {
+	t.Helper()
+
+	pd := testBuiltInPolicyDefinition(t, name, version)
+	pd.Properties.Parameters = map[string]*armpolicy.ParameterDefinitionsValue{
+		paramName: {Type: to.Ptr(armpolicy.ParameterTypeString)},
+	}
+
+	return pd
+}
+
 // testBuiltInPolicySetDefinition creates a policy set definition with PolicyTypeBuiltIn.
 func testBuiltInPolicySetDefinition(t *testing.T, name, version string) *assets.PolicySetDefinition {
 	t.Helper()
@@ -2112,4 +2125,37 @@ func TestExportBuiltInCacheCanSaveAndReload(t *testing.T) {
 	assert.Equal(t, 1, reloaded.PolicySetDefinitionNames())
 	assert.Equal(t, 1, reloaded.PolicyDefinitionCount())
 	assert.Equal(t, 1, reloaded.PolicySetDefinitionCount())
+}
+
+// TestExportBuiltInCacheIsDeepCopied verifies that mutating AlzLib after ExportBuiltInCache does
+// not affect the exported cache (i.e., the export contains independent copies of the definitions).
+func TestExportBuiltInCacheIsDeepCopied(t *testing.T) {
+	t.Parallel()
+
+	az := NewAlzLib(nil)
+
+	// Build a built-in policy definition that has a parameter so we can exercise mutation.
+	pd := testBuiltInPolicyDefinitionWithParam(t, "dc-pd", "1.0.0", "myParam")
+	require.NoError(t, az.AddPolicyDefinitions(pd))
+
+	exported := az.ExportBuiltInCache()
+
+	// Mutate the AlzLib copy; this must NOT touch the exported cache.
+	az.SetAssignPermissionsOnDefinitionParameter("dc-pd", "myParam")
+
+	// Retrieve the exported definition directly from the cache.
+	exportedPdvs := exported.PolicyDefinitionVersionsByName("dc-pd")
+	require.NotNil(t, exportedPdvs)
+
+	exportedPd, err := exportedPdvs.GetVersion(to.Ptr("1.0.*"))
+	require.NoError(t, err)
+	require.NotNil(t, exportedPd)
+
+	if exportedPd.Properties != nil && exportedPd.Properties.Parameters != nil {
+		if param, ok := exportedPd.Properties.Parameters["myParam"]; ok {
+			if param.Metadata != nil && param.Metadata.AssignPermissions != nil {
+				t.Fatal("exported cache definition was mutated - ExportBuiltInCache is not deep-copying")
+			}
+		}
+	}
 }

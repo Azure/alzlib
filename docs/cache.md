@@ -14,7 +14,7 @@ Benchmarks run on Apple M1 Pro comparing the two initialization paths:
 
 The cache path trades higher memory usage for a ~96x reduction in wall-clock time. The additional memory is transient — definitions not referenced by the library are eligible for garbage collection after initialization.
 
-The cache is loaded lazily: only definitions that are actually referenced by the library's policy assignments are fetched from the cache (or from Azure if missing). After `GetDefinitionsFromAzure` returns, the cache reference is cleared so the garbage collector can reclaim it.
+The cache is loaded lazily: only definitions that are actually referenced by the library's policy assignments are fetched from the cache (or from Azure if missing). The cache reference is retained for the lifetime of AlzLib — call `az.AddCache(nil)` to release it explicitly when no further lookups are needed.
 
 ## Creating a Cache File
 
@@ -80,8 +80,8 @@ az.AddCache(c)
 // built-in definitions referenced by the library.
 // If a definition is missing from the cache, AlzLib falls back
 // to the Azure client (if one has been set via AddPolicyClient).
-// The cache reference is released after GetDefinitionsFromAzure
-// returns, allowing the garbage collector to reclaim its memory.
+// The cache is kept until explicitly released — call az.AddCache(nil)
+// to allow the garbage collector to reclaim its memory.
 ```
 
 Definitions are fetched from the cache on demand during `GetDefinitionsFromAzure` (called internally by the deployment package). Only the definitions actually needed are loaded into AlzLib, and deep copies are made of every fetched definition to ensure the cache remains immutable.

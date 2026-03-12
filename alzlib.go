@@ -558,8 +558,9 @@ type BuiltInCache interface {
 }
 
 // AddCache stores a [BuiltInCache] for lazy lookup during [AlzLib.GetDefinitionsFromAzure].
-// Definitions are fetched from the cache on demand rather than being loaded eagerly,
-// which allows the garbage collector to discard the cache after GetDefinitionsFromAzure completes.
+// Definitions are fetched from the cache on demand rather than being loaded eagerly.
+// The cache is retained for the lifetime of AlzLib; call AddCache(nil) to release it
+// explicitly and allow the garbage collector to reclaim the memory.
 // A previously stored cache is replaced by the new one.
 func (az *AlzLib) AddCache(c BuiltInCache) {
 	az.mu.Lock()
@@ -590,7 +591,7 @@ func (az *AlzLib) ExportBuiltInCache() *cache.Cache {
 			continue
 		}
 
-		pds[name] = pdvs
+		pds[name] = deep.MustCopy(pdvs)
 	}
 
 	for name, psdvs := range az.policySetDefinitions {
@@ -598,7 +599,7 @@ func (az *AlzLib) ExportBuiltInCache() *cache.Cache {
 			continue
 		}
 
-		psds[name] = psdvs
+		psds[name] = deep.MustCopy(psdvs)
 	}
 
 	return cache.NewCacheFromDefinitions(pds, psds)
@@ -721,10 +722,9 @@ func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 // already because they can contain built-in definitions.
 // If a cache has been set via [AlzLib.AddCache], definitions are looked up from the cache
 // before falling back to Azure API calls.
-// The cache reference is cleared after this function returns, allowing the garbage collector
-// to discard the cache.
+// The cache is retained for the lifetime of AlzLib; callers can explicitly clear it
+// by calling AddCache(nil) when they no longer need it.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInRequest) error {
-	defer func() { az.cache = nil }()
 	policyDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 	policySetDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 
@@ -865,11 +865,15 @@ type policySetDefinitionVersionsPager interface {
 // policyDefinitionFromCache returns the policy definition for the given name and version
 // from the cache, or nil if the cache is unset or does not contain a matching entry.
 func (az *AlzLib) policyDefinitionFromCache(name string, version *string) *assets.PolicyDefinition {
-	if az.cache == nil {
+	az.mu.RLock()
+	c := az.cache
+	az.mu.RUnlock()
+
+	if c == nil {
 		return nil
 	}
 
-	pdvs := az.cache.PolicyDefinitionVersionsByName(name)
+	pdvs := c.PolicyDefinitionVersionsByName(name)
 	if pdvs == nil {
 		return nil
 	}
@@ -885,11 +889,15 @@ func (az *AlzLib) policyDefinitionFromCache(name string, version *string) *asset
 // policySetDefinitionFromCache returns the policy set definition for the given name and version
 // from the cache, or nil if the cache is unset or does not contain a matching entry.
 func (az *AlzLib) policySetDefinitionFromCache(name string, version *string) *assets.PolicySetDefinition {
-	if az.cache == nil {
+	az.mu.RLock()
+	c := az.cache
+	az.mu.RUnlock()
+
+	if c == nil {
 		return nil
 	}
 
-	psdvs := az.cache.PolicySetDefinitionVersionsByName(name)
+	psdvs := c.PolicySetDefinitionVersionsByName(name)
 	if psdvs == nil {
 		return nil
 	}
@@ -1227,12 +1235,20 @@ func (az *AlzLib) ensureReferencedPolicyDefinitions(
 		return nil
 	}
 
+	// Lazily initialised Azure clients, shared across all references within this invocation.
+	var (
+		definitionsClient        *armpolicy.DefinitionsClient
+		definitionsVersionedClient *armpolicy.DefinitionVersionsClient
+	)
+
 	for _, def := range processedRequests {
 		for _, ref := range def.Properties.PolicyDefinitions {
 			err := az.ensureReferencedPolicyDefinition(
 				ctx,
 				def,
 				ref,
+				&definitionsClient,
+				&definitionsVersionedClient,
 			)
 			if err != nil {
 				return err
@@ -1247,6 +1263,8 @@ func (az *AlzLib) ensureReferencedPolicyDefinition(
 	ctx context.Context,
 	setDefinition *assets.PolicySetDefinition,
 	ref *armpolicy.DefinitionReference,
+	definitionsClient **armpolicy.DefinitionsClient,
+	definitionsVersionedClient **armpolicy.DefinitionVersionsClient,
 ) error {
 	if ref == nil {
 		return nil
@@ -1295,15 +1313,19 @@ func (az *AlzLib) ensureReferencedPolicyDefinition(
 	}
 
 	if ref.DefinitionVersion != nil {
-		definitionsVersionedClient := az.clients.policyClient.NewDefinitionVersionsClient()
+		if *definitionsVersionedClient == nil {
+			*definitionsVersionedClient = az.clients.policyClient.NewDefinitionVersionsClient()
+		}
 
-		return az.fetchReferencedPolicyDefinitionVersions(ctx, definitionsVersionedClient, resID.Name, setDefinition, ref)
+		return az.fetchReferencedPolicyDefinitionVersions(ctx, *definitionsVersionedClient, resID.Name, setDefinition, ref)
 	}
 
-	definitionsClient := az.clients.policyClient.NewDefinitionsClient()
+	if *definitionsClient == nil {
+		*definitionsClient = az.clients.policyClient.NewDefinitionsClient()
+	}
 
 	return az.fetchLatestReferencedPolicyDefinition(
-		ctx, definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion,
+		ctx, *definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion,
 	)
 }
 
