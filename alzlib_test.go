@@ -1951,7 +1951,7 @@ func testPolicyDefinition(t *testing.T, name, version string) *assets.PolicyDefi
 	}
 }
 
-func testPolicySetDefinition(t *testing.T, name, version string) *assets.PolicySetDefinition {
+func testPolicySetDefinition(t *testing.T, name, version string) *assets.PolicySetDefinition { //nolint:unparam
 	t.Helper()
 
 	desc := name + " description"

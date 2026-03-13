@@ -61,6 +61,7 @@ The same file may be used for both --from-cache and --output to update a cache i
 		// Read the seed cache BEFORE opening the output file, because --from-cache
 		// and --output may point to the same path.
 		var seedCache *cache.Cache
+
 		if fromCacheFile != "" {
 			f, err := os.Open(fromCacheFile)
 			if err != nil {
