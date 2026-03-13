@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/cache"
 	"github.com/Azure/alzlib/internal/processor"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -48,6 +49,7 @@ type AlzLib struct {
 	defaultPolicyAssignmentValues DefaultPolicyAssignmentValues
 	metadata                      []*Metadata
 
+	cache   BuiltInCache
 	clients *azureClients
 	mu      sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
 }
@@ -542,37 +544,101 @@ func (az *AlzLib) RoleDefinition(name string) *assets.RoleDefinition {
 // BuiltInCache is an interface for providing cached built-in Azure policy definitions
 // and policy set definitions. When a complete cache is supplied via [AlzLib.AddCache],
 // the policy client ([AlzLib.AddPolicyClient]) is not required because
-// [AlzLib.GetDefinitionsFromAzure] will find every definition already present and skip
+// [AlzLib.GetDefinitionsFromAzure] will find every definition in the cache and skip
 // all Azure API calls.
 type BuiltInCache interface {
 	PolicyDefinitions() map[string]*assets.PolicyDefinitionVersions
 	PolicySetDefinitions() map[string]*assets.PolicySetDefinitionVersions
+	// PolicyDefinitionVersionsByName returns the policy definition versions for the given name,
+	// or nil if not found.
+	PolicyDefinitionVersionsByName(name string) *assets.PolicyDefinitionVersions
+	// PolicySetDefinitionVersionsByName returns the policy set definition versions for the given name,
+	// or nil if not found.
+	PolicySetDefinitionVersionsByName(name string) *assets.PolicySetDefinitionVersions
 }
 
-// AddCache pre-populates the AlzLib policy definition and policy set definition maps
-// from a [BuiltInCache]. Definitions already present in AlzLib are not overwritten.
-// Deep copies are made of every definition to ensure the cache is not mutated.
+// AddCache stores a [BuiltInCache] for lazy lookup during [AlzLib.GetDefinitionsFromAzure].
+// Definitions are fetched from the cache on demand rather than being loaded eagerly.
+// The cache is retained for the lifetime of AlzLib; call AddCache(nil) to release it
+// explicitly and allow the garbage collector to reclaim the memory.
+// A previously stored cache is replaced by the new one.
 func (az *AlzLib) AddCache(c BuiltInCache) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 
-	for name, pdvs := range c.PolicyDefinitions() {
-		if _, exists := az.policyDefinitions[name]; exists {
+	az.cache = c
+}
+
+// ExportBuiltInCache creates a [cache.Cache] from the built-in policy definitions and policy
+// set definitions that are currently loaded in AlzLib. Definitions are included when their
+// policy type is [armpolicy.PolicyTypeBuiltIn], [armpolicy.PolicyTypeStatic], or is
+// unspecified/nil (which is treated as built-in); custom definitions (loaded from library
+// files) are excluded.
+//
+// This is useful when callers want to persist a minimal cache covering only the definitions
+// referenced by their specific library — rather than using alzlibtool to cache everything.
+// The returned cache can be saved with [cache.Cache.Save] and reloaded later with
+// [cache.NewCache], then re-injected via [AlzLib.AddCache] to skip Azure API calls on
+// subsequent runs.
+func (az *AlzLib) ExportBuiltInCache() *cache.Cache {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+
+	pds := make(map[string]*assets.PolicyDefinitionVersions)
+	psds := make(map[string]*assets.PolicySetDefinitionVersions)
+
+	for name, pdvs := range az.policyDefinitions {
+		if !isBuiltInPolicyDefinitionVersions(pdvs) {
 			continue
 		}
 
-		cpy := deep.MustCopy(pdvs)
-		az.policyDefinitions[name] = cpy
+		pds[name] = deep.MustCopy(pdvs)
 	}
 
-	for name, psdvs := range c.PolicySetDefinitions() {
-		if _, exists := az.policySetDefinitions[name]; exists {
+	for name, psdvs := range az.policySetDefinitions {
+		if !isBuiltInPolicySetDefinitionVersions(psdvs) {
 			continue
 		}
 
-		cpy := deep.MustCopy(psdvs)
-		az.policySetDefinitions[name] = cpy
+		psds[name] = deep.MustCopy(psdvs)
 	}
+
+	return cache.NewCacheFromDefinitions(pds, psds)
+}
+
+// isBuiltInPolicyDefinitionVersions returns true if any version in the collection has a
+// built-in or static policy type. Collections with no type set are treated as built-in to
+// ensure definitions fetched from Azure (which always set PolicyType) are never excluded.
+func isBuiltInPolicyDefinitionVersions(pdvs *assets.PolicyDefinitionVersions) bool {
+	for def := range pdvs.AllVersions() {
+		if def.Properties == nil || def.Properties.PolicyType == nil {
+			return true
+		}
+
+		switch *def.Properties.PolicyType {
+		case armpolicy.PolicyTypeBuiltIn, armpolicy.PolicyTypeStatic:
+			return true
+		}
+	}
+
+	return false
+}
+
+// isBuiltInPolicySetDefinitionVersions returns true if any version in the collection has a
+// built-in or static policy type. Collections with no type set are treated as built-in.
+func isBuiltInPolicySetDefinitionVersions(psdvs *assets.PolicySetDefinitionVersions) bool {
+	for def := range psdvs.AllVersions() {
+		if def.Properties == nil || def.Properties.PolicyType == nil {
+			return true
+		}
+
+		switch *def.Properties.PolicyType {
+		case armpolicy.PolicyTypeBuiltIn, armpolicy.PolicyTypeStatic:
+			return true
+		}
+	}
+
+	return false
 }
 
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.
@@ -655,6 +721,10 @@ func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 // It then fetches them from Azure if they don't already exist (determined by last segment of
 // resource id). For set definitions we need to get all of them, even if they exist in AlzLib
 // already because they can contain built-in definitions.
+// If a cache has been set via [AlzLib.AddCache], definitions are looked up from the cache
+// before falling back to Azure API calls.
+// The cache is retained for the lifetime of AlzLib; callers can explicitly clear it
+// by calling AddCache(nil) when they no longer need it.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInRequest) error {
 	policyDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 	policySetDefsToGet := make([]BuiltInRequest, 0, len(reqs))
@@ -793,19 +863,93 @@ type policySetDefinitionVersionsPager interface {
 	NextPage(context.Context) (armpolicy.SetDefinitionVersionsClientListBuiltInResponse, error)
 }
 
+// policyDefinitionFromCache returns the policy definition for the given name and version
+// from the cache, or nil if the cache is unset or does not contain a matching entry.
+func (az *AlzLib) policyDefinitionFromCache(name string, version *string) *assets.PolicyDefinition {
+	az.mu.RLock()
+	c := az.cache
+	az.mu.RUnlock()
+
+	if c == nil {
+		return nil
+	}
+
+	pdvs := c.PolicyDefinitionVersionsByName(name)
+	if pdvs == nil {
+		return nil
+	}
+
+	pd, err := pdvs.GetVersion(version)
+	if err != nil {
+		return nil
+	}
+
+	return pd
+}
+
+// policySetDefinitionFromCache returns the policy set definition for the given name and version
+// from the cache, or nil if the cache is unset or does not contain a matching entry.
+func (az *AlzLib) policySetDefinitionFromCache(name string, version *string) *assets.PolicySetDefinition {
+	az.mu.RLock()
+	c := az.cache
+	az.mu.RUnlock()
+
+	if c == nil {
+		return nil
+	}
+
+	psdvs := c.PolicySetDefinitionVersionsByName(name)
+	if psdvs == nil {
+		return nil
+	}
+
+	psd, err := psdvs.GetVersion(version)
+	if err != nil {
+		return nil
+	}
+
+	return psd
+}
+
 // getBuiltInPolicies retrieves the built-in policy definitions with the given names
 // and adds them to the AlzLib struct.
 func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest) error {
-	if az.clients.policyClient == nil {
-		return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
-	}
-
-	versionedClient := az.clients.policyClient.NewDefinitionVersionsClient()
-	client := az.clients.policyClient.NewDefinitionsClient()
+	var (
+		versionedClient *armpolicy.DefinitionVersionsClient
+		client          *armpolicy.DefinitionsClient
+	)
 
 	for _, req := range reqs {
 		if az.PolicyDefinitionExists(req.ResourceID.Name, req.Version) {
 			continue
+		}
+
+		// Check cache before calling Azure.
+		if pdv := az.policyDefinitionFromCache(req.ResourceID.Name, req.Version); pdv != nil {
+			if err := az.AddPolicyDefinitions(pdv); err != nil {
+				return fmt.Errorf(
+					"Alzlib.getBuiltInPolicies: adding cached built-in policy definition %s: %w",
+					JoinNameAndVersion(req.ResourceID.Name, req.Version),
+					err,
+				)
+			}
+
+			continue
+		}
+
+		// Fall back to Azure.
+		az.mu.RLock()
+		policyClient := az.clients.policyClient
+		az.mu.RUnlock()
+
+		if policyClient == nil {
+			return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
+		}
+
+		// Lazily initialise clients on first Azure call.
+		if client == nil {
+			versionedClient = policyClient.NewDefinitionVersionsClient()
+			client = policyClient.NewDefinitionsClient()
 		}
 
 		var err error
@@ -828,18 +972,46 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest)
 // getBuiltInPolicySets retrieves the built-in policy set definitions with the given names
 // and adds them to the AlzLib struct.
 func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInRequest) error {
-	if az.clients.policyClient == nil {
-		return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
-	}
-
 	processedRequests := make([]*assets.PolicySetDefinition, 0, len(reqs))
 
-	versionedClient := az.clients.policyClient.NewSetDefinitionVersionsClient()
-	client := az.clients.policyClient.NewSetDefinitionsClient()
+	var (
+		versionedClient *armpolicy.SetDefinitionVersionsClient
+		client          *armpolicy.SetDefinitionsClient
+	)
 
 	for _, req := range reqs {
 		if az.PolicySetDefinitionExists(req.ResourceID.Name, req.Version) {
 			continue
+		}
+
+		// Check cache before calling Azure.
+		if psdv := az.policySetDefinitionFromCache(req.ResourceID.Name, req.Version); psdv != nil {
+			if err := az.AddPolicySetDefinitions(psdv); err != nil {
+				return fmt.Errorf(
+					"Alzlib.getBuiltInPolicySets: adding cached built-in policy set definition %s: %w",
+					req.String(),
+					err,
+				)
+			}
+
+			processedRequests = append(processedRequests, psdv)
+
+			continue
+		}
+
+		// Fall back to Azure.
+		az.mu.RLock()
+		policyClient := az.clients.policyClient
+		az.mu.RUnlock()
+
+		if policyClient == nil {
+			return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
+		}
+
+		// Lazily initialise clients on first Azure call.
+		if client == nil {
+			versionedClient = policyClient.NewSetDefinitionVersionsClient()
+			client = policyClient.NewSetDefinitionsClient()
 		}
 
 		var (
@@ -1072,17 +1244,20 @@ func (az *AlzLib) ensureReferencedPolicyDefinitions(
 		return nil
 	}
 
-	definitionsVersionedClient := az.clients.policyClient.NewDefinitionVersionsClient()
-	definitionsClient := az.clients.policyClient.NewDefinitionsClient()
+	// Lazily initialised Azure clients, shared across all references within this invocation.
+	var (
+		definitionsClient        *armpolicy.DefinitionsClient
+		definitionsVersionedClient *armpolicy.DefinitionVersionsClient
+	)
 
 	for _, def := range processedRequests {
 		for _, ref := range def.Properties.PolicyDefinitions {
 			err := az.ensureReferencedPolicyDefinition(
 				ctx,
-				definitionsClient,
-				definitionsVersionedClient,
 				def,
 				ref,
+				&definitionsClient,
+				&definitionsVersionedClient,
 			)
 			if err != nil {
 				return err
@@ -1095,10 +1270,10 @@ func (az *AlzLib) ensureReferencedPolicyDefinitions(
 
 func (az *AlzLib) ensureReferencedPolicyDefinition(
 	ctx context.Context,
-	definitionsClient *armpolicy.DefinitionsClient,
-	definitionsVersionedClient *armpolicy.DefinitionVersionsClient,
 	setDefinition *assets.PolicySetDefinition,
 	ref *armpolicy.DefinitionReference,
+	definitionsClient **armpolicy.DefinitionsClient,
+	definitionsVersionedClient **armpolicy.DefinitionVersionsClient,
 ) error {
 	if ref == nil {
 		return nil
@@ -1121,12 +1296,49 @@ func (az *AlzLib) ensureReferencedPolicyDefinition(
 		)
 	}
 
+	// Check AlzLib first to avoid redundant work.
+	if az.PolicyDefinitionExists(resID.Name, ref.DefinitionVersion) {
+		return nil
+	}
+
+	// Check cache before calling Azure.
+	if pdv := az.policyDefinitionFromCache(resID.Name, ref.DefinitionVersion); pdv != nil {
+		if err := az.AddPolicyDefinitions(pdv); err != nil {
+			return fmt.Errorf(
+				"Alzlib.ensureReferencedPolicyDefinition: adding cached built-in policy definition `%s` "+
+					"referenced in policy set `%s`: %w",
+				JoinNameAndVersion(resID.Name, ref.DefinitionVersion),
+				JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
+				err,
+			)
+		}
+
+		return nil
+	}
+
+	// Fall back to Azure.
+	az.mu.RLock()
+	policyClient := az.clients.policyClient
+	az.mu.RUnlock()
+
+	if policyClient == nil {
+		return errors.New("Alzlib.ensureReferencedPolicyDefinition: policy client not set")
+	}
+
 	if ref.DefinitionVersion != nil {
-		return az.fetchReferencedPolicyDefinitionVersions(ctx, definitionsVersionedClient, resID.Name, setDefinition, ref)
+		if *definitionsVersionedClient == nil {
+			*definitionsVersionedClient = policyClient.NewDefinitionVersionsClient()
+		}
+
+		return az.fetchReferencedPolicyDefinitionVersions(ctx, *definitionsVersionedClient, resID.Name, setDefinition, ref)
+	}
+
+	if *definitionsClient == nil {
+		*definitionsClient = policyClient.NewDefinitionsClient()
 	}
 
 	return az.fetchLatestReferencedPolicyDefinition(
-		ctx, definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion,
+		ctx, *definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion,
 	)
 }
 
