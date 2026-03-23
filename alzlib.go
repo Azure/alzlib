@@ -866,50 +866,58 @@ type policySetDefinitionVersionsPager interface {
 
 // policyDefinitionFromCache returns the policy definition for the given name and version
 // from the cache, or nil if the cache is unset or does not contain a matching entry.
-func (az *AlzLib) policyDefinitionFromCache(name string, version *string) *assets.PolicyDefinition {
+func (az *AlzLib) policyDefinitionFromCache(name string, version *string) (*assets.PolicyDefinition, error) {
 	az.mu.RLock()
 	c := az.cache
 	az.mu.RUnlock()
 
 	if c == nil {
-		return nil
+		return nil, nil
 	}
 
 	pdvs := c.PolicyDefinitionVersionsByName(name)
 	if pdvs == nil {
-		return nil
+		return nil, nil
 	}
 
 	pd, err := pdvs.GetVersion(version)
 	if err != nil {
-		return nil
+		if errors.Is(err, assets.ErrNoVersionFound) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("getting policy definition %q (version %v) from cache: %w", name, version, err)
 	}
 
-	return pd
+	return pd, nil
 }
 
 // policySetDefinitionFromCache returns the policy set definition for the given name and version
 // from the cache, or nil if the cache is unset or does not contain a matching entry.
-func (az *AlzLib) policySetDefinitionFromCache(name string, version *string) *assets.PolicySetDefinition {
+func (az *AlzLib) policySetDefinitionFromCache(name string, version *string) (*assets.PolicySetDefinition, error) {
 	az.mu.RLock()
 	c := az.cache
 	az.mu.RUnlock()
 
 	if c == nil {
-		return nil
+		return nil, nil
 	}
 
 	psdvs := c.PolicySetDefinitionVersionsByName(name)
 	if psdvs == nil {
-		return nil
+		return nil, nil
 	}
 
 	psd, err := psdvs.GetVersion(version)
 	if err != nil {
-		return nil
+		if errors.Is(err, assets.ErrNoVersionFound) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("getting policy set definition %q (version %v) from cache: %w", name, version, err)
 	}
 
-	return psd
+	return psd, nil
 }
 
 // getBuiltInPolicies retrieves the built-in policy definitions with the given names
