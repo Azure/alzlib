@@ -718,13 +718,14 @@ func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 }
 
 // GetDefinitionsFromAzure takes a slice of requests for built-in definitions.
-// It then fetches them from Azure if they don't already exist (determined by last segment of
-// resource id). For set definitions we need to get all of them, even if they exist in AlzLib
-// already because they can contain built-in definitions.
+// It fetches requested definitions from Azure only when they do not already exist in AlzLib
+// (determined by the last segment of the resource ID). For policy set definitions, existing
+// sets in AlzLib are inspected to discover referenced built-in definitions, and any missing
+// referenced definitions are then fetched as needed.
 // If a cache has been set via [AlzLib.AddCache], definitions are looked up from the cache
 // before falling back to Azure API calls.
-// The cache is retained for the lifetime of AlzLib; callers can explicitly clear it
-// by calling AddCache(nil) when they no longer need it.
+// The cache is retained for the lifetime of AlzLib; callers can explicitly clear it by calling
+// AddCache(nil) when they no longer need it.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInRequest) error {
 	policyDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 	policySetDefsToGet := make([]BuiltInRequest, 0, len(reqs))
