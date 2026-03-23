@@ -88,13 +88,13 @@ func TestCacheInitWithLibrary(t *testing.T) {
 	assert.Contains(t, az.PolicyDefinitions(), "test-policy-definition")
 	assert.Contains(t, az.PolicySetDefinitions(), "test-policy-set-definition")
 
-	// Built-in definitions from cache are loaded lazily on demand via GetDefinitionsFromAzure
-	// (triggered by deployment.FromArchitecture). Only library-defined definitions are
-	// present at this point.
+	// The simple-existingmg library has a "simple" architecture whose policy set
+	// only references custom (library-local) definitions, so FromArchitecture
+	// does not trigger any built-in lookups.
 	h := deployment.NewHierarchy(az)
-	require.NoError(t, h.FromArchitecture(ctx, "alz", "00000000-0000-0000-0000-000000000000", "testlocation"))
+	require.NoError(t, h.FromArchitecture(ctx, "simple", "00000000-0000-0000-0000-000000000000", "testlocation"))
 
-	// After building the hierarchy, referenced built-in definitions should be present.
-	assert.Greater(t, len(az.PolicyDefinitions()), 1)
-	assert.Greater(t, len(az.PolicySetDefinitions()), 1)
+	// Library definitions should still be present after building the hierarchy.
+	assert.Contains(t, az.PolicyDefinitions(), "test-policy-definition")
+	assert.Contains(t, az.PolicySetDefinitions(), "test-policy-set-definition")
 }

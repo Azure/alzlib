@@ -36,9 +36,10 @@ When --library and --architecture are specified, only the definitions referenced
 architecture are included, producing a smaller, use-case-specific cache. This is useful for
 embedding the minimal set of definitions needed for a given deployment workflow.
 
-Use --from-cache to seed from an existing cache file. Definitions already present in the seed
-cache are used directly and not re-fetched from Azure. This allows efficient incremental updates.
-The same file may be used for both --from-cache and --output to update a cache in-place.`,
+Use --from-cache to seed from an existing cache file (requires --library and --architecture).
+Definitions already present in the seed cache are used directly and not re-fetched from Azure,
+reducing the number of API calls. The same file may be used for both --from-cache and --output
+to update a cache in-place.`,
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, _ []string) {
 		outFile, _ := cmd.Flags().GetString("output")
@@ -46,13 +47,23 @@ The same file may be used for both --from-cache and --output to update a cache i
 		libraryPath, _ := cmd.Flags().GetString("library")
 		architectureName, _ := cmd.Flags().GetString("architecture")
 		fromCacheFile, _ := cmd.Flags().GetString("from-cache")
-		rootMg, _ := cmd.Flags().GetString("rootmg")
-		location, _ := cmd.Flags().GetString("location")
 
 		// --library and --architecture must be specified together.
 		if (libraryPath == "") != (architectureName == "") {
 			cmd.PrintErrf(
 				"%s --library and --architecture must be specified together\n",
+				cmd.ErrPrefix(),
+			)
+			os.Exit(1)
+		}
+
+		// --from-cache only makes sense in architecture-scoped mode where the
+		// lazy cache-first lookup can skip individual Azure API calls. In full-scan
+		// mode the bulk listing APIs fetch everything regardless, so a seed cache
+		// cannot reduce work.
+		if fromCacheFile != "" && libraryPath == "" {
+			cmd.PrintErrf(
+				"%s --from-cache requires --library and --architecture\n",
 				cmd.ErrPrefix(),
 			)
 			os.Exit(1)
@@ -142,7 +153,7 @@ The same file may be used for both --from-cache and --output to update a cache i
 			}
 
 			h := deployment.NewHierarchy(az)
-			if err := h.FromArchitecture(cmd.Context(), architectureName, rootMg, location); err != nil {
+			if err := h.FromArchitecture(cmd.Context(), architectureName, defaultRootMgID, defaultLocation); err != nil {
 				cmd.PrintErrf(
 					"%s could not process architecture %q: %v\n",
 					cmd.ErrPrefix(), architectureName, err,
@@ -221,15 +232,7 @@ func init() {
 	createCmd.Flags().
 		String(
 			"from-cache", "",
-			"Path to an existing cache file to use as a seed. Definitions found in the seed cache "+
-				"are not re-fetched from Azure. The same path may be used for both --from-cache and --output "+
-				"to update a cache in-place.")
-	createCmd.Flags().
-		StringP(
-			"rootmg", "r", defaultRootMgID,
-			"Root management group ID to use when processing the architecture (used with --library and --architecture).")
-	createCmd.Flags().
-		StringP(
-			"location", "l", defaultLocation,
-			"Location to use when processing the architecture (used with --library and --architecture).")
+			"Path to an existing cache file to use as a seed (requires --library and --architecture). "+
+				"Definitions found in the seed cache are not re-fetched from Azure, reducing API calls. "+
+				"The same path may be used for both --from-cache and --output to update a cache in-place.")
 }

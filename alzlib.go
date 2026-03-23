@@ -934,7 +934,16 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest)
 		}
 
 		// Check cache before calling Azure.
-		if pdv := az.policyDefinitionFromCache(req.ResourceID.Name, req.Version); pdv != nil {
+		pdv, cacheErr := az.policyDefinitionFromCache(req.ResourceID.Name, req.Version)
+		if cacheErr != nil {
+			return fmt.Errorf(
+				"Alzlib.getBuiltInPolicies: looking up cached built-in policy definition %s: %w",
+				JoinNameAndVersion(req.ResourceID.Name, req.Version),
+				cacheErr,
+			)
+		}
+
+		if pdv != nil {
 			if err := az.AddPolicyDefinitions(pdv); err != nil {
 				return fmt.Errorf(
 					"Alzlib.getBuiltInPolicies: adding cached built-in policy definition %s: %w",
@@ -994,7 +1003,16 @@ func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInReques
 		}
 
 		// Check cache before calling Azure.
-		if psdv := az.policySetDefinitionFromCache(req.ResourceID.Name, req.Version); psdv != nil {
+		psdv, cacheErr := az.policySetDefinitionFromCache(req.ResourceID.Name, req.Version)
+		if cacheErr != nil {
+			return fmt.Errorf(
+				"Alzlib.getBuiltInPolicySets: looking up cached built-in policy set definition %s: %w",
+				req.String(),
+				cacheErr,
+			)
+		}
+
+		if psdv != nil {
 			if err := az.AddPolicySetDefinitions(psdv); err != nil {
 				return fmt.Errorf(
 					"Alzlib.getBuiltInPolicySets: adding cached built-in policy set definition %s: %w",
@@ -1255,7 +1273,7 @@ func (az *AlzLib) ensureReferencedPolicyDefinitions(
 
 	// Lazily initialised Azure clients, shared across all references within this invocation.
 	var (
-		definitionsClient        *armpolicy.DefinitionsClient
+		definitionsClient          *armpolicy.DefinitionsClient
 		definitionsVersionedClient *armpolicy.DefinitionVersionsClient
 	)
 
@@ -1311,7 +1329,18 @@ func (az *AlzLib) ensureReferencedPolicyDefinition(
 	}
 
 	// Check cache before calling Azure.
-	if pdv := az.policyDefinitionFromCache(resID.Name, ref.DefinitionVersion); pdv != nil {
+	pdv, cacheErr := az.policyDefinitionFromCache(resID.Name, ref.DefinitionVersion)
+	if cacheErr != nil {
+		return fmt.Errorf(
+			"Alzlib.ensureReferencedPolicyDefinition: looking up cached built-in policy definition `%s` "+
+				"referenced in policy set `%s`: %w",
+			JoinNameAndVersion(resID.Name, ref.DefinitionVersion),
+			JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
+			cacheErr,
+		)
+	}
+
+	if pdv != nil {
 		if err := az.AddPolicyDefinitions(pdv); err != nil {
 			return fmt.Errorf(
 				"Alzlib.ensureReferencedPolicyDefinition: adding cached built-in policy definition `%s` "+
