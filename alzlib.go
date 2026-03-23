@@ -886,7 +886,7 @@ func (az *AlzLib) policyDefinitionFromCache(name string, version *string) (*asse
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("getting policy definition %q (version %v) from cache: %w", name, version, err)
+		return nil, fmt.Errorf("getting policy definition %s from cache: %w", JoinNameAndVersion(name, version), err)
 	}
 
 	return pd, nil
@@ -914,7 +914,7 @@ func (az *AlzLib) policySetDefinitionFromCache(name string, version *string) (*a
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("getting policy set definition %q (version %v) from cache: %w", name, version, err)
+		return nil, fmt.Errorf("getting policy set definition %s from cache: %w", JoinNameAndVersion(name, version), err)
 	}
 
 	return psd, nil
