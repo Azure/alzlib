@@ -12,9 +12,9 @@ Benchmarks run on Apple M1 Pro comparing the two initialization paths:
 | Memory allocated | 1,406 MB | 716 MB | Cache uses ~2x more |
 | Allocations | 11.2M | 7.1M | Cache uses ~1.6x more |
 
-The cache path trades higher memory usage for a ~96x reduction in wall-clock time. The additional memory is transient — definitions not referenced by the library are eligible for garbage collection after initialization.
+The cache path trades higher memory usage for a ~96x reduction in wall-clock time. The cache data and any loaded definitions are retained in memory for as long as the cache is registered with AlzLib, so the additional memory is not automatically reclaimed unless the cache is released.
 
-The cache is loaded lazily: only definitions that are actually referenced by the library's policy assignments are fetched from the cache (or from Azure if missing). The cache reference is retained for the lifetime of AlzLib — call `az.AddCache(nil)` to release it explicitly when no further lookups are needed.
+The cache is loaded lazily: only definitions that are actually referenced by the library's policy assignments are fetched from the cache (or from Azure if missing). The cache reference is retained for the lifetime of AlzLib — call `az.AddCache(nil)` (and drop any other references to the cache) to allow the garbage collector to reclaim its memory when no further lookups are needed.
 
 ## Creating a Cache File
 
