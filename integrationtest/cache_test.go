@@ -84,11 +84,17 @@ func TestCacheInitWithLibrary(t *testing.T) {
 	lib := alzlib.NewCustomLibraryReference("./testdata/simple-existingmg")
 	require.NoError(t, az.Init(ctx, lib))
 
-	// Library definitions should be present.
+	// Library definitions should be present immediately after Init.
 	assert.Contains(t, az.PolicyDefinitions(), "test-policy-definition")
 	assert.Contains(t, az.PolicySetDefinitions(), "test-policy-set-definition")
 
-	// Cached built-in definitions should also be present.
-	assert.Greater(t, len(az.PolicyDefinitions()), 1)
-	assert.Greater(t, len(az.PolicySetDefinitions()), 1)
+	// The simple-existingmg library has a "simple" architecture whose policy set
+	// only references custom (library-local) definitions, so FromArchitecture
+	// does not trigger any built-in lookups.
+	h := deployment.NewHierarchy(az)
+	require.NoError(t, h.FromArchitecture(ctx, "simple", "00000000-0000-0000-0000-000000000000", "testlocation"))
+
+	// Library definitions should still be present after building the hierarchy.
+	assert.Contains(t, az.PolicyDefinitions(), "test-policy-definition")
+	assert.Contains(t, az.PolicySetDefinitions(), "test-policy-set-definition")
 }

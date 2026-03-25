@@ -12,9 +12,9 @@ Benchmarks run on Apple M1 Pro comparing the two initialization paths:
 | Memory allocated | 1,406 MB | 716 MB | Cache uses ~2x more |
 | Allocations | 11.2M | 7.1M | Cache uses ~1.6x more |
 
-The cache path trades higher memory usage for a ~96x reduction in wall-clock time. The additional memory is transient — definitions not referenced by the library are eligible for garbage collection after initialization.
+The cache path trades higher memory usage for a ~96x reduction in wall-clock time. The cache data and any loaded definitions are retained in memory for as long as the cache is registered with AlzLib, so the additional memory is not automatically reclaimed unless the cache is released.
 
-The cache uses more memory because it loads all built-in definitions upfront, while the Azure client path fetches only the definitions referenced by the library's policy assignments.
+The cache is loaded lazily: only definitions that are actually referenced by the library's policy assignments are fetched from the cache (or from Azure if missing). The cache reference is retained for the lifetime of AlzLib — call `az.AddCache(nil)` (and drop any other references to the cache) to allow the garbage collector to reclaim its memory when no further lookups are needed.
 
 ## Creating a Cache File
 
@@ -72,7 +72,7 @@ if err != nil {
     return err
 }
 
-// Pre-populate AlzLib with cached definitions.
+// Register the cache with AlzLib for lazy lookup.
 az := alzlib.NewAlzLib(nil)
 az.AddCache(c)
 
@@ -80,9 +80,11 @@ az.AddCache(c)
 // built-in definitions referenced by the library.
 // If a definition is missing from the cache, AlzLib falls back
 // to the Azure client (if one has been set via AddPolicyClient).
+// The cache is kept until explicitly released — call az.AddCache(nil)
+// to allow the garbage collector to reclaim its memory.
 ```
 
-Definitions already present in `AlzLib` (e.g. from library files) are not overwritten by the cache. Deep copies are made of every cached definition to ensure the cache remains immutable after loading.
+Definitions are fetched from the cache on demand during `GetDefinitionsFromAzure` (called internally by the deployment package). Only the definitions actually needed are loaded into AlzLib, and deep copies are made of every fetched definition to ensure the cache remains immutable.
 
 ## Cache Freshness
 

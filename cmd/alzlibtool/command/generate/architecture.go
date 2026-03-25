@@ -10,6 +10,7 @@ import (
 	"regexp"
 
 	"github.com/Azure/alzlib"
+	alzlibcache "github.com/Azure/alzlib/cache"
 	"github.com/Azure/alzlib/deployment"
 	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -43,6 +44,25 @@ var generateArchitectureBaseCmd = cobra.Command{
 		}
 
 		az := alzlib.NewAlzLib(nil)
+
+		// Load seed cache if --from-cache is specified.
+		fromCacheFile, _ := cmd.Flags().GetString("from-cache")
+		if fromCacheFile != "" {
+			f, err := os.Open(fromCacheFile)
+			if err != nil {
+				cmd.PrintErrf("%s could not open cache file %s: %v\n", cmd.ErrPrefix(), fromCacheFile, err)
+				os.Exit(1)
+			}
+			defer f.Close() //nolint:errcheck
+
+			c, err := alzlibcache.NewCache(f)
+			if err != nil {
+				cmd.PrintErrf("%s could not load cache file %s: %v\n", cmd.ErrPrefix(), fromCacheFile, err)
+				os.Exit(1)
+			}
+
+			az.AddCache(c)
+		}
 
 		creds, err := auth.NewToken()
 		if err != nil {
@@ -141,4 +161,12 @@ func init() {
 			"for-alz-bicep",
 			false,
 			"When exporting to a directory, add custom ARM escaping and other transformations specific to ALZ Bicep.")
+
+	generateArchitectureBaseCmd.Flags().
+		String(
+			"from-cache",
+			"",
+			"Path to a cache file to seed built-in definitions from. "+
+				"Definitions found in the cache are used before falling back to Azure API calls, "+
+				"reducing the number of requests made to Azure.")
 }
