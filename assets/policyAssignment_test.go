@@ -218,6 +218,60 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			},
 			expectedErr: "property 'properties.description' length must be between 1 and 512, but is 0",
 		},
+		{
+			name: "Single default non-compliance message",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
+					NonComplianceMessages: []*armpolicy.NonComplianceMessage{
+						{Message: to.Ptr("default message")},
+						{Message: to.Ptr("ref message"), PolicyDefinitionReferenceID: to.Ptr("ref1")},
+					},
+				},
+			},
+			expectedErr: "",
+		},
+		{
+			name: "Multiple default non-compliance messages",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
+					NonComplianceMessages: []*armpolicy.NonComplianceMessage{
+						{Message: to.Ptr("default message 1")},
+						{Message: to.Ptr("default message 2")},
+					},
+				},
+			},
+			expectedErr: "has 2 default non-compliance messages, only 1 is allowed",
+		},
+		{
+			name: "Multiple default non-compliance messages with empty reference ID",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
+					NonComplianceMessages: []*armpolicy.NonComplianceMessage{
+						{Message: to.Ptr("default message 1")},
+						{Message: to.Ptr("default message 2"), PolicyDefinitionReferenceID: to.Ptr("")},
+					},
+				},
+			},
+			expectedErr: "has 2 default non-compliance messages, only 1 is allowed",
+		},
 	}
 
 	for _, tt := range tests {
