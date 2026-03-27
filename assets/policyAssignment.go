@@ -195,6 +195,9 @@ func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 	for _, msg := range pa.Properties.NonComplianceMessages {
 		if msg.PolicyDefinitionReferenceID == nil || *msg.PolicyDefinitionReferenceID == "" {
 			defaultNonComplianceMessageCount++
+			if defaultNonComplianceMessageCount > 1 {
+			  break
+			}
 		}
 	}
 
