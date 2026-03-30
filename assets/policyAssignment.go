@@ -193,19 +193,25 @@ func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 	var defaultNonComplianceMessageCount int
 
 	for _, msg := range pa.Properties.NonComplianceMessages {
+		if msg == nil {
+			return fmt.Errorf(
+				"ValidatePolicyAssignment: policy assignment %s has a nil non-compliance message entry",
+				*pa.Name,
+			)
+		}
+
 		if msg.PolicyDefinitionReferenceID == nil || *msg.PolicyDefinitionReferenceID == "" {
 			defaultNonComplianceMessageCount++
 			if defaultNonComplianceMessageCount > 1 {
-			  break
+				break
 			}
 		}
 	}
 
 	if defaultNonComplianceMessageCount > 1 {
 		return fmt.Errorf(
-			"ValidatePolicyAssignment: policy assignment %s has %d default non-compliance messages, only 1 is allowed",
+			"ValidatePolicyAssignment: policy assignment %s has more than 1 default non-compliance messages, only 1 is allowed",
 			*pa.Name,
-			defaultNonComplianceMessageCount,
 		)
 	}
 

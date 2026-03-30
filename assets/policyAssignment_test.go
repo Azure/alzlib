@@ -252,7 +252,7 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: "has 2 default non-compliance messages, only 1 is allowed",
+			expectedErr: "has more than 1 default non-compliance messages, only 1 is allowed",
 		},
 		{
 			name: "Multiple default non-compliance messages with empty reference ID",
@@ -270,7 +270,25 @@ func TestValidatePolicyAssignment(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: "has 2 default non-compliance messages, only 1 is allowed",
+			expectedErr: "has more than 1 default non-compliance messages, only 1 is allowed",
+		},
+		{
+			name: "Nil element in non-compliance messages slice",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DisplayName: to.Ptr("Valid Display Name"),
+					Description: to.Ptr("Valid Description"),
+					NonComplianceMessages: []*armpolicy.NonComplianceMessage{
+						nil,
+						{Message: to.Ptr("ref message"), PolicyDefinitionReferenceID: to.Ptr("ref1")},
+					},
+				},
+			},
+			expectedErr: "has a nil non-compliance message entry",
 		},
 	}
 
