@@ -186,6 +186,35 @@ func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 		pa.Properties.Overrides = make([]*armpolicy.Override, 0)
 	}
 
+	if pa.Properties.NonComplianceMessages == nil {
+		pa.Properties.NonComplianceMessages = make([]*armpolicy.NonComplianceMessage, 0)
+	}
+
+	var defaultNonComplianceMessageCount int
+
+	for _, msg := range pa.Properties.NonComplianceMessages {
+		if msg == nil {
+			return fmt.Errorf(
+				"ValidatePolicyAssignment: policy assignment %s has a nil non-compliance message entry",
+				*pa.Name,
+			)
+		}
+
+		if msg.PolicyDefinitionReferenceID == nil || *msg.PolicyDefinitionReferenceID == "" {
+			defaultNonComplianceMessageCount++
+			if defaultNonComplianceMessageCount > 1 {
+				break
+			}
+		}
+	}
+
+	if defaultNonComplianceMessageCount > 1 {
+		return fmt.Errorf(
+			"ValidatePolicyAssignment: policy assignment %s has more than 1 default non-compliance messages, only 1 is allowed",
+			*pa.Name,
+		)
+	}
+
 	if pa.Properties.Parameters == nil {
 		pa.Properties.Parameters = make(map[string]*armpolicy.ParameterValuesValue)
 	}
