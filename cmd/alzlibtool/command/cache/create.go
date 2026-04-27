@@ -6,7 +6,6 @@ package cache
 import (
 	"log/slog"
 	"os"
-	"strings"
 
 	alzlib "github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/cache"
@@ -131,7 +130,7 @@ to update a cache in-place.`,
 			// only the built-in definitions that were actually referenced.
 			refs := make(alzlib.LibraryReferences, 0, len(libraryRefs))
 			for _, r := range libraryRefs {
-				refs = append(refs, parseLibraryReference(r))
+				refs = append(refs, alzlib.NewLibraryReference(r))
 			}
 
 			allLibs, err := refs.FetchWithDependencies(cmd.Context())
@@ -269,39 +268,4 @@ func init() {
 				"archetypes and architectures already provided by earlier libraries. Useful when "+
 				"layering a custom library on top of a base ALZ library. Requires --library and "+
 				"--architecture.")
-}
-
-// parseLibraryReference converts a CLI library argument into a LibraryReference.
-// Values containing an "@" separator and not starting with a filesystem path
-// indicator (".", "/", "\" or a Windows drive letter such as "C:") are treated
-// as ALZ Library references of the form <member>@<ref>. Everything else is
-// treated as a local custom library path.
-func parseLibraryReference(s string) alzlib.LibraryReference {
-	if idx := strings.LastIndex(s, "@"); idx > 0 {
-		path := s[:idx]
-		ref := s[idx+1:]
-
-		if ref != "" && !looksLikeLocalPath(path) {
-			return alzlib.NewAlzLibraryReference(path, ref)
-		}
-	}
-
-	return alzlib.NewCustomLibraryReference(s)
-}
-
-// looksLikeLocalPath reports whether p has a prefix that indicates a local
-// filesystem path rather than an ALZ Library member path.
-func looksLikeLocalPath(p string) bool {
-	if strings.HasPrefix(p, ".") || strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`) {
-		return true
-	}
-	// Windows drive letter, e.g. "C:" or "c:".
-	if len(p) >= 2 && p[1] == ':' {
-		c := p[0]
-		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
-			return true
-		}
-	}
-
-	return false
 }
