@@ -36,6 +36,14 @@ When --library and --architecture are specified, only the definitions referenced
 architecture are included, producing a smaller, use-case-specific cache. This is useful for
 embedding the minimal set of definitions needed for a given deployment workflow.
 
+A --library value may be either a local path (e.g. ./mylib) or an ALZ Library reference in
+the form <member>@<ref>, e.g. platform/alz@2026.01.3. The flag may be specified multiple
+times to combine several libraries; their dependencies are fetched recursively.
+
+Use --library-overwrite-enabled to allow later libraries to overwrite definitions, policy
+assignments, role definitions, archetypes and architectures already provided by earlier
+libraries. This is useful when layering a custom library on top of a base ALZ library.
+
 Use --from-cache to seed from an existing cache file (requires --library and --architecture).
 Definitions already present in the seed cache are used directly and not re-fetched from Azure,
 reducing the number of API calls. The same file may be used for both --from-cache and --output
@@ -44,12 +52,13 @@ to update a cache in-place.`,
 	Run: func(cmd *cobra.Command, _ []string) {
 		outFile, _ := cmd.Flags().GetString("output")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		libraryPath, _ := cmd.Flags().GetString("library")
+		libraryRefs, _ := cmd.Flags().GetStringArray("library")
 		architectureName, _ := cmd.Flags().GetString("architecture")
 		fromCacheFile, _ := cmd.Flags().GetString("from-cache")
+		libraryOverwriteEnabled, _ := cmd.Flags().GetBool("library-overwrite-enabled")
 
 		// --library and --architecture must be specified together.
-		if (libraryPath == "") != (architectureName == "") {
+		if (len(libraryRefs) == 0) != (architectureName == "") {
 			cmd.PrintErrf(
 				"%s --library and --architecture must be specified together\n",
 				cmd.ErrPrefix(),
@@ -61,9 +70,19 @@ to update a cache in-place.`,
 		// lazy cache-first lookup can skip individual Azure API calls. In full-scan
 		// mode the bulk listing APIs fetch everything regardless, so a seed cache
 		// cannot reduce work.
-		if fromCacheFile != "" && libraryPath == "" {
+		if fromCacheFile != "" && len(libraryRefs) == 0 {
 			cmd.PrintErrf(
 				"%s --from-cache requires --library and --architecture\n",
+				cmd.ErrPrefix(),
+			)
+			os.Exit(1)
+		}
+
+		// --library-overwrite-enabled is only meaningful in architecture-scoped mode
+		// where multiple libraries are loaded into an AlzLib instance.
+		if libraryOverwriteEnabled && len(libraryRefs) == 0 {
+			cmd.PrintErrf(
+				"%s --library-overwrite-enabled requires --library and --architecture\n",
 				cmd.ErrPrefix(),
 			)
 			os.Exit(1)
@@ -106,12 +125,15 @@ to update a cache in-place.`,
 
 		var resultCache *cache.Cache
 
-		if libraryPath != "" {
+		if len(libraryRefs) > 0 {
 			// Architecture-scoped mode: process the library + architecture and export
 			// only the built-in definitions that were actually referenced.
-			thisLib := alzlib.NewCustomLibraryReference(libraryPath)
+			refs := make(alzlib.LibraryReferences, 0, len(libraryRefs))
+			for _, r := range libraryRefs {
+				refs = append(refs, alzlib.NewLibraryReference(r))
+			}
 
-			allLibs, err := thisLib.FetchWithDependencies(cmd.Context())
+			allLibs, err := refs.FetchWithDependencies(cmd.Context())
 			if err != nil {
 				cmd.PrintErrf(
 					"%s could not fetch libraries with dependencies: %v\n",
@@ -121,6 +143,7 @@ to update a cache in-place.`,
 			}
 
 			az := alzlib.NewAlzLib(nil)
+			az.Options.AllowOverwrite = libraryOverwriteEnabled
 
 			if seedCache != nil {
 				az.AddCache(seedCache)
@@ -221,10 +244,13 @@ func init() {
 	createCmd.Flags().
 		BoolP("verbose", "v", false, "Display detailed progress during cache creation.")
 	createCmd.Flags().
-		StringP(
-			"library", "L", "",
-			"Path to a library. When set together with --architecture, creates a minimal cache "+
-				"containing only the definitions referenced by the specified architecture.")
+		StringArrayP(
+			"library", "L", nil,
+			"Path or reference to a library. May be specified multiple times. Each value is "+
+				"either a local filesystem path (e.g. ./mylib) or an ALZ Library reference of "+
+				"the form <member>@<ref> (e.g. platform/alz@2026.01.3). When set together with "+
+				"--architecture, creates a minimal cache containing only the definitions "+
+				"referenced by the specified architecture.")
 	createCmd.Flags().
 		StringP(
 			"architecture", "a", "",
@@ -235,4 +261,11 @@ func init() {
 			"Path to an existing cache file to use as a seed (requires --library and --architecture). "+
 				"Definitions found in the seed cache are not re-fetched from Azure, reducing API calls. "+
 				"The same path may be used for both --from-cache and --output to update a cache in-place.")
+	createCmd.Flags().
+		Bool(
+			"library-overwrite-enabled", false,
+			"Allow later libraries to overwrite definitions, policy assignments, role definitions, "+
+				"archetypes and architectures already provided by earlier libraries. Useful when "+
+				"layering a custom library on top of a base ALZ library. Requires --library and "+
+				"--architecture.")
 }

@@ -97,6 +97,30 @@ func NewAlzLibraryReference(path, ref string) *AlzLibraryReference {
 	}
 }
 
+// NewAlzLibraryReferenceFromString creates a new AlzLibraryReference by parsing
+// a string in the form "<path>@<ref>" (the inverse of AlzLibraryReference.String()).
+// Returns an error if s does not contain an "@" separator, has an empty path or
+// has an empty ref.
+func NewAlzLibraryReferenceFromString(s string) (*AlzLibraryReference, error) {
+	idx := strings.LastIndex(s, "@")
+	if idx <= 0 {
+		return nil, fmt.Errorf(
+			"NewAlzLibraryReferenceFromString: %q is not in the form <path>@<ref>", s,
+		)
+	}
+
+	path := s[:idx]
+	ref := s[idx+1:]
+
+	if ref == "" {
+		return nil, fmt.Errorf(
+			"NewAlzLibraryReferenceFromString: %q has an empty ref", s,
+		)
+	}
+
+	return NewAlzLibraryReference(path, ref), nil
+}
+
 // NewAlzLibraryReferenceFromFS creates a new AlzLibraryReference with the given path, ref and filesystem.
 func NewAlzLibraryReferenceFromFS(path, ref string, filesystem fs.FS) *AlzLibraryReference {
 	return &AlzLibraryReference{
@@ -171,6 +195,14 @@ func NewCustomLibraryReference(url string) *CustomLibraryReference {
 		url:        url,
 		filesystem: nil,
 	}
+}
+
+// NewCustomLibraryReferenceFromString creates a new CustomLibraryReference from
+// a go-getter URL or local path string (the inverse of CustomLibraryReference.String()).
+// It is equivalent to NewCustomLibraryReference and is provided for symmetry with
+// NewAlzLibraryReferenceFromString.
+func NewCustomLibraryReferenceFromString(s string) *CustomLibraryReference {
+	return NewCustomLibraryReference(s)
 }
 
 // NewCustomLibraryReferenceFromFS creates a new CustomLibraryReference with the given URL and filesystem.
@@ -287,4 +319,37 @@ func (m *Metadata) IsAlzLibraryRef() bool {
 // Ref returns the LibraryReference used to instantiate the library member.
 func (m *Metadata) Ref() LibraryReference {
 	return m.ref
+}
+
+// NewLibraryReference is a universal constructor that creates a LibraryReference
+// from a string by detecting its form. Values that contain an "@" separator and
+// do not look like a local filesystem path (i.e. do not start with ".", "/", "\"
+// or a Windows drive letter such as "C:") are treated as ALZ Library references
+// of the form "<path>@<ref>" and an *AlzLibraryReference is returned. Everything
+// else is returned as a *CustomLibraryReference.
+func NewLibraryReference(s string) LibraryReference {
+	if !looksLikeLocalPath(s) {
+		if ref, err := NewAlzLibraryReferenceFromString(s); err == nil {
+			return ref
+		}
+	}
+
+	return NewCustomLibraryReference(s)
+}
+
+// looksLikeLocalPath reports whether p has a prefix that indicates a local
+// filesystem path rather than an ALZ Library member path.
+func looksLikeLocalPath(p string) bool {
+	if strings.HasPrefix(p, ".") || strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`) {
+		return true
+	}
+	// Windows drive letter, e.g. "C:" or "c:".
+	if len(p) >= 2 && p[1] == ':' {
+		c := p[0]
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+			return true
+		}
+	}
+
+	return false
 }
