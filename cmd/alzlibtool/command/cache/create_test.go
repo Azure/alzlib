@@ -60,6 +60,18 @@ func TestParseLibraryReference(t *testing.T) {
 			wantCustS: `\\share\lib`,
 		},
 		{
+			name:      "windows drive path with at sign",
+			input:     `C:\libs\mylib@dev`,
+			wantAlz:   false,
+			wantCustS: `C:\libs\mylib@dev`,
+		},
+		{
+			name:      "windows drive path lowercase with at sign",
+			input:     `d:/libs/mylib@dev`,
+			wantAlz:   false,
+			wantCustS: `d:/libs/mylib@dev`,
+		},
+		{
 			name:      "no separator",
 			input:     "platform/alz",
 			wantAlz:   false,
