@@ -280,6 +280,7 @@ func parseLibraryReference(s string) alzlib.LibraryReference {
 	if idx := strings.LastIndex(s, "@"); idx > 0 {
 		path := s[:idx]
 		ref := s[idx+1:]
+
 		if ref != "" && !looksLikeLocalPath(path) {
 			return alzlib.NewAlzLibraryReference(path, ref)
 		}
