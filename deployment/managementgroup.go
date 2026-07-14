@@ -626,6 +626,15 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 
 						continue
 					}
+					
+					// An assignPermissions parameter whose effective value is empty (e.g. a member
+					// policy added by an upstream version bump whose parameter defaults to "" and is
+					// not overridden by the assignment) has no scope to grant permissions on.
+					// Skip it — consistent with the standalone policy definition branch above.
+					if scopeStr == "" {
+						continue
+					}
+
 					// The value should be an ARM resource ID.
 					resid, err := arm.ParseResourceID(scopeStr)
 					if err != nil {
