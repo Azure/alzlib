@@ -50,7 +50,16 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          version: latest
+          # This selects the golangci-lint binary and is independent of the action version above,
+          # which was upgraded to v9 to use the Node.js 24 runtime.
+          # Keep v2.11.4 pinned because it is the last known-good version for this codebase.
+          # Starting with v2.12.0, the upgraded goconst linter performs extended detection and
+          # reports 77 pre-existing repeated-string findings, mainly in test fixtures.
+          # Do not change this to `latest`, as that makes CI behavior change without repository changes.
+          # Upgrade the linter in a dedicated PR after reviewing the v2.12+ changelog and deciding
+          # whether to fix the findings or explicitly configure goconst (for example, ignore-tests).
+          # Changelog: https://golangci-lint.run/docs/product/changelog/#2120
+          version: v2.11.4
 
           # Optional: working directory, useful for monorepos
           # working-directory: somedir
