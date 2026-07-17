@@ -58,6 +58,7 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 		Identity: &armpolicy.Identity{Type: to.Ptr(armpolicy.ResourceIdentityTypeSystemAssigned)},
 		Properties: &armpolicy.AssignmentProperties{
 			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policySetDefinitions/test-policy-set-definition"),
+			// setparameter3 is intentionally omitted so the policy set's empty default is used.
 			Parameters: map[string]*armpolicy.ParameterValuesValue{
 				"setparameter1": {Value: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg"},
 				"setparameter2": {Value: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg2"},
@@ -76,6 +77,10 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 				"setparameter2": {
 					Type: to.Ptr(armpolicy.ParameterTypeString),
 				},
+				"setparameter3": {
+					Type:         to.Ptr(armpolicy.ParameterTypeString),
+					DefaultValue: "",
+				},
 			},
 			PolicyDefinitions: []*armpolicy.DefinitionReference{
 				{
@@ -84,6 +89,7 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 					Parameters: map[string]*armpolicy.ParameterValuesValue{
 						"parameter1": {Value: "[parameters('setparameter1')]"},
 						"parameter2": {Value: "[parameters('setparameter2')]"},
+						"parameter3": {Value: "[parameters('setparameter3')]"},
 					},
 				},
 			},
@@ -161,6 +167,12 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 						AssignPermissions: to.Ptr(false),
 					},
 				},
+				"parameter3": {
+					Type: to.Ptr(armpolicy.ParameterTypeString),
+					Metadata: &armpolicy.ParameterDefinitionsValueMetadata{
+						AssignPermissions: to.Ptr(true),
+					},
+				},
 			},
 		},
 	})
@@ -191,6 +203,10 @@ func TestGeneratePolicyAssignmentAdditionalRoleAssignments(t *testing.T) {
 
 	// check that the additional role assignments were generated correctly.
 	assert.Equal(t, 4, mg.policyRoleAssignments.Cardinality())
+
+	for roleAssignment := range mg.policyRoleAssignments.Iter() {
+		assert.NotEmpty(t, roleAssignment.Scope)
+	}
 
 	assert.True(t, mg.policyRoleAssignments.Contains(PolicyRoleAssignment{
 		AssignmentName:   *paDef.Name,
