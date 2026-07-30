@@ -254,3 +254,23 @@ properties:
 	assert.Contains(t, *pa.Properties.PolicyDefinitionID, "test-policy-set-definition")
 	assert.Contains(t, pa.Properties.Parameters, "effect")
 }
+
+func TestUnmarshalYamlInvalidDocument(t *testing.T) {
+	invalid := []byte("a:\n  - b\n c: d\n")
+
+	dst := new(assets.RoleDefinition)
+	err := NewUnmarshaler(invalid, ".yaml").Unmarshal(dst)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "yaml.Unmarshal error")
+}
+
+func TestUnmarshalYamlUnrepresentableInJson(t *testing.T) {
+	// NaN is a valid YAML float but has no JSON representation, so the conversion to JSON
+	// must fail rather than silently producing an invalid document.
+	notANumber := []byte("value: .nan\n")
+
+	dst := new(map[string]any)
+	err := NewUnmarshaler(notANumber, ".yaml").Unmarshal(dst)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "json.Marshal error")
+}
