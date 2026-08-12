@@ -91,23 +91,44 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 		return nil, err
 	}
 
-	var resKey *semver.Version
+	// Azure Policy encodes state as a semver prerelease suffix: "-preview" or "-deprecated".
+	// A constraint carrying such a suffix must resolve to a version with the same suffix, not to a
+	// higher stable release or a different suffix. It falls back to the highest stable release when
+	// no same-suffix version matches (graduated out of preview), then to any other matching version
+	// as a last resort. See Azure/Azure-Landing-Zones#4190.
+	wantPrerelease := policyVersionConstraintPrerelease(*constraintStr)
+
+	var bestMatch, bestStable, bestAny *semver.Version
 
 	for v := range c.versions {
 		if !constraint.Check(&v) {
 			continue
 		}
 
-		if resKey == nil {
-			resKey = &v
-			continue
+		if bestAny == nil || v.GreaterThan(bestAny) {
+			bestAny = &v
 		}
 
-		if v.LessThan(resKey) {
-			continue
+		// When the constraint has no suffix, wantPrerelease is "" and the first case wins.
+		switch v.Prerelease() {
+		case wantPrerelease:
+			if bestMatch == nil || v.GreaterThan(bestMatch) {
+				bestMatch = &v
+			}
+		case "":
+			if bestStable == nil || v.GreaterThan(bestStable) {
+				bestStable = &v
+			}
 		}
+	}
 
-		resKey = &v
+	resKey := bestMatch
+	if resKey == nil {
+		resKey = bestStable
+	}
+
+	if resKey == nil {
+		resKey = bestAny
 	}
 
 	if resKey == nil {

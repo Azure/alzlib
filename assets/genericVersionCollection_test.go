@@ -236,6 +236,91 @@ func TestVersionedPolicyCollection_GetVersion_PrereleaseVersionMatchOnNilVersion
 	assert.NotNil(t, got)
 }
 
+func TestVersionedPolicyCollection_GetVersion_PrereleaseAwareResolution(t *testing.T) {
+	newColl := func(versions ...string) *PolicyDefinitionVersions {
+		pdvs := NewPolicyDefinitionVersions()
+		for _, v := range versions {
+			require.NoError(t, pdvs.Add(fakePolicyDefinitionVersioned("MCSB2", v), false))
+		}
+
+		return pdvs
+	}
+
+	fullSet := []string{"1.1.0-preview", "1.2.0-preview", "1.3.0-preview", "1.4.0"}
+
+	tests := []struct {
+		name       string
+		versions   []string
+		constraint string
+		want       string
+	}{
+		{
+			name:       "preview wildcard prefers highest preview not stable",
+			versions:   fullSet,
+			constraint: "1.*.*-preview",
+			want:       "1.3.0-preview",
+		},
+		{
+			name:       "preview pinned minor",
+			versions:   fullSet,
+			constraint: "1.3.*-preview",
+			want:       "1.3.0-preview",
+		},
+		{
+			name:       "clean wildcard resolves stable",
+			versions:   fullSet,
+			constraint: "1.*.*",
+			want:       "1.4.0",
+		},
+		{
+			name:       "graduated out of preview falls back to stable",
+			versions:   []string{"1.4.0"},
+			constraint: "1.*.*-preview",
+			want:       "1.4.0",
+		},
+		{
+			name:       "preview only resolves highest preview",
+			versions:   []string{"1.1.0-preview", "1.2.0-preview"},
+			constraint: "1.*.*-preview",
+			want:       "1.2.0-preview",
+		},
+		{
+			name:       "preview wildcard ignores deprecated and higher stable",
+			versions:   []string{"1.2.0-preview", "1.3.0-preview", "1.4.0-deprecated", "1.5.0"},
+			constraint: "1.*.*-preview",
+			want:       "1.3.0-preview",
+		},
+		{
+			name:       "deprecated constraint resolves matching deprecated",
+			versions:   []string{"1.3.0-preview", "1.4.0-deprecated", "1.5.0"},
+			constraint: "1.*.*-deprecated",
+			want:       "1.4.0-deprecated",
+		},
+		{
+			name:       "clean wildcard ignores deprecated",
+			versions:   []string{"1.4.0-deprecated", "1.5.0"},
+			constraint: "1.*.*",
+			want:       "1.5.0",
+		},
+		{
+			name:       "only different suffix falls back to any match",
+			versions:   []string{"1.4.0-deprecated"},
+			constraint: "1.*.*-preview",
+			want:       "1.4.0-deprecated",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pdvs := newColl(tt.versions...)
+			got, err := pdvs.GetVersion(to.Ptr(tt.constraint))
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want, *got.GetVersion())
+		})
+	}
+}
+
 func TestVersionedPolicyCollection_Exists(t *testing.T) {
 	t.Run("returns true when versionless definition present", func(t *testing.T) {
 		pdvs := NewPolicyDefinitionVersions()
