@@ -86,6 +86,19 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 		return c.versionlessDefinition, nil
 	}
 
+	// An exact version resolves directly. This is how an assignment's effective definition version,
+	// as reported by Azure, and concrete version pins are looked up.
+	if sv, err := semver.StrictNewVersion(*constraintStr); err == nil {
+		if pol, ok := c.versions[*sv]; ok {
+			return pol, nil
+		}
+
+		return nil, errors.Join(ErrNoVersionFound, fmt.Errorf(
+			"version %s",
+			*constraintStr,
+		))
+	}
+
 	constraint, err := policyVersionConstraintToSemVerConstraint(*constraintStr)
 	if err != nil {
 		return nil, err

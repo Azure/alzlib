@@ -26,6 +26,10 @@ const (
 // working with policy assignments.
 type PolicyAssignment struct {
 	armpolicy.Assignment
+
+	// Held outside the embedded SDK type so it is never serialized: Azure rejects this read-only
+	// property when an assignment is deployed.
+	effectiveDefinitionVersion *string
 }
 
 // NewPolicyAssignment creates a new PolicyAssignment instance from an armpolicy.Assignment.
@@ -33,17 +37,60 @@ type PolicyAssignment struct {
 // Use either the UnmarshalJSON method, or the ValidatePolicyAssignment function to validate the
 // assignment.
 func NewPolicyAssignment(pa armpolicy.Assignment) *PolicyAssignment {
-	return &PolicyAssignment{pa}
+	paObj := &PolicyAssignment{Assignment: pa}
+	paObj.hoistReadOnlyDefinitionVersions()
+
+	return paObj
 }
 
 // NewPolicyAssignmentValidate creates a new PolicyAssignment instance and validates it.
 func NewPolicyAssignmentValidate(pa armpolicy.Assignment) (*PolicyAssignment, error) {
-	paObj := &PolicyAssignment{pa}
+	paObj := NewPolicyAssignment(pa)
 	if err := ValidatePolicyAssignment(paObj); err != nil {
 		return nil, fmt.Errorf("NewPolicyAssignmentValidate: %w", err)
 	}
 
 	return paObj, nil
+}
+
+// hoistReadOnlyDefinitionVersions moves the effective version reported by Azure out of the embedded
+// SDK type, so it can inform version resolution without being written to deployment artifacts, and
+// drops the other read-only version field for the same reason.
+func (pa *PolicyAssignment) hoistReadOnlyDefinitionVersions() {
+	if pa.Properties == nil {
+		return
+	}
+
+	if v := pa.Properties.EffectiveDefinitionVersion; v != nil && *v != "" {
+		pa.effectiveDefinitionVersion = to.Ptr(*v)
+	}
+
+	pa.Properties.EffectiveDefinitionVersion = nil
+	pa.Properties.LatestDefinitionVersion = nil
+}
+
+// EffectiveDefinitionVersion returns the exact policy definition version that Azure reports as being
+// in effect for this assignment, or nil when it is unknown.
+func (pa *PolicyAssignment) EffectiveDefinitionVersion() *string {
+	if pa.effectiveDefinitionVersion == nil {
+		return nil
+	}
+
+	return to.Ptr(*pa.effectiveDefinitionVersion)
+}
+
+// SetEffectiveDefinitionVersion records the exact policy definition version that Azure reports as
+// being in effect, so that role assignments are computed against the version the Policy RP actually
+// enforces instead of re-resolving the definitionVersion constraint. Passing nil or an empty string
+// clears it.
+func (pa *PolicyAssignment) SetEffectiveDefinitionVersion(version *string) {
+	if version == nil || *version == "" {
+		pa.effectiveDefinitionVersion = nil
+
+		return
+	}
+
+	pa.effectiveDefinitionVersion = to.Ptr(*version)
 }
 
 // IdentityType returns the identity type of the policy assignment.
@@ -53,10 +100,17 @@ func (pa *PolicyAssignment) IdentityType() armpolicy.ResourceIdentityType {
 
 // ReferencedPolicyDefinitionResourceIDAndVersion returns the resource ID and version of the
 // policy definition referenced by the policy assignment.
+// The effective version reported by Azure takes precedence over the definitionVersion constraint,
+// so callers resolve the version the assignment actually runs rather than re-resolving the
+// constraint to a newer one. See Azure/Azure-Landing-Zones#4190.
 func (pa *PolicyAssignment) ReferencedPolicyDefinitionResourceIDAndVersion() (*arm.ResourceID, *string, error) {
 	id, err := arm.ParseResourceID(*pa.Properties.PolicyDefinitionID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("PolicyAssignment.ReferencedPolicyDefinitionResourceID: %w", err)
+	}
+
+	if pa.effectiveDefinitionVersion != nil {
+		return id, to.Ptr(*pa.effectiveDefinitionVersion), nil
 	}
 
 	return id, pa.Properties.DefinitionVersion, nil
@@ -104,6 +158,8 @@ func (pa *PolicyAssignment) UnmarshalJSON(data []byte) error {
 	if err := pa.Assignment.UnmarshalJSON(data); err != nil {
 		return fmt.Errorf("PolicyAssignment.UnmarshalJSON: %w", err)
 	}
+
+	pa.hoistReadOnlyDefinitionVersions()
 
 	return ValidatePolicyAssignment(pa)
 }

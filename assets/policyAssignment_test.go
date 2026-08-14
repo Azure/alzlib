@@ -4,6 +4,7 @@
 package assets
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	"github.com/brunoga/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,6 +30,79 @@ func TestIdentityType(t *testing.T) {
 	if identityType != expectedType {
 		t.Fatalf("got %v, want %v", identityType, expectedType)
 	}
+}
+
+func TestPolicyAssignmentEffectiveDefinitionVersion(t *testing.T) {
+	newAssignment := func() armpolicy.Assignment {
+		return armpolicy.Assignment{
+			Name: to.Ptr("Deploy-MCSB2-Monitoring"),
+			Properties: &armpolicy.AssignmentProperties{
+				PolicyDefinitionID: to.Ptr(
+					"/providers/Microsoft.Authorization/policySetDefinitions/e3ec7e09-768c-4b64-882c-fcada3772047",
+				),
+				DefinitionVersion: to.Ptr("1.*.*-preview"),
+			},
+		}
+	}
+
+	t.Run("constraint is used when no effective version is known", func(t *testing.T) {
+		pa := NewPolicyAssignment(newAssignment())
+
+		_, ver, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		assert.Equal(t, "1.*.*-preview", *ver)
+		assert.Nil(t, pa.EffectiveDefinitionVersion())
+	})
+
+	t.Run("effective version takes precedence over the constraint", func(t *testing.T) {
+		pa := NewPolicyAssignment(newAssignment())
+		pa.SetEffectiveDefinitionVersion(to.Ptr("1.2.0-preview"))
+
+		_, ver, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		assert.Equal(t, "1.2.0-preview", *ver)
+	})
+
+	t.Run("empty effective version clears it", func(t *testing.T) {
+		pa := NewPolicyAssignment(newAssignment())
+		pa.SetEffectiveDefinitionVersion(to.Ptr("1.2.0-preview"))
+		pa.SetEffectiveDefinitionVersion(to.Ptr(""))
+
+		_, ver, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		assert.Equal(t, "1.*.*-preview", *ver)
+	})
+
+	t.Run("read-only versions are hoisted off the serialized type", func(t *testing.T) {
+		assignment := newAssignment()
+		assignment.Properties.EffectiveDefinitionVersion = to.Ptr("1.3.0-preview")
+		assignment.Properties.LatestDefinitionVersion = to.Ptr("1.4.0")
+
+		pa := NewPolicyAssignment(assignment)
+
+		require.NotNil(t, pa.EffectiveDefinitionVersion())
+		assert.Equal(t, "1.3.0-preview", *pa.EffectiveDefinitionVersion())
+		assert.Nil(t, pa.Properties.EffectiveDefinitionVersion)
+		assert.Nil(t, pa.Properties.LatestDefinitionVersion)
+
+		b, err := json.Marshal(pa)
+		require.NoError(t, err)
+		assert.NotContains(t, string(b), "effectiveDefinitionVersion")
+		assert.NotContains(t, string(b), "latestDefinitionVersion")
+	})
+
+	t.Run("effective version survives a deep copy", func(t *testing.T) {
+		pa := NewPolicyAssignment(newAssignment())
+		pa.SetEffectiveDefinitionVersion(to.Ptr("1.2.0-preview"))
+
+		cp := deep.MustCopy(pa)
+
+		require.NotNil(t, cp.EffectiveDefinitionVersion())
+		assert.Equal(t, "1.2.0-preview", *cp.EffectiveDefinitionVersion())
+	})
 }
 
 func TestReferencedPolicyDefinitionResourceId(t *testing.T) {

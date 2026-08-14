@@ -190,10 +190,17 @@ func TestVersionedPolicyCollection_GetVersion_Versioned(t *testing.T) {
 		assert.Nil(t, got)
 	})
 
-	t.Run("invalid no wildcard patch", func(t *testing.T) {
+	t.Run("exact version resolves", func(t *testing.T) {
 		constr := testVersion100
 		got, err := pdvs.GetVersion(&constr)
-		require.ErrorContains(t, err, "version constraint should have wildcard in patch version")
+		require.NoError(t, err)
+		assert.Equal(t, policy1, got)
+	})
+
+	t.Run("exact version not in collection", func(t *testing.T) {
+		constr := "3.0.0"
+		got, err := pdvs.GetVersion(&constr)
+		require.ErrorIs(t, err, ErrNoVersionFound)
 		assert.Nil(t, got)
 	})
 }
@@ -307,6 +314,12 @@ func TestVersionedPolicyCollection_GetVersion_PrereleaseAwareResolution(t *testi
 			versions:   []string{"1.4.0-deprecated"},
 			constraint: "1.*.*-preview",
 			want:       "1.4.0-deprecated",
+		},
+		{
+			name:       "exact preview version pins below the highest preview",
+			versions:   fullSet,
+			constraint: "1.2.0-preview",
+			want:       "1.2.0-preview",
 		},
 	}
 
