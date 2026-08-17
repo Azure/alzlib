@@ -191,6 +191,16 @@ func ValidatePolicyAssignment(pa *PolicyAssignment) error {
 		return NewErrPropertyMustNotBeNil("properties.policyDefinitionID")
 	}
 
+	if pa.Properties.DefinitionVersion != nil {
+		if _, err := policyVersionConstraintToSemVerConstraint(*pa.Properties.DefinitionVersion); err != nil {
+			return fmt.Errorf(
+				"ValidatePolicyAssignment: invalid properties.definitionVersion `%s`: %w",
+				*pa.Properties.DefinitionVersion,
+				err,
+			)
+		}
+	}
+
 	if pa.Properties.DisplayName == nil {
 		return NewErrPropertyMustNotBeNil("properties.displayName")
 	}

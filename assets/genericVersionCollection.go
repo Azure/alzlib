@@ -54,7 +54,7 @@ func (c *VersionedPolicyCollection[T]) Versions() []semver.Version {
 	return vers
 }
 
-// GetVersion returns a policy version based on the provided constraint string.
+// GetVersion returns a policy version based on an exact version or policy version constraint.
 // If the constraint string is nil, it returns the versionless definition if it exists.
 // If the constraint string is nil and no versionless definition exists, it returns the latest
 // version.
@@ -86,8 +86,8 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 		return c.versionlessDefinition, nil
 	}
 
-	// An exact version resolves directly. This is how an assignment's effective definition version,
-	// as reported by Azure, and concrete version pins are looked up.
+	// Exact lookup supports Azure's read-only effective definition version. Writable assignment
+	// constraints must continue to use a wildcard patch version.
 	if sv, err := semver.StrictNewVersion(*constraintStr); err == nil {
 		if pol, ok := c.versions[*sv]; ok {
 			return pol, nil

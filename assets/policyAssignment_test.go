@@ -195,6 +195,66 @@ func TestValidatePolicyAssignment(t *testing.T) {
 			expectedErr: "",
 		},
 		{
+			name: "Valid definition version autoingests minor and patch updates",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DefinitionVersion: to.Ptr("1.*.*-preview"),
+					DisplayName:       to.Ptr("Valid Display Name"),
+					Description:       to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "",
+		},
+		{
+			name: "Valid definition version pins a minor path",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DefinitionVersion: to.Ptr("1.3.*-preview"),
+					DisplayName:       to.Ptr("Valid Display Name"),
+					Description:       to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "",
+		},
+		{
+			name: "Invalid definition version pins a stable patch",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DefinitionVersion: to.Ptr("1.3.0"),
+					DisplayName:       to.Ptr("Valid Display Name"),
+					Description:       to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "version constraint should have wildcard in patch version",
+		},
+		{
+			name: "Invalid definition version pins a preview patch",
+			assignment: armpolicy.Assignment{
+				Name: to.Ptr("validName"),
+				Properties: &armpolicy.AssignmentProperties{
+					PolicyDefinitionID: to.Ptr(
+						"/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Authorization/policyDefinitions/pd1",
+					),
+					DefinitionVersion: to.Ptr("1.3.0-preview"),
+					DisplayName:       to.Ptr("Valid Display Name"),
+					Description:       to.Ptr("Valid Description"),
+				},
+			},
+			expectedErr: "version constraint should have wildcard in patch version",
+		},
+		{
 			name: "Nil Name",
 			assignment: armpolicy.Assignment{
 				Properties: &armpolicy.AssignmentProperties{
