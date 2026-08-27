@@ -28,7 +28,17 @@ var generateArchitectureBaseCmd = cobra.Command{
 	Use:   "architecture librarypath name",
 	Short: "Generates deployment JSON for the supplied architecture.",
 	Long: `Generates deployment JSON for the supplied architecture. ` +
-		`This enables deployment with a tool of your choosing.`,
+		`This enables deployment with a tool of your choosing.
+
+Use --library-overwrite-enabled when the library member intentionally redefines assets that
+are also provided by its dependencies. Without it, generation fails during library
+initialization with an "already exists in the library" error.
+
+The generated output follows the current overwrite semantics: policy assignments, role
+definitions, archetypes, architectures and policy default values are replaced in full by the
+member's version. Policy definitions and policy set definitions are not, the dependency
+version is kept. Duplicate archetype override names remain an error regardless of this flag.
+Verify the generated output before deploying it.`,
 	Args: cobra.ExactArgs(RequiredArchitectureArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		thisLib := alzlib.NewCustomLibraryReference(args[0])
@@ -44,6 +54,18 @@ var generateArchitectureBaseCmd = cobra.Command{
 		}
 
 		az := alzlib.NewAlzLib(nil)
+
+		libraryOverwriteEnabled, _ := cmd.Flags().GetBool("library-overwrite-enabled")
+
+		// Options are read during Init, so this must be set beforehand.
+		az.Options.AllowOverwrite = libraryOverwriteEnabled
+
+		if libraryOverwriteEnabled {
+			// stderr only, so the JSON on stdout stays parseable in a pipeline.
+			cmd.PrintErrln(
+				"Warning: policy (set) definition redefinitions retain the dependency version, and " +
+					"duplicate archetype override names remain an error. Verify the generated output.")
+		}
 
 		// Load seed cache if --from-cache is specified.
 		fromCacheFile, _ := cmd.Flags().GetString("from-cache")
@@ -169,4 +191,12 @@ func init() {
 			"Path to a cache file to seed built-in definitions from. "+
 				"Definitions found in the cache are used before falling back to Azure API calls, "+
 				"reducing the number of requests made to Azure.")
+
+	generateArchitectureBaseCmd.Flags().
+		Bool(
+			"library-overwrite-enabled", false,
+			"Apply the current library-overwrite behavior while generating output. Policy "+
+				"assignments, role definitions, archetypes, architectures and policy default values are "+
+				"replaced in full, not merged field by field. Policy (set) definitions keep the "+
+				"dependency version; for those the flag only suppresses the duplicate error.")
 }

@@ -20,10 +20,34 @@ import (
 var libraryCmd = cobra.Command{
 	Use:   "library [flags] dir",
 	Short: "Perform operations on an alzlib library member.",
-	Long:  `Primarily used a a tool to check the validity of a library member.`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Primarily used a a tool to check the validity of a library member.
+
+Use --library-overwrite-enabled when this library member intentionally redefines assets
+that are also provided by its dependencies. Without it, the check fails during library
+initialization with an "already exists in the library" error and no checks are run.
+
+Assets are replaced in full, they are not merged field by field, so the redefining file
+must contain the complete asset. Policy assignments, role definitions, archetypes,
+architectures and policy default values are replaced by this member's version. Policy
+definitions and policy set definitions are not: for those the flag only suppresses the
+duplicate error and the dependency version is kept. Duplicate archetype override names
+remain an error regardless of this flag.`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		az := alzlib.NewAlzLib(nil)
+
+		libraryOverwriteEnabled, err := cmd.Flags().GetBool("library-overwrite-enabled")
+		if err != nil {
+			cmd.PrintErrf(
+				"%s could not get library-overwrite-enabled flag: %v\n",
+				cmd.ErrPrefix(),
+				err,
+			)
+			os.Exit(1)
+		}
+
+		// Options are read during Init, so this must be set beforehand.
+		az.Options.AllowOverwrite = libraryOverwriteEnabled
 
 		offline, err := cmd.Flags().GetBool("offline")
 		if err != nil {
@@ -104,4 +128,11 @@ func init() {
 			"Whether to fix any fixable issues (currently only filename issues).")
 	libraryCmd.Flags().
 		Bool("offline", false, "Whether to run the checks in offline mode (no Azure calls).")
+	libraryCmd.Flags().
+		Bool(
+			"library-overwrite-enabled", false,
+			"Allow this library member to redefine assets provided by its dependencies. Policy "+
+				"assignments, role definitions, archetypes, architectures and policy default values are "+
+				"replaced in full, not merged field by field. Policy (set) definitions keep the "+
+				"dependency version; for those the flag only suppresses the duplicate error.")
 }

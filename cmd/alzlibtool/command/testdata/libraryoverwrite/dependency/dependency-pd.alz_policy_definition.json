@@ -1,0 +1,35 @@
+{
+  "name": "dependency-pd",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "apiVersion": "2021-06-01",
+  "scope": null,
+  "properties": {
+    "policyType": "Custom",
+    "mode": "All",
+    "displayName": "PD from dependency",
+    "description": "Deliberately declares only dependencyParameter.",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Test"
+    },
+    "parameters": {
+      "dependencyParameter": {
+        "type": "String",
+        "defaultValue": "Audit",
+        "metadata": {
+          "displayName": "Dependency parameter",
+          "description": "Only present in the dependency version."
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "field": "type",
+        "equals": "Microsoft.Resources/subscriptions"
+      },
+      "then": {
+        "effect": "audit"
+      }
+    }
+  }
+}

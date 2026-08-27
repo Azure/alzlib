@@ -1,0 +1,20 @@
+{
+  "apiVersion": "2022-06-01",
+  "dependsOn": [],
+  "identity": {
+    "type": "None"
+  },
+  "location": "${default_location}",
+  "name": "member-only-pa",
+  "properties": {
+    "description": "Assignment added by the member archetype only.",
+    "displayName": "Member only assignment",
+    "enforcementMode": null,
+    "nonComplianceMessages": [],
+    "notScopes": [],
+    "parameters": {},
+    "policyDefinitionId": "/providers/Microsoft.Authorization/policyDefinitions/member-pd",
+    "scope": "/providers/Microsoft.Management/managementGroups/PLACEHOLDER"
+  },
+  "type": "Microsoft.Authorization/policyAssignments"
+}
