@@ -37,7 +37,7 @@ func AlzlibReadmeMdWithOptions(
 ) error {
 	az := alzlib.NewAlzLib(opts)
 	if err := az.Init(ctx, libs...); err != nil {
-		return fmt.Errorf("doc.AlzlibReadmeMd: failed to initialize alzlib: %w", err)
+		return fmt.Errorf("doc.AlzlibReadmeMdWithOptions: failed to initialize alzlib: %w", err)
 	}
 
 	metadataS := az.Metadata()

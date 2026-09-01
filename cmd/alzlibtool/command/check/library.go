@@ -20,7 +20,7 @@ import (
 var libraryCmd = cobra.Command{
 	Use:   "library [flags] dir",
 	Short: "Perform operations on an alzlib library member.",
-	Long: `Primarily used a a tool to check the validity of a library member.
+	Long: `Primarily used as a tool to check the validity of a library member.
 
 Use --library-overwrite-enabled when this library member intentionally redefines assets
 that are also provided by its dependencies. Without it, the check fails during library
