@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
+	"github.com/Azure/alzlib/internal/parametername"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -63,12 +64,22 @@ func (pa *PolicyAssignment) ReferencedPolicyDefinitionResourceIDAndVersion() (*a
 }
 
 // ParameterValueAsString returns the value of a policy assignment parameter.
+// The parameter name is matched exactly first, then case-insensitively, as Azure Resource Manager
+// treats parameter names as case-insensitive.
 // We always expect the value to be a string as it's used in calculating the additional role
 // assignments for
 // policy parameters with the assignPermissions metadata set to true.
 // Therefore the value should be an ARM resourceId.
 func (pa *PolicyAssignment) ParameterValueAsString(paramName string) (string, error) {
-	paParamVal, ok := pa.Properties.Parameters[paramName]
+	match, ok, err := parametername.Resolve(pa.Properties.Parameters, paramName)
+	if err != nil {
+		return "", fmt.Errorf(
+			"PolicyAssignment.ParameterValueAsString: policy assignment %s: %w",
+			*pa.Name,
+			err,
+		)
+	}
+
 	if !ok {
 		return "", fmt.Errorf(
 			"PolicyAssignment.ParameterValueAsString: parameter %s not found in policy assignment %s",
@@ -77,7 +88,8 @@ func (pa *PolicyAssignment) ParameterValueAsString(paramName string) (string, er
 		)
 	}
 
-	if paParamVal.Value == nil {
+	paParamVal := match.Value
+	if paParamVal == nil || paParamVal.Value == nil {
 		return "", fmt.Errorf(
 			"PolicyAssignment.ParameterValueAsString: parameter %s value field in policy assignment %s is nil",
 			paramName,

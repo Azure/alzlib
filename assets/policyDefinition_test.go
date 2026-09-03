@@ -85,6 +85,100 @@ func TestUnsetAssignPermissionsOnParameter(t *testing.T) {
 	assert.Nil(t, pd.Properties.Parameters["test"].Metadata.AssignPermissions)
 }
 
+// TestResolveParameterCaseInsensitive covers the built-in Windows AMA/DCR shape, where the
+// initiative passes `DcrResourceId` to a definition declaring `dcrResourceId`.
+func TestResolveParameterCaseInsensitive(t *testing.T) {
+	pd := &PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Properties: &armpolicy.DefinitionProperties{
+				Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+					"dcrResourceId": {Type: to.Ptr(armpolicy.ParameterTypeString)},
+				},
+			},
+		},
+	}
+
+	name, param, found, err := pd.ResolveParameter("dcrResourceId")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, "dcrResourceId", name)
+	assert.NotNil(t, param)
+
+	name, param, found, err = pd.ResolveParameter("DcrResourceId")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, "dcrResourceId", name)
+	assert.NotNil(t, param)
+	assert.NotNil(t, pd.Parameter("DcrResourceId"))
+
+	_, _, found, err = pd.ResolveParameter("minPort")
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Nil(t, pd.Parameter("minPort"))
+}
+
+func TestResolveParameterAmbiguous(t *testing.T) {
+	pd := &PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Properties: &armpolicy.DefinitionProperties{
+				Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+					"dcrResourceId": {Type: to.Ptr(armpolicy.ParameterTypeString)},
+					"DCRRESOURCEID": {Type: to.Ptr(armpolicy.ParameterTypeString)},
+				},
+			},
+		},
+	}
+
+	_, _, found, err := pd.ResolveParameter("DcrResourceId")
+	require.Error(t, err)
+	assert.False(t, found)
+	require.ErrorContains(t, err, "is ambiguous")
+	assert.Nil(t, pd.Parameter("DcrResourceId"))
+}
+
+// TestAssignPermissionsAndOptionalParameterCaseInsensitive asserts that the parameter-name based
+// helpers agree with Parameter() on casing, so a case-only variant does not silently no-op.
+func TestAssignPermissionsAndOptionalParameterCaseInsensitive(t *testing.T) {
+	pd := &PolicyDefinition{
+		Definition: armpolicy.Definition{
+			Properties: &armpolicy.DefinitionProperties{
+				Parameters: map[string]*armpolicy.ParameterDefinitionsValue{
+					"dcrResourceId": {Type: to.Ptr(armpolicy.ParameterTypeString)},
+				},
+			},
+		},
+	}
+
+	optional, err := pd.ParameterIsOptional("DcrResourceId")
+	require.NoError(t, err)
+	assert.False(t, optional)
+
+	pd.SetAssignPermissionsOnParameter("DcrResourceId")
+	require.NotNil(t, pd.Properties.Parameters["dcrResourceId"].Metadata)
+	assert.True(t, *pd.Properties.Parameters["dcrResourceId"].Metadata.AssignPermissions)
+
+	pd.UnsetAssignPermissionsOnParameter("DCRRESOURCEID")
+	assert.Nil(t, pd.Properties.Parameters["dcrResourceId"].Metadata.AssignPermissions)
+
+	_, err = pd.ParameterIsOptional("minPort")
+	require.ErrorContains(t, err, "not found in policy definition")
+}
+
+func TestResolveParameterNilReceiverAndProperties(t *testing.T) {
+	var pd *PolicyDefinition
+
+	_, _, found, err := pd.ResolveParameter("dcrResourceId")
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Nil(t, pd.Parameter("dcrResourceId"))
+
+	pd = &PolicyDefinition{Definition: armpolicy.Definition{}}
+
+	_, _, found, err = pd.ResolveParameter("dcrResourceId")
+	require.NoError(t, err)
+	assert.False(t, found)
+}
+
 func TestNewPolicyDefinitionFromVersionSuccess(t *testing.T) {
 	versionID := "/subscriptions/00000000-0000-0000-0000-000000000000/providers/" +
 		"Microsoft.Authorization/policyDefinitions/myPolicy/versions/1.0.0"

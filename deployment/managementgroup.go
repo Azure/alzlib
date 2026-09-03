@@ -11,6 +11,7 @@ import (
 
 	"github.com/Azure/alzlib"
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/internal/parametername"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -547,32 +548,6 @@ func (mg *HierarchyManagementGroup) generatePolicyAssignmentAdditionalRoleAssign
 						!*paramVal.Metadata.AssignPermissions {
 						continue
 					}
-					// get the parameter value from the policy reference within the set definition.
-					if _, ok := pd.Properties.Parameters[paramName]; !ok {
-						if errs == nil {
-							errs = NewPolicyRoleAssignmentErrors()
-						}
-
-						errs.Add(
-							NewPolicyRoleAssignmentError(
-								paName,
-								mg.id,
-								paramName,
-								*pdRef.PolicyDefinitionReferenceID,
-								rdids,
-								fmt.Errorf(
-									"ManagementGroup.GeneratePolicyAssignmentAdditionalRoleAssignments: "+
-										"assignment `%s` for policy set `%s`, parameter `%s` not found in refernced policy definition `%s`",
-									paName,
-									*psd.Name,
-									paramName,
-									*pd.Name,
-								),
-							),
-						)
-
-						continue
-					}
 					// use goarmfunctions to evaluate the ARM expression in the parameter value in the set
 					// definition reference.
 					scope, err := parseArmFunctionInPolicySetParameter(
@@ -743,11 +718,22 @@ func WithParameters(parameters map[string]*armpolicy.ParameterValuesValue) Modif
 				)
 			}
 
-			pa.Properties.Parameters[k] = v
+			pa.Properties.Parameters[canonicalAssignmentParameterName(pa, k)] = v
 		}
 
 		return nil
 	}
+}
+
+// canonicalAssignmentParameterName returns the casing already used by the assignment for name, so
+// that a case-only variant does not add a second parameter that Azure would treat as a duplicate.
+func canonicalAssignmentParameterName(pa *assets.PolicyAssignment, name string) string {
+	match, found, err := parametername.Resolve(pa.Properties.Parameters, name)
+	if err != nil || !found {
+		return name
+	}
+
+	return match.Key
 }
 
 // WithEnforcementMode sets the enforcement mode for the policy assignment.
@@ -884,7 +870,15 @@ func parseArmFunctionInPolicySetParameter(
 	}
 
 	for k, v := range ass.Properties.Parameters {
-		resultantParams[k] = v.Value
+		// Assignment parameter names are case-insensitive, so map them onto the canonical set
+		// definition parameter name, otherwise the default value would not be overridden.
+		key := k
+		if match, found, err := parametername.Resolve(setDef.Properties.Parameters, k); err == nil &&
+			found {
+			key = match.Key
+		}
+
+		resultantParams[key] = v.Value
 	}
 
 	var toParse string
@@ -894,8 +888,17 @@ func parseArmFunctionInPolicySetParameter(
 			continue
 		}
 
-		p, ok := def.Parameters[paramName]
-		if !ok {
+		match, found, err := parametername.Resolve(def.Parameters, paramName)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"parseArmFunctionInPolicySetParameter: paramName %s in %s: %w",
+				paramName,
+				*def.PolicyDefinitionReferenceID,
+				err,
+			)
+		}
+
+		if !found {
 			return nil, fmt.Errorf(
 				"parseArmFunctionInPolicySetParameter: paramName %s not found in %s",
 				paramName,
@@ -903,7 +906,12 @@ func parseArmFunctionInPolicySetParameter(
 			)
 		}
 
-		pStr, ok := p.Value.(string)
+		var value any
+		if match.Value != nil {
+			value = match.Value.Value
+		}
+
+		pStr, ok := value.(string)
 		if !ok {
 			return nil, fmt.Errorf(
 				"parseArmFunctionInPolicySetParameter: paramName %s in %s is not a string",

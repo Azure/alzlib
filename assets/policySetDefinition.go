@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
+	"github.com/Azure/alzlib/internal/parametername"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
@@ -152,17 +153,19 @@ func (psd *PolicySetDefinition) PolicyDefinitionReferences() []*armpolicy.Defini
 }
 
 // Parameter returns the parameter definition for the given name.
+// The name is matched case-insensitively if there is no exact match.
+// It returns nil if the parameter is not found, or if the name is ambiguous.
 func (psd *PolicySetDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
 	if psd == nil || psd.Properties == nil || psd.Properties.Parameters == nil {
 		return nil
 	}
 
-	ret, ok := psd.Properties.Parameters[name]
-	if !ok {
+	match, found, err := parametername.Resolve(psd.Properties.Parameters, name)
+	if err != nil || !found {
 		return nil
 	}
 
-	return ret
+	return match.Value
 }
 
 // GetVersion returns the version of the policy definition, if it exists.
