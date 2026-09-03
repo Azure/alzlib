@@ -432,7 +432,20 @@ func (h *Hierarchy) addManagementGroup(
 				}
 
 				for param := range rf.Parameters {
-					if pd.Parameter(param) == nil {
+					_, _, found, err := pd.ResolveParameter(param)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"Hierarchy.AddManagementGroup(): parameter `%s` in policy set definition `%s` "+
+								"is ambiguous in referenced definition `%s` in management group `%s`: %w",
+							param,
+							*psd.Name,
+							alzlib.JoinNameAndVersion(*pd.Name, rf.DefinitionVersion),
+							req.id,
+							err,
+						)
+					}
+
+					if !found {
 						return nil, fmt.Errorf(
 							"Hierarchy.AddManagementGroup(): parameter `%s` in policy set definition `%s` "+
 								"does not match a parameter in referenced definition `%s` in management group `%s`",

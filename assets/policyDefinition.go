@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
+	"github.com/Azure/alzlib/internal/parametername"
 	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
@@ -242,6 +243,7 @@ func (pd *PolicyDefinition) AssignPermissionsParameterNames() ([]string, error) 
 }
 
 // ParameterIsOptional checks if the parameter with the given name is optional in the policy definition.
+// The name is matched case-insensitively if there is no exact match.
 func (pd *PolicyDefinition) ParameterIsOptional(name string) (bool, error) {
 	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
 		return false, errors.New(
@@ -249,8 +251,12 @@ func (pd *PolicyDefinition) ParameterIsOptional(name string) (bool, error) {
 		)
 	}
 
-	param, ok := pd.Properties.Parameters[name]
-	if !ok {
+	_, param, found, err := pd.ResolveParameter(name)
+	if err != nil {
+		return false, err
+	}
+
+	if !found {
 		return false, fmt.Errorf(
 			"PolicyDefinition.ParameterIsOptional: parameter %s not found in policy definition",
 			name,
@@ -264,30 +270,45 @@ func (pd *PolicyDefinition) ParameterIsOptional(name string) (bool, error) {
 	return true, nil
 }
 
-// Parameter returns the parameter with the given name from the policy definition.
-func (pd *PolicyDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
+// ResolveParameter returns the canonical name and value of the parameter matching the given name.
+// Names are matched exactly first, then case-insensitively, as Azure Resource Manager treats
+// parameter names as case-insensitive.
+// The boolean return value reports whether a matching parameter was declared. An error is returned
+// if the name matches more than one parameter when compared case-insensitively.
+func (pd *PolicyDefinition) ResolveParameter(
+	name string,
+) (string, *armpolicy.ParameterDefinitionsValue, bool, error) {
 	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
+		return "", nil, false, nil
+	}
+
+	match, found, err := parametername.Resolve(pd.Properties.Parameters, name)
+	if err != nil {
+		return "", nil, false, fmt.Errorf("PolicyDefinition.ResolveParameter: %w", err)
+	}
+
+	return match.Key, match.Value, found, nil
+}
+
+// Parameter returns the parameter with the given name from the policy definition.
+// The name is matched case-insensitively if there is no exact match.
+// It returns nil if the parameter is not found, or if the name is ambiguous.
+func (pd *PolicyDefinition) Parameter(name string) *armpolicy.ParameterDefinitionsValue {
+	_, param, found, err := pd.ResolveParameter(name)
+	if err != nil || !found {
 		return nil
 	}
 
-	ret, ok := pd.Properties.Parameters[name]
-	if !ok {
-		return nil
-	}
-
-	return ret
+	return param
 }
 
 // SetAssignPermissionsOnParameter sets the AssignPermissions metadata field to true for the
 // parameter with the given
 // name.
+// The name is matched case-insensitively if there is no exact match.
 func (pd *PolicyDefinition) SetAssignPermissionsOnParameter(parameterName string) {
-	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
-		return
-	}
-
-	param, ok := pd.Properties.Parameters[parameterName]
-	if !ok {
+	param := pd.Parameter(parameterName)
+	if param == nil {
 		return
 	}
 
@@ -300,17 +321,10 @@ func (pd *PolicyDefinition) SetAssignPermissionsOnParameter(parameterName string
 
 // UnsetAssignPermissionsOnParameter removes the AssignPermissions metadata field for the parameter
 // with the given name.
+// The name is matched case-insensitively if there is no exact match.
 func (pd *PolicyDefinition) UnsetAssignPermissionsOnParameter(parameterName string) {
-	if pd == nil || pd.Properties == nil || pd.Properties.Parameters == nil {
-		return
-	}
-
-	param, ok := pd.Properties.Parameters[parameterName]
-	if !ok {
-		return
-	}
-
-	if param.Metadata == nil {
+	param := pd.Parameter(parameterName)
+	if param == nil || param.Metadata == nil {
 		return
 	}
 
