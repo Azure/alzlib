@@ -1,0 +1,10 @@
+---
+name: base
+policy_assignments:
+  - shared-pa
+  - member-only-pa
+policy_definitions:
+  - dependency-pd
+  - member-pd
+policy_set_definitions: []
+role_definitions: []

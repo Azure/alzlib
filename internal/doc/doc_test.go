@@ -24,3 +24,19 @@ func TestAlzlibReadmeMd(t *testing.T) {
 	t.Log(buf.String())
 	require.NoError(t, err)
 }
+
+// TestAlzlibReadmeMdWithOptionsNilMatchesDefault pins that the original entry point keeps its
+// exact behaviour now that it delegates to the options-aware one.
+func TestAlzlibReadmeMdWithOptionsNilMatchesDefault(t *testing.T) {
+	ctx := context.Background()
+	lib := alzlib.NewCustomLibraryReference("../../testdata/simple")
+	_, err := lib.Fetch(ctx, "simple")
+	require.NoError(t, err)
+
+	var withDefaults, withNilOptions bytes.Buffer
+
+	require.NoError(t, AlzlibReadmeMd(ctx, &withDefaults, lib))
+	require.NoError(t, AlzlibReadmeMdWithOptions(ctx, &withNilOptions, nil, lib))
+
+	require.Equal(t, withDefaults.String(), withNilOptions.String())
+}

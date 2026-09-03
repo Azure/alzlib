@@ -1,0 +1,20 @@
+{
+  "apiVersion": "2022-06-01",
+  "dependsOn": [],
+  "identity": {
+    "type": "None"
+  },
+  "location": "${default_location}",
+  "name": "shared-pa",
+  "properties": {
+    "description": "PA from dependency",
+    "displayName": "PA from dependency",
+    "enforcementMode": null,
+    "nonComplianceMessages": [],
+    "notScopes": [],
+    "parameters": {},
+    "policyDefinitionId": "/providers/Microsoft.Authorization/policyDefinitions/dependency-pd",
+    "scope": "/providers/Microsoft.Management/managementGroups/PLACEHOLDER"
+  },
+  "type": "Microsoft.Authorization/policyAssignments"
+}

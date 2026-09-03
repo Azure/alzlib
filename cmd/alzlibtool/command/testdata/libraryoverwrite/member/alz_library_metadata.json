@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/library_metadata.json",
+  "name": "overwritemember",
+  "display_name": "overwrite member",
+  "description": "Shared fixture: redefines the assignment, archetype, architecture and defaults of its dependency.",
+  "dependencies": [
+    {
+      "custom_url": "../testdata/libraryoverwrite/dependency"
+    }
+  ]
+}

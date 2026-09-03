@@ -23,9 +23,21 @@ var (
 
 // AlzlibReadmeMd generates a Markdown formatted README for the given alzlib libraries.
 func AlzlibReadmeMd(ctx context.Context, w io.Writer, libs ...alzlib.LibraryReference) error {
-	az := alzlib.NewAlzLib(nil)
+	return AlzlibReadmeMdWithOptions(ctx, w, nil, libs...)
+}
+
+// AlzlibReadmeMdWithOptions is AlzlibReadmeMd with control over the alzlib options, so that
+// callers can document a library member that redefines assets provided by its dependencies.
+// A nil opts uses the alzlib defaults.
+func AlzlibReadmeMdWithOptions(
+	ctx context.Context,
+	w io.Writer,
+	opts *alzlib.Options,
+	libs ...alzlib.LibraryReference,
+) error {
+	az := alzlib.NewAlzLib(opts)
 	if err := az.Init(ctx, libs...); err != nil {
-		return fmt.Errorf("doc.AlzlibReadmeMd: failed to initialize alzlib: %w", err)
+		return fmt.Errorf("doc.AlzlibReadmeMdWithOptions: failed to initialize alzlib: %w", err)
 	}
 
 	metadataS := az.Metadata()

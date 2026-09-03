@@ -1,0 +1,7 @@
+---
+defaults:
+  - default_name: shared
+    policy_assignments:
+      - policy_assignment_name: shared-pa
+        parameter_names:
+          - pdMemberParameter

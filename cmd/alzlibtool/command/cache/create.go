@@ -40,9 +40,12 @@ A --library value may be either a local path (e.g. ./mylib) or an ALZ Library re
 the form <member>@<ref>, e.g. platform/alz@2026.01.3. The flag may be specified multiple
 times to combine several libraries; their dependencies are fetched recursively.
 
-Use --library-overwrite-enabled to allow later libraries to overwrite definitions, policy
-assignments, role definitions, archetypes and architectures already provided by earlier
-libraries. This is useful when layering a custom library on top of a base ALZ library.
+Use --library-overwrite-enabled to apply the current library-overwrite behavior while combining
+libraries. Policy assignments, role definitions, archetypes, architectures and policy default
+values from later libraries replace those of earlier libraries in full, they are not merged
+field by field. Policy definitions and policy set definitions are not replaced: the earlier
+library's version is kept and the flag only suppresses the duplicate error. Duplicate archetype
+override names remain an error regardless of this flag.
 
 Use --from-cache to seed from an existing cache file (requires --library and --architecture).
 Definitions already present in the seed cache are used directly and not re-fetched from Azure,
@@ -86,6 +89,13 @@ to update a cache in-place.`,
 				cmd.ErrPrefix(),
 			)
 			os.Exit(1)
+		}
+
+		if libraryOverwriteEnabled {
+			// stderr only, so verbose stdout stays scriptable.
+			cmd.PrintErrln(
+				"Warning: policy (set) definition redefinitions retain the earlier library's version, " +
+					"and duplicate archetype override names remain an error.")
 		}
 
 		// Read the seed cache BEFORE opening the output file, because --from-cache
@@ -264,8 +274,9 @@ func init() {
 	createCmd.Flags().
 		Bool(
 			"library-overwrite-enabled", false,
-			"Allow later libraries to overwrite definitions, policy assignments, role definitions, "+
-				"archetypes and architectures already provided by earlier libraries. Useful when "+
-				"layering a custom library on top of a base ALZ library. Requires --library and "+
-				"--architecture.")
+			"Apply the current library-overwrite behavior while combining libraries. Policy "+
+				"assignments, role definitions, archetypes, architectures and policy default values from "+
+				"later libraries are replaced in full, not merged field by field. Policy (set) definitions "+
+				"keep the earlier library's version; for those the flag only suppresses the duplicate "+
+				"error. Requires --library and --architecture.")
 }

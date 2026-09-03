@@ -1,0 +1,35 @@
+{
+  "name": "dependency-pd",
+  "type": "Microsoft.Authorization/policyDefinitions",
+  "apiVersion": "2021-06-01",
+  "scope": null,
+  "properties": {
+    "policyType": "Custom",
+    "mode": "All",
+    "displayName": "PD from pdmember",
+    "description": "Adds pdMemberParameter, which the pdmember defaults require.",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Test"
+    },
+    "parameters": {
+      "pdMemberParameter": {
+        "type": "String",
+        "defaultValue": "Audit",
+        "metadata": {
+          "displayName": "Policy definition member parameter",
+          "description": "Only present in the pdmember version."
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "field": "type",
+        "equals": "Microsoft.Resources/subscriptions"
+      },
+      "then": {
+        "effect": "deny"
+      }
+    }
+  }
+}

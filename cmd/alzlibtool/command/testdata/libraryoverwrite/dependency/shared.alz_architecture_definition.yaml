@@ -1,0 +1,9 @@
+---
+name: shared
+management_groups:
+  - archetypes:
+      - base
+    display_name: DEPENDENCY
+    exists: false
+    id: shared
+    parent_id: null

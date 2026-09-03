@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/library_metadata.json",
+  "name": "standalone",
+  "display_name": "standalone",
+  "description": "Conflict-free library used to assert the default (no flag) behaviour is unchanged."
+}

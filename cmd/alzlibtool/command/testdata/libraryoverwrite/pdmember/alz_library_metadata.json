@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/Azure-Landing-Zones-Library/main/schemas/library_metadata.json",
+  "name": "overwritepdmember",
+  "display_name": "overwrite policy definition member",
+  "description": "Shared fixture: redefines only a policy definition, which the engine does not replace.",
+  "dependencies": [
+    {
+      "custom_url": "../testdata/libraryoverwrite/dependency"
+    }
+  ]
+}
