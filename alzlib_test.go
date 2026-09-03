@@ -981,6 +981,43 @@ func TestAssignmentReferencedDefinitionHasParameter(t *testing.T) {
 	assert.True(t, az.AssignmentReferencedDefinitionHasParameter(resID2, nil, "anyParam"))
 }
 
+func TestPolicyAssignmentEffectiveDefinitionVersionRoundTrip(t *testing.T) {
+	az := NewAlzLib(&Options{
+		AllowOverwrite:        true,
+		Parallelism:           defaultParallelism,
+		UniqueRoleDefinitions: defaultUniqueRoleDefinitions,
+	})
+
+	original := assets.NewPolicyAssignment(armpolicy.Assignment{
+		Name: to.Ptr("Deploy-MCSB2-Monitoring"),
+		Properties: &armpolicy.AssignmentProperties{
+			DisplayName:        to.Ptr("Microsoft Cloud Security Benchmark v2"),
+			Description:        to.Ptr("Microsoft Cloud Security Benchmark v2 policy initiative."),
+			PolicyDefinitionID: to.Ptr("/providers/Microsoft.Authorization/policySetDefinitions/e3ec7e09"),
+			DefinitionVersion:  to.Ptr("1.*.*-preview"),
+		},
+	})
+	require.NoError(t, az.AddPolicyAssignments(original))
+
+	// Callers get a deep copy, so the effective version must survive being written back.
+	fetched := az.PolicyAssignment("Deploy-MCSB2-Monitoring")
+	require.NotNil(t, fetched)
+	require.Nil(t, fetched.EffectiveDefinitionVersion())
+
+	fetched.SetEffectiveDefinitionVersion(to.Ptr("1.2.0-preview"))
+	require.NoError(t, az.AddPolicyAssignments(fetched))
+
+	stored := az.PolicyAssignment("Deploy-MCSB2-Monitoring")
+	require.NotNil(t, stored)
+	require.NotNil(t, stored.EffectiveDefinitionVersion())
+	assert.Equal(t, "1.2.0-preview", *stored.EffectiveDefinitionVersion())
+
+	_, ver, err := stored.ReferencedPolicyDefinitionResourceIDAndVersion()
+	require.NoError(t, err)
+	require.NotNil(t, ver)
+	assert.Equal(t, "1.2.0-preview", *ver)
+}
+
 func TestAddPolicyDefinitionsMultipleVersions(t *testing.T) {
 	t.Parallel()
 
