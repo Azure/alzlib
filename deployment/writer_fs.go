@@ -346,6 +346,7 @@ func writeJSONFile(finalPath string, v any) error {
 
 	enc := json.NewEncoder(tmp)
 	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
 
 	if err := enc.Encode(v); err != nil { // adds a trailing newline which is fine
 		_ = tmp.Close()
