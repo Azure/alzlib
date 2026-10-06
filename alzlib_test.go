@@ -99,6 +99,198 @@ func TestAddPolicyAndRoleAssetsAllowsDuplicateVersions(t *testing.T) {
 	}
 }
 
+// libraryDefinition describes a definition with the given name supplied by one library.
+type libraryDefinition struct {
+	version     *string
+	description string
+}
+
+// TestAddPolicyAndRoleAssetsLaterLibraryDefinitions loads each definition as a separate
+// library, in order, and checks which versions end up in the AlzLib.
+func TestAddPolicyAndRoleAssetsLaterLibraryDefinitions(t *testing.T) {
+	v1, v2 := to.Ptr("1.0.0"), to.Ptr("2.0.0")
+
+	testCases := []struct {
+		name      string
+		overwrite bool
+		libs      []libraryDefinition
+		wantErr   string
+		// want maps version to description; the empty key is the versionless definition.
+		want map[string]string
+	}{
+		{
+			name:      "versionless redefinition with overwrite",
+			overwrite: true,
+			libs:      []libraryDefinition{{nil, "earlier"}, {nil, "later"}},
+			want:      map[string]string{"": "later"},
+		},
+		{
+			name:      "versionless redefinition without overwrite",
+			overwrite: false,
+			libs:      []libraryDefinition{{nil, "earlier"}, {nil, "later"}},
+			wantErr:   "cannot add overwrite versionless definition",
+		},
+		{
+			name:      "same version redefinition with overwrite",
+			overwrite: true,
+			libs:      []libraryDefinition{{v1, "earlier"}, {v1, "later"}},
+			want:      map[string]string{"1.0.0": "later"},
+		},
+		{
+			name:      "same version redefinition without overwrite",
+			overwrite: false,
+			libs:      []libraryDefinition{{v1, "earlier"}, {v1, "later"}},
+			wantErr:   "already exists and the new definition is different",
+		},
+		{
+			name:      "new version without overwrite",
+			overwrite: false,
+			libs:      []libraryDefinition{{v1, "first"}, {v2, "second"}},
+			want:      map[string]string{"1.0.0": "first", "2.0.0": "second"},
+		},
+		{
+			name:      "new version with overwrite",
+			overwrite: true,
+			libs:      []libraryDefinition{{v1, "first"}, {v2, "second"}},
+			want:      map[string]string{"1.0.0": "first", "2.0.0": "second"},
+		},
+		{
+			name:      "last of three libraries wins",
+			overwrite: true,
+			libs:      []libraryDefinition{{nil, "first"}, {nil, "second"}, {nil, "third"}},
+			want:      map[string]string{"": "third"},
+		},
+		{
+			name:      "versionless onto versioned",
+			overwrite: true,
+			libs:      []libraryDefinition{{v1, "earlier"}, {nil, "later"}},
+			wantErr:   "cannot add versionless definition",
+		},
+		{
+			name:      "versioned onto versionless",
+			overwrite: true,
+			libs:      []libraryDefinition{{nil, "earlier"}, {v1, "later"}},
+			wantErr:   "cannot add versioned definition",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run("policy definition/"+tc.name, func(t *testing.T) {
+			az := NewAlzLib(&Options{AllowOverwrite: tc.overwrite, Parallelism: defaultParallelism})
+
+			err := addDefinitionsAsLibraries(t, az, assets.NewPolicyDefinitionVersions,
+				func(res *processor.Result, c *assets.PolicyDefinitionVersions) {
+					res.PolicyDefinitions["test"] = c
+				},
+				func(d libraryDefinition) *assets.PolicyDefinition {
+					pd := testPolicyDefinition(t, "test", "")
+					pd.Properties.Version = d.version
+					pd.Properties.Description = to.Ptr(d.description)
+
+					return pd
+				},
+				tc.libs...,
+			)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assertDefinitionDescriptions(t, az.policyDefinitions["test"], tc.want,
+				func(pd *assets.PolicyDefinition) string { return *pd.Properties.Description })
+		})
+
+		t.Run("policy set definition/"+tc.name, func(t *testing.T) {
+			az := NewAlzLib(&Options{AllowOverwrite: tc.overwrite, Parallelism: defaultParallelism})
+
+			err := addDefinitionsAsLibraries(t, az, assets.NewPolicySetDefinitionVersions,
+				func(res *processor.Result, c *assets.PolicySetDefinitionVersions) {
+					res.PolicySetDefinitions["test"] = c
+				},
+				func(d libraryDefinition) *assets.PolicySetDefinition {
+					psd := testPolicySetDefinition(t, "test", "")
+					psd.Properties.Version = d.version
+					psd.Properties.Description = to.Ptr(d.description)
+
+					return psd
+				},
+				tc.libs...,
+			)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assertDefinitionDescriptions(t, az.policySetDefinitions["test"], tc.want,
+				func(psd *assets.PolicySetDefinition) string { return *psd.Properties.Description })
+		})
+	}
+}
+
+func addDefinitionsAsLibraries[T assets.Versioned](
+	t *testing.T,
+	az *AlzLib,
+	newVersions func() *assets.VersionedPolicyCollection[T],
+	setResult func(*processor.Result, *assets.VersionedPolicyCollection[T]),
+	newDefinition func(libraryDefinition) T,
+	libs ...libraryDefinition,
+) error {
+	t.Helper()
+
+	for _, lib := range libs {
+		c := newVersions()
+		require.NoError(t, c.Add(newDefinition(lib), false))
+
+		res := processor.NewResult()
+		setResult(res, c)
+
+		if err := az.addPolicyAndRoleAssets(res); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func assertDefinitionDescriptions[T assets.Versioned](
+	t *testing.T,
+	c *assets.VersionedPolicyCollection[T],
+	want map[string]string,
+	description func(T) string,
+) {
+	t.Helper()
+	require.NotNil(t, c)
+
+	wantVersioned := 0
+
+	for ver, wantDesc := range want {
+		var verPtr *string
+		if ver != "" {
+			verPtr = to.Ptr(ver)
+			wantVersioned++
+		}
+
+		got, err := c.GetVersionStrict(verPtr)
+		require.NoError(t, err, "version %q", ver)
+		assert.Equal(t, wantDesc, description(got), "version %q", ver)
+	}
+
+	assert.Len(t, c.Versions(), wantVersioned)
+}
+
+func TestAddPolicyDefinitionsReturnsAddError(t *testing.T) {
+	az := NewAlzLib(nil)
+	require.NoError(t, az.AddPolicyDefinitions(testPolicyDefinition(t, "test", "1.0.0")))
+
+	versionless := testPolicyDefinition(t, "test", "")
+	versionless.Properties.Version = nil
+
+	err := az.AddPolicyDefinitions(versionless)
+	require.ErrorContains(t, err, "cannot add versionless definition")
+}
+
 // Test_NewAlzLib_noDir tests the creation of a new AlzLib when supplied with a path
 // that does not exist.
 // The error details are checked for the expected error message.

@@ -102,12 +102,11 @@ func Test_libraryCmd_noConflictWithoutFlag(t *testing.T) {
 	assert.Equal(t, 0, code, "output: %s", out)
 }
 
-// Test_libraryCmd_policyDefinitionOverrideNotApplied pins current engine behaviour: for policy
-// (set) definitions the flag only suppresses the duplicate error, the dependency version is
-// kept. The pdmember version of dependency-pd adds the parameter its defaults require, so the
-// defaults check failing proves the member version was discarded.
-func Test_libraryCmd_policyDefinitionOverrideNotApplied(t *testing.T) {
+// Test_libraryCmd_policyDefinitionOverrideApplied: the pdmember version of dependency-pd adds
+// the parameter its defaults require, so passing the defaults check proves the member version
+// replaced the dependency version.
+func Test_libraryCmd_policyDefinitionOverrideApplied(t *testing.T) {
 	out, code := runCheckLibrary(t, overwritePdMemberLib, "--offline", "--library-overwrite-enabled")
-	assert.Equal(t, 1, code)
-	assert.Contains(t, out, "not present in the referenced definition")
+	assert.Equal(t, 0, code, "output: %s", out)
+	assert.NotContains(t, out, "not present in the referenced definition")
 }
