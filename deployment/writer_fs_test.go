@@ -209,6 +209,42 @@ func TestWriteJSONFile(t *testing.T) {
 	require.Equal(t, "y", dec["x"])
 }
 
+func Test_writeJSONFile_indented(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "obj.json")
+	obj := map[string]any{
+		"name": "example",
+		"properties": map[string]any{
+			"description":           "Audit <resources> & report",
+			"metadata":              map[string]any{},
+			"nonComplianceMessages": []any{map[string]any{"message": "[[parameters('effect')]"}},
+			"notScopes":             []any{},
+		},
+	}
+
+	require.NoError(t, writeJSONFile(path, obj))
+
+	b, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	want := `{
+  "name": "example",
+  "properties": {
+    "description": "Audit <resources> & report",
+    "metadata": {},
+    "nonComplianceMessages": [
+      {
+        "message": "[[parameters('effect')]"
+      }
+    ],
+    "notScopes": []
+  }
+}
+`
+	require.Equal(t, want, string(b))
+}
+
 func TestAddArmFunctionEscaping_MapSimple(t *testing.T) {
 	t.Parallel()
 
