@@ -54,7 +54,7 @@ func (c *VersionedPolicyCollection[T]) Versions() []semver.Version {
 	return vers
 }
 
-// GetVersion returns a policy version based on the provided constraint string.
+// GetVersion returns a policy version based on an exact version or policy version constraint.
 // If the constraint string is nil, it returns the versionless definition if it exists.
 // If the constraint string is nil and no versionless definition exists, it returns the latest
 // version.
@@ -86,28 +86,62 @@ func (c *VersionedPolicyCollection[T]) GetVersion(constraintStr *string) (T, err
 		return c.versionlessDefinition, nil
 	}
 
+	// Exact lookup supports Azure's read-only effective definition version. Writable assignment
+	// constraints must continue to use a wildcard patch version.
+	if sv, err := semver.StrictNewVersion(*constraintStr); err == nil {
+		if pol, ok := c.versions[*sv]; ok {
+			return pol, nil
+		}
+
+		return nil, errors.Join(ErrNoVersionFound, fmt.Errorf(
+			"version %s",
+			*constraintStr,
+		))
+	}
+
 	constraint, err := policyVersionConstraintToSemVerConstraint(*constraintStr)
 	if err != nil {
 		return nil, err
 	}
 
-	var resKey *semver.Version
+	// Azure Policy encodes state as a semver prerelease suffix: "-preview" or "-deprecated".
+	// A constraint carrying such a suffix must resolve to a version with the same suffix, not to a
+	// higher stable release or a different suffix. It falls back to the highest stable release when
+	// no same-suffix version matches (graduated out of preview), then to any other matching version
+	// as a last resort. See Azure/Azure-Landing-Zones#4190.
+	wantPrerelease := policyVersionConstraintPrerelease(*constraintStr)
+
+	var bestMatch, bestStable, bestAny *semver.Version
 
 	for v := range c.versions {
 		if !constraint.Check(&v) {
 			continue
 		}
 
-		if resKey == nil {
-			resKey = &v
-			continue
+		if bestAny == nil || v.GreaterThan(bestAny) {
+			bestAny = &v
 		}
 
-		if v.LessThan(resKey) {
-			continue
+		// When the constraint has no suffix, wantPrerelease is "" and the first case wins.
+		switch v.Prerelease() {
+		case wantPrerelease:
+			if bestMatch == nil || v.GreaterThan(bestMatch) {
+				bestMatch = &v
+			}
+		case "":
+			if bestStable == nil || v.GreaterThan(bestStable) {
+				bestStable = &v
+			}
 		}
+	}
 
-		resKey = &v
+	resKey := bestMatch
+	if resKey == nil {
+		resKey = bestStable
+	}
+
+	if resKey == nil {
+		resKey = bestAny
 	}
 
 	if resKey == nil {

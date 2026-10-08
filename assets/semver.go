@@ -54,3 +54,17 @@ func policyVersionConstraintToSemVerConstraint(constraint string) (*semver.Const
 
 	return sv, nil
 }
+
+// policyVersionConstraintPrerelease returns the prerelease identifier carried by a policy version constraint string, 
+// e.g. "1.*.*-preview" -> "preview", "1.*.*-deprecated" -> "deprecated", "1.*.*" -> "". 
+// Azure Policy encodes preview/deprecated state as this suffix.
+func policyVersionConstraintPrerelease(constraint string) string {
+	parts := strings.Split(constraint, ".")
+	if len(parts) != ExpectedVersionComponents {
+		return ""
+	}
+
+	_, pre, _ := strings.Cut(parts[len(parts)-1], "-")
+
+	return pre
+}
