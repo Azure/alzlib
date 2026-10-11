@@ -40,12 +40,12 @@ A --library value may be either a local path (e.g. ./mylib) or an ALZ Library re
 the form <member>@<ref>, e.g. platform/alz@2026.01.3. The flag may be specified multiple
 times to combine several libraries; their dependencies are fetched recursively.
 
-Use --library-overwrite-enabled to apply the current library-overwrite behavior while combining
-libraries. Policy assignments, role definitions, archetypes, architectures and policy default
-values from later libraries replace those of earlier libraries in full, they are not merged
-field by field. Policy definitions and policy set definitions are not replaced: the earlier
-library's version is kept and the flag only suppresses the duplicate error. Duplicate archetype
-override names remain an error regardless of this flag.
+Use --library-overwrite-enabled to let later libraries redefine assets of earlier libraries
+when combining them. Policy assignments, role definitions, archetypes, architectures and
+policy default values from later libraries replace those of earlier libraries in full, they
+are not merged field by field. Policy definitions and policy set definitions are replaced per
+version: a redefined version replaces the earlier library's, other versions are kept.
+Duplicate archetype override names remain an error regardless of this flag.
 
 Use --from-cache to seed from an existing cache file (requires --library and --architecture).
 Definitions already present in the seed cache are used directly and not re-fetched from Azure,
@@ -94,8 +94,8 @@ to update a cache in-place.`,
 		if libraryOverwriteEnabled {
 			// stderr only, so verbose stdout stays scriptable.
 			cmd.PrintErrln(
-				"Warning: policy (set) definition redefinitions retain the earlier library's version, " +
-					"and duplicate archetype override names remain an error.")
+				"Warning: assets redefined by later libraries replace earlier ones in full, not field " +
+					"by field, and duplicate archetype override names remain an error.")
 		}
 
 		// Read the seed cache BEFORE opening the output file, because --from-cache
@@ -274,9 +274,8 @@ func init() {
 	createCmd.Flags().
 		Bool(
 			"library-overwrite-enabled", false,
-			"Apply the current library-overwrite behavior while combining libraries. Policy "+
-				"assignments, role definitions, archetypes, architectures and policy default values from "+
-				"later libraries are replaced in full, not merged field by field. Policy (set) definitions "+
-				"keep the earlier library's version; for those the flag only suppresses the duplicate "+
-				"error. Requires --library and --architecture.")
+			"Allow later libraries to redefine assets of earlier libraries. Redefined assets are "+
+				"replaced in full, not merged field by field; policy (set) definitions are replaced per "+
+				"version. Duplicate archetype override names remain an error. Requires --library and "+
+				"--architecture.")
 }

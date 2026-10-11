@@ -159,7 +159,7 @@ func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
 
 		if pdvc, exists := az.policyDefinitions[*pd.Name]; exists {
 			if err := pdvc.Add(pd, az.Options.AllowOverwrite); err != nil {
-				merr = multierror.Append(merr, pdvc.Upsert(pdvc, az.Options.AllowOverwrite))
+				merr = multierror.Append(merr, err)
 			}
 
 			continue
@@ -1484,9 +1484,10 @@ func (az *AlzLib) fetchLatestReferencedPolicyDefinition(
 func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 	var merr error
 
+	// Merge into the stored collection so that later libraries win.
 	for k, v := range res.PolicyDefinitions {
 		if pdv, exists := az.policyDefinitions[k]; exists {
-			if err := v.Upsert(pdv, az.Options.AllowOverwrite); err != nil {
+			if err := pdv.Upsert(v, az.Options.AllowOverwrite); err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("policy definition %s: %w", k, err))
 			}
 
@@ -1504,7 +1505,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 
 	for k, v := range res.PolicySetDefinitions {
 		if psdv, exists := az.policySetDefinitions[k]; exists {
-			if err := v.Upsert(psdv, az.Options.AllowOverwrite); err != nil {
+			if err := psdv.Upsert(v, az.Options.AllowOverwrite); err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("policy set definition %s: %w", k, err))
 			}
 
