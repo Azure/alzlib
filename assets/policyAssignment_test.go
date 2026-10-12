@@ -103,6 +103,42 @@ func TestPolicyAssignmentEffectiveDefinitionVersion(t *testing.T) {
 		require.NotNil(t, cp.EffectiveDefinitionVersion())
 		assert.Equal(t, "1.2.0-preview", *cp.EffectiveDefinitionVersion())
 	})
+
+	t.Run("reused assignment does not keep a stale effective version", func(t *testing.T) {
+		const payload = `{
+			"name": "Deploy-MCSB2-Monitoring",
+			"properties": {
+				"policyDefinitionId": "/providers/Microsoft.Authorization/policySetDefinitions/e3ec7e09-768c-4b64-882c-fcada3772047",
+				"displayName": "display",
+				"description": "description",
+				"definitionVersion": "%s"%s
+			}
+		}`
+
+		for name, second := range map[string]string{
+			"absent": "",
+			"empty":  `, "effectiveDefinitionVersion": ""`,
+			"null":   `, "effectiveDefinitionVersion": null`,
+		} {
+			t.Run(name, func(t *testing.T) {
+				pa := new(PolicyAssignment)
+				require.NoError(t, json.Unmarshal(
+					[]byte(fmt.Sprintf(payload, "1.*.*-preview", `, "effectiveDefinitionVersion": "1.2.0-preview"`)),
+					pa,
+				))
+				require.NotNil(t, pa.EffectiveDefinitionVersion())
+
+				require.NoError(t, json.Unmarshal([]byte(fmt.Sprintf(payload, "2.*.*", second)), pa))
+
+				assert.Nil(t, pa.EffectiveDefinitionVersion())
+
+				_, ver, err := pa.ReferencedPolicyDefinitionResourceIDAndVersion()
+				require.NoError(t, err)
+				require.NotNil(t, ver)
+				assert.Equal(t, "2.*.*", *ver)
+			})
+		}
+	})
 }
 
 func TestReferencedPolicyDefinitionResourceId(t *testing.T) {

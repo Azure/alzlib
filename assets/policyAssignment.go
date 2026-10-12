@@ -57,6 +57,8 @@ func NewPolicyAssignmentValidate(pa armpolicy.Assignment) (*PolicyAssignment, er
 // SDK type, so it can inform version resolution without being written to deployment artifacts, and
 // drops the other read-only version field for the same reason.
 func (pa *PolicyAssignment) hoistReadOnlyDefinitionVersions() {
+	pa.effectiveDefinitionVersion = nil
+
 	if pa.Properties == nil {
 		return
 	}
