@@ -117,6 +117,17 @@ func (h *Hierarchy) FromArchitecture(
 	if architecture == nil {
 		return fmt.Errorf("Hierarchy.FromArchitecture: getting architecture `%s`", arch)
 	}
+
+	// Fetch the built-in definitions for the whole architecture in one batch, so that they are spread
+	// across the configured parallelism rather than requested one management group at a time.
+	if err := h.alzlib.GetDefinitionsFromAzure(ctx, h.architectureBuiltInRequests(architecture)); err != nil {
+		return fmt.Errorf(
+			"Hierarchy.FromArchitecture: getting policy definitions from Azure for architecture `%s`: %w",
+			arch,
+			err,
+		)
+	}
+
 	// Get the architecture root management groups.
 	for _, a := range architecture.RootMgs() {
 		if err := recurseAddManagementGroup(ctx, h, a, externalParentID, location, true, 0); err != nil {
@@ -252,6 +263,85 @@ func recurseAddManagementGroup(
 	return nil
 }
 
+// architectureBuiltInRequests returns the requests for the definitions referenced by the policy
+// assignments of every management group in the architecture.
+// Policy assignments that cannot be resolved are skipped, so that addManagementGroup reports them
+// with its usual error when the management group is added.
+func (h *Hierarchy) architectureBuiltInRequests(architecture *alzlib.Architecture) []alzlib.BuiltInRequest {
+	reqs := make([]alzlib.BuiltInRequest, 0, builtInRequestSliceCapacity)
+	seen := mapset.NewThreadUnsafeSet[string]()
+
+	var walk func(mgs []*alzlib.ArchitectureManagementGroup)
+
+	walk = func(mgs []*alzlib.ArchitectureManagementGroup) {
+		slices.SortFunc(mgs, func(a, b *alzlib.ArchitectureManagementGroup) int {
+			return strings.Compare(a.ID(), b.ID())
+		})
+
+		for _, mg := range mgs {
+			for _, pa := range sortedSet(archetypesPolicyAssignments(mg.Archetypes())) {
+				if !seen.Add(pa) {
+					continue
+				}
+
+				req, err := h.builtInRequestForPolicyAssignment(pa)
+				if err != nil {
+					continue
+				}
+
+				reqs = append(reqs, req)
+			}
+
+			walk(mg.Children())
+		}
+	}
+
+	walk(architecture.RootMgs())
+
+	return reqs
+}
+
+// archetypesPolicyAssignments combines the policy assignments of the supplied archetypes into a single set.
+func archetypesPolicyAssignments(archetypes []*alzlib.Archetype) mapset.Set[string] {
+	res := mapset.NewThreadUnsafeSet[string]()
+	for _, archetype := range archetypes {
+		res = res.Union(archetype.PolicyAssignments)
+	}
+
+	return res
+}
+
+// errPolicyAssignmentNotFound is returned by builtInRequestForPolicyAssignment when the policy assignment
+// does not exist in the library.
+var errPolicyAssignmentNotFound = errors.New("policy assignment does not exist in the library")
+
+// builtInRequestForPolicyAssignment returns the request for the definition referenced by the named
+// policy assignment.
+func (h *Hierarchy) builtInRequestForPolicyAssignment(name string) (alzlib.BuiltInRequest, error) {
+	polAssign := h.alzlib.PolicyAssignment(name)
+	if polAssign == nil {
+		return alzlib.BuiltInRequest{}, errPolicyAssignmentNotFound
+	}
+
+	referencedResourceID, definitionVersion, err := polAssign.ReferencedPolicyDefinitionResourceIDAndVersion()
+	if err != nil {
+		return alzlib.BuiltInRequest{}, err
+	}
+
+	return alzlib.BuiltInRequest{
+		ResourceID: referencedResourceID,
+		Version:    definitionVersion,
+	}, nil
+}
+
+// sortedSet returns the members of the set as a sorted slice.
+func sortedSet(s mapset.Set[string]) []string {
+	res := s.ToSlice()
+	slices.Sort(res)
+
+	return res
+}
+
 // addManagementGroup adds a management group to the hierarchy, with a parent if specified.
 // If the parent is not specified, the management group is considered the root of the hierarchy.
 // The archetype should have been obtained using the `AlzLib.CopyArchetype` method.
@@ -314,14 +404,11 @@ func (h *Hierarchy) addManagementGroup(
 	assignedPolicyDefinitions := make([]alzlib.BuiltInRequest, 0, builtInRequestSliceCapacity)
 
 	// Combine all assignments from all supplied archetypes into a single set
-	allPolicyAssignments := mapset.NewThreadUnsafeSet[string]()
-	for _, archetype := range req.archetypes {
-		allPolicyAssignments = allPolicyAssignments.Union(archetype.PolicyAssignments)
-	}
+	allPolicyAssignments := archetypesPolicyAssignments(req.archetypes)
 
 	for pa := range allPolicyAssignments.Iter() {
-		polAssign := h.alzlib.PolicyAssignment(pa)
-		if polAssign == nil {
+		builtInReq, err := h.builtInRequestForPolicyAssignment(pa)
+		if errors.Is(err, errPolicyAssignmentNotFound) {
 			return nil, fmt.Errorf(
 				"Hierarchy.AddManagementGroup: policy assignment `%s` referenced in management group `%s` "+
 					"does not exist in the library",
@@ -330,7 +417,6 @@ func (h *Hierarchy) addManagementGroup(
 			)
 		}
 
-		referencedResourceID, definitionVersion, err := polAssign.ReferencedPolicyDefinitionResourceIDAndVersion()
 		if err != nil {
 			return nil, fmt.Errorf(
 				"Hierarchy.AddManagementGroup: getting referenced policy definition resource ID "+
@@ -341,13 +427,11 @@ func (h *Hierarchy) addManagementGroup(
 			)
 		}
 
-		assignedPolicyDefinitions = append(assignedPolicyDefinitions, alzlib.BuiltInRequest{
-			ResourceID: referencedResourceID,
-			Version:    definitionVersion,
-		})
+		assignedPolicyDefinitions = append(assignedPolicyDefinitions, builtInReq)
 	}
 
-	// Definitions are retrieved only at the time of adding the management group to the hierarchy.
+	// Definitions are normally prefetched for the whole architecture by FromArchitecture, in which case
+	// this is a no-op. It is kept so that management groups added any other way still get their definitions.
 	if err := h.alzlib.GetDefinitionsFromAzure(ctx, assignedPolicyDefinitions); err != nil {
 		return nil, fmt.Errorf(
 			"Hierarchy.AddManagementGroup: adding mg `%s` error getting policy definitions from Azure: %w",

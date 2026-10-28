@@ -52,6 +52,9 @@ type AlzLib struct {
 	cache   BuiltInCache
 	clients *azureClients
 	mu      sync.RWMutex // mu is a mutex to concurrency protect the AlzLib maps
+	// fetchMu serialises concurrent GetDefinitionsFromAzure callers sharing this AlzLib, so that they
+	// do not fetch and add the same definitions at the same time.
+	fetchMu sync.Mutex
 }
 
 type azureClients struct {
@@ -65,6 +68,9 @@ type Options struct {
 	AllowOverwrite bool
 	// Parallelism is the number of parallel requests to make to Azure APIs when getting policy definitions
 	// and policy set definitions.
+	// Requests for the same definition name are always made serially.
+	// Set to 1 to fetch all definitions serially.
+	// Requests throttled by Azure Resource Manager (HTTP 429) are retried after the delay it requests.
 	Parallelism int
 	// UniqueRoleDefinitions indicates whether to update the role definitions to be unique per management group.
 	// If this is not set, you may end up with conflicting role definition names.
@@ -726,7 +732,11 @@ func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 // before falling back to Azure API calls.
 // The cache is retained for the lifetime of AlzLib; callers can explicitly clear it by calling
 // AddCache(nil) when they no longer need it.
+// Definitions are fetched concurrently, bounded by [Options.Parallelism].
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInRequest) error {
+	az.fetchMu.Lock()
+	defer az.fetchMu.Unlock()
+
 	policyDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 	policySetDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 
@@ -922,145 +932,177 @@ func (az *AlzLib) policySetDefinitionFromCache(name string, version *string) (*a
 
 // getBuiltInPolicies retrieves the built-in policy definitions with the given names
 // and adds them to the AlzLib struct.
+// Requests are grouped by definition name and the groups are fetched concurrently.
 func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest) error {
 	var (
 		versionedClient *armpolicy.DefinitionVersionsClient
 		client          *armpolicy.DefinitionsClient
 	)
 
-	for _, req := range reqs {
-		if az.PolicyDefinitionExists(req.ResourceID.Name, req.Version) {
-			continue
-		}
+	// Azure SDK clients are safe for concurrent use, so they are created once and shared.
+	if policyClient := az.policyClientFactory(); policyClient != nil {
+		versionedClient = policyClient.NewDefinitionVersionsClient()
+		client = policyClient.NewDefinitionsClient()
+	}
 
-		// Check cache before calling Azure.
-		pdv, cacheErr := az.policyDefinitionFromCache(req.ResourceID.Name, req.Version)
-		if cacheErr != nil {
+	return forEachGroupConcurrently(
+		ctx,
+		az.effectiveParallelism(),
+		groupByName(reqs, builtInRequestName),
+		func(ctx context.Context, req BuiltInRequest) error {
+			return az.getBuiltInPolicy(ctx, client, versionedClient, req)
+		},
+	)
+}
+
+// getBuiltInPolicy retrieves a single built-in policy definition, from the cache if possible,
+// and adds it to the AlzLib struct.
+func (az *AlzLib) getBuiltInPolicy(
+	ctx context.Context,
+	client *armpolicy.DefinitionsClient,
+	versionedClient *armpolicy.DefinitionVersionsClient,
+	req BuiltInRequest,
+) error {
+	if az.PolicyDefinitionExists(req.ResourceID.Name, req.Version) {
+		return nil
+	}
+
+	// Check cache before calling Azure.
+	pdv, cacheErr := az.policyDefinitionFromCache(req.ResourceID.Name, req.Version)
+	if cacheErr != nil {
+		return fmt.Errorf(
+			"Alzlib.getBuiltInPolicies: looking up cached built-in policy definition %s: %w",
+			JoinNameAndVersion(req.ResourceID.Name, req.Version),
+			cacheErr,
+		)
+	}
+
+	if pdv != nil {
+		if err := az.AddPolicyDefinitions(pdv); err != nil {
 			return fmt.Errorf(
-				"Alzlib.getBuiltInPolicies: looking up cached built-in policy definition %s: %w",
+				"Alzlib.getBuiltInPolicies: adding cached built-in policy definition %s: %w",
 				JoinNameAndVersion(req.ResourceID.Name, req.Version),
-				cacheErr,
+				err,
 			)
 		}
 
-		if pdv != nil {
-			if err := az.AddPolicyDefinitions(pdv); err != nil {
-				return fmt.Errorf(
-					"Alzlib.getBuiltInPolicies: adding cached built-in policy definition %s: %w",
-					JoinNameAndVersion(req.ResourceID.Name, req.Version),
-					err,
-				)
-			}
-
-			continue
-		}
-
-		// Fall back to Azure.
-		az.mu.RLock()
-		policyClient := az.clients.policyClient
-		az.mu.RUnlock()
-
-		if policyClient == nil {
-			return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
-		}
-
-		// Lazily initialise clients on first Azure call.
-		if client == nil {
-			versionedClient = policyClient.NewDefinitionVersionsClient()
-			client = policyClient.NewDefinitionsClient()
-		}
-
-		var err error
-
-		switch req.Version {
-		case nil:
-			err = az.addLatestPolicyDefinition(ctx, client, req)
-		default:
-			err = az.addVersionedPolicyDefinition(ctx, versionedClient, req)
-		}
-
-		if err != nil {
-			return err
-		}
+		return nil
 	}
 
-	return nil
+	// Fall back to Azure.
+	if client == nil || versionedClient == nil {
+		return errors.New("Alzlib.getBuiltInPolicies: policy client not set")
+	}
+
+	if req.Version == nil {
+		return az.addLatestPolicyDefinition(ctx, client, req)
+	}
+
+	return az.addVersionedPolicyDefinition(ctx, versionedClient, req)
 }
 
 // getBuiltInPolicySets retrieves the built-in policy set definitions with the given names
 // and adds them to the AlzLib struct.
+// Requests are grouped by definition name and the groups are fetched concurrently.
+// Once all policy set definitions have been retrieved, the policy definitions they reference
+// are retrieved.
 func (az *AlzLib) getBuiltInPolicySets(ctx context.Context, reqs []BuiltInRequest) error {
-	processedRequests := make([]*assets.PolicySetDefinition, 0, len(reqs))
-
 	var (
 		versionedClient *armpolicy.SetDefinitionVersionsClient
 		client          *armpolicy.SetDefinitionsClient
 	)
 
-	for _, req := range reqs {
-		if az.PolicySetDefinitionExists(req.ResourceID.Name, req.Version) {
-			continue
-		}
+	// Azure SDK clients are safe for concurrent use, so they are created once and shared.
+	if policyClient := az.policyClientFactory(); policyClient != nil {
+		versionedClient = policyClient.NewSetDefinitionVersionsClient()
+		client = policyClient.NewSetDefinitionsClient()
+	}
 
-		// Check cache before calling Azure.
-		psdv, cacheErr := az.policySetDefinitionFromCache(req.ResourceID.Name, req.Version)
-		if cacheErr != nil {
-			return fmt.Errorf(
-				"Alzlib.getBuiltInPolicySets: looking up cached built-in policy set definition %s: %w",
-				req.String(),
-				cacheErr,
-			)
-		}
+	// Each request writes only to its own slot, so the processed policy set definitions keep the
+	// request order regardless of the order in which they are fetched.
+	processed := make([]*assets.PolicySetDefinition, len(reqs))
+	indices := make([]int, len(reqs))
 
-		if psdv != nil {
-			if err := az.AddPolicySetDefinitions(psdv); err != nil {
-				return fmt.Errorf(
-					"Alzlib.getBuiltInPolicySets: adding cached built-in policy set definition %s: %w",
-					req.String(),
-					err,
-				)
-			}
+	for i := range indices {
+		indices[i] = i
+	}
 
-			processedRequests = append(processedRequests, psdv)
+	err := forEachGroupConcurrently(
+		ctx,
+		az.effectiveParallelism(),
+		groupByName(indices, func(i int) string { return builtInRequestName(reqs[i]) }),
+		func(ctx context.Context, i int) error {
+			psd, err := az.getBuiltInPolicySet(ctx, client, versionedClient, reqs[i])
+			processed[i] = psd
 
-			continue
-		}
-
-		// Fall back to Azure.
-		az.mu.RLock()
-		policyClient := az.clients.policyClient
-		az.mu.RUnlock()
-
-		if policyClient == nil {
-			return errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
-		}
-
-		// Lazily initialise clients on first Azure call.
-		if client == nil {
-			versionedClient = policyClient.NewSetDefinitionVersionsClient()
-			client = policyClient.NewSetDefinitionsClient()
-		}
-
-		var (
-			psd *assets.PolicySetDefinition
-			err error
-		)
-
-		switch req.Version {
-		case nil:
-			psd, err = az.addLatestPolicySetDefinition(ctx, client, req)
-		default:
-			psd, err = az.addVersionedPolicySetDefinition(ctx, versionedClient, req)
-		}
-
-		if err != nil {
 			return err
-		}
+		},
+	)
+	if err != nil {
+		return err
+	}
 
-		processedRequests = append(processedRequests, psd)
+	processedRequests := make([]*assets.PolicySetDefinition, 0, len(reqs))
+
+	for _, psd := range processed {
+		if psd != nil {
+			processedRequests = append(processedRequests, psd)
+		}
 	}
 
 	return az.ensureReferencedPolicyDefinitions(ctx, processedRequests)
+}
+
+// getBuiltInPolicySet retrieves a single built-in policy set definition, from the cache if possible,
+// and adds it to the AlzLib struct.
+// It returns the added policy set definition, or nil if it already existed.
+func (az *AlzLib) getBuiltInPolicySet(
+	ctx context.Context,
+	client *armpolicy.SetDefinitionsClient,
+	versionedClient *armpolicy.SetDefinitionVersionsClient,
+	req BuiltInRequest,
+) (*assets.PolicySetDefinition, error) {
+	if az.PolicySetDefinitionExists(req.ResourceID.Name, req.Version) {
+		return nil, nil
+	}
+
+	// Check cache before calling Azure.
+	psdv, cacheErr := az.policySetDefinitionFromCache(req.ResourceID.Name, req.Version)
+	if cacheErr != nil {
+		return nil, fmt.Errorf(
+			"Alzlib.getBuiltInPolicySets: looking up cached built-in policy set definition %s: %w",
+			req.String(),
+			cacheErr,
+		)
+	}
+
+	if psdv != nil {
+		if err := az.AddPolicySetDefinitions(psdv); err != nil {
+			return nil, fmt.Errorf(
+				"Alzlib.getBuiltInPolicySets: adding cached built-in policy set definition %s: %w",
+				req.String(),
+				err,
+			)
+		}
+
+		return psdv, nil
+	}
+
+	// Fall back to Azure.
+	if client == nil || versionedClient == nil {
+		return nil, errors.New("Alzlib.getBuiltInPolicySets: policy client not set")
+	}
+
+	if req.Version == nil {
+		return az.addLatestPolicySetDefinition(ctx, client, req)
+	}
+
+	return az.addVersionedPolicySetDefinition(ctx, versionedClient, req)
+}
+
+// builtInRequestName returns the definition name of a built-in request.
+func builtInRequestName(req BuiltInRequest) string {
+	return req.ResourceID.Name
 }
 
 func (az *AlzLib) addLatestPolicyDefinition(
@@ -1271,57 +1313,55 @@ func (az *AlzLib) ensureReferencedPolicyDefinitions(
 		return nil
 	}
 
-	// Lazily initialised Azure clients, shared across all references within this invocation.
+	// Validate every reference before making any Azure calls, so that malformed references fail early
+	// and deterministically.
+	refs := make([]definitionReference, 0, len(processedRequests))
+
+	for _, def := range processedRequests {
+		for _, ref := range def.Properties.PolicyDefinitions {
+			defRef, err := parseDefinitionReference(def, ref)
+			if err != nil {
+				return err
+			}
+
+			if defRef != nil {
+				refs = append(refs, *defRef)
+			}
+		}
+	}
+
+	if len(refs) == 0 {
+		return nil
+	}
+
 	var (
 		definitionsClient          *armpolicy.DefinitionsClient
 		definitionsVersionedClient *armpolicy.DefinitionVersionsClient
 	)
 
-	for _, def := range processedRequests {
-		for _, ref := range def.Properties.PolicyDefinitions {
-			err := az.ensureReferencedPolicyDefinition(
-				ctx,
-				def,
-				ref,
-				&definitionsClient,
-				&definitionsVersionedClient,
-			)
-			if err != nil {
-				return err
-			}
-		}
+	// Azure SDK clients are safe for concurrent use, so they are created once and shared.
+	if policyClient := az.policyClientFactory(); policyClient != nil {
+		definitionsClient = policyClient.NewDefinitionsClient()
+		definitionsVersionedClient = policyClient.NewDefinitionVersionsClient()
 	}
 
-	return nil
+	return forEachGroupConcurrently(
+		ctx,
+		az.effectiveParallelism(),
+		groupByName(refs, func(r definitionReference) string { return r.resID.Name }),
+		func(ctx context.Context, r definitionReference) error {
+			return az.ensureReferencedPolicyDefinition(ctx, r, definitionsClient, definitionsVersionedClient)
+		},
+	)
 }
 
 func (az *AlzLib) ensureReferencedPolicyDefinition(
 	ctx context.Context,
-	setDefinition *assets.PolicySetDefinition,
-	ref *armpolicy.DefinitionReference,
-	definitionsClient **armpolicy.DefinitionsClient,
-	definitionsVersionedClient **armpolicy.DefinitionVersionsClient,
+	defRef definitionReference,
+	definitionsClient *armpolicy.DefinitionsClient,
+	definitionsVersionedClient *armpolicy.DefinitionVersionsClient,
 ) error {
-	if ref == nil {
-		return nil
-	}
-
-	if ref.PolicyDefinitionID == nil {
-		return fmt.Errorf(
-			"Alzlib.getBuiltInPolicySets: error getting policy definition references for policy set definition `%s`: "+
-				"policy definition ID is nil",
-			JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
-		)
-	}
-
-	resID, err := arm.ParseResourceID(*ref.PolicyDefinitionID)
-	if err != nil {
-		return fmt.Errorf(
-			"Alzlib.getBuiltInPolicySets: error parsing resource id `%s` referenced in policy set `%s`",
-			*ref.PolicyDefinitionID,
-			JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
-		)
-	}
+	setDefinition, ref, resID := defRef.setDefinition, defRef.ref, defRef.resID
 
 	// Check AlzLib first to avoid redundant work.
 	if az.PolicyDefinitionExists(resID.Name, ref.DefinitionVersion) {
@@ -1355,28 +1395,16 @@ func (az *AlzLib) ensureReferencedPolicyDefinition(
 	}
 
 	// Fall back to Azure.
-	az.mu.RLock()
-	policyClient := az.clients.policyClient
-	az.mu.RUnlock()
-
-	if policyClient == nil {
+	if definitionsClient == nil || definitionsVersionedClient == nil {
 		return errors.New("Alzlib.ensureReferencedPolicyDefinition: policy client not set")
 	}
 
 	if ref.DefinitionVersion != nil {
-		if *definitionsVersionedClient == nil {
-			*definitionsVersionedClient = policyClient.NewDefinitionVersionsClient()
-		}
-
-		return az.fetchReferencedPolicyDefinitionVersions(ctx, *definitionsVersionedClient, resID.Name, setDefinition, ref)
-	}
-
-	if *definitionsClient == nil {
-		*definitionsClient = policyClient.NewDefinitionsClient()
+		return az.fetchReferencedPolicyDefinitionVersions(ctx, definitionsVersionedClient, resID.Name, setDefinition, ref)
 	}
 
 	return az.fetchLatestReferencedPolicyDefinition(
-		ctx, *definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion,
+		ctx, definitionsClient, resID.Name, setDefinition, ref.DefinitionVersion,
 	)
 }
 
@@ -1424,7 +1452,7 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 			*ref.DefinitionVersion,
 			definitionName,
 			JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
-			az.policyDefinitions[definitionName].Versions(),
+			az.policyDefinitionVersionsString(definitionName),
 		)
 	}
 
