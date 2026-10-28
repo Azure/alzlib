@@ -64,10 +64,17 @@ type Server struct {
 	policyDefinitions    map[string]policyDefinitionEntry
 	policySetDefinitions map[string]setDefinition
 	failures             map[string]int
+	throttles            map[string]throttle
 	calls                map[string]int
 	totalCalls           int
 	inFlight             int
 	peakInFlight         int
+}
+
+// throttle describes how many more requests for a definition are answered with HTTP 429.
+type throttle struct {
+	remaining  int
+	retryAfter string
 }
 
 // New returns an empty fake ARM server.
@@ -76,6 +83,7 @@ func New() *Server {
 		policyDefinitions:    make(map[string]policyDefinitionEntry),
 		policySetDefinitions: make(map[string]setDefinition),
 		failures:             make(map[string]int),
+		throttles:            make(map[string]throttle),
 		calls:                make(map[string]int),
 	}
 }
@@ -104,6 +112,16 @@ func (s *Server) FailDefinition(name string, status int) {
 	defer s.mu.Unlock()
 
 	s.failures[strings.ToLower(name)] = status
+}
+
+// ThrottleDefinition makes the next times requests for the named definition return HTTP 429
+// TooManyRequests, as Azure Resource Manager does when throttling. A negative times throttles every
+// request. retryAfter is sent as the Retry-After header unless it is empty.
+func (s *Server) ThrottleDefinition(name string, times int, retryAfter string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.throttles[strings.ToLower(name)] = throttle{remaining: times, retryAfter: retryAfter}
 }
 
 // Calls returns the number of requests made for the named definition.
@@ -180,12 +198,30 @@ func (s *Server) Do(req *http.Request) (*http.Response, error) {
 
 	s.mu.Lock()
 	status, fail := s.failures[name]
+	thr, throttled := s.throttles[name]
+
+	if throttled && thr.remaining != 0 {
+		thr.remaining--
+		s.throttles[name] = thr
+	} else {
+		throttled = false
+	}
+
 	pd, pdOK := s.policyDefinitions[name]
 	psd, psdOK := s.policySetDefinitions[name]
 	s.mu.Unlock()
 
 	if fail {
 		return jsonResponse(req, status, errorBody("InjectedFailure", name))
+	}
+
+	if throttled {
+		resp, err := jsonResponse(req, http.StatusTooManyRequests, errorBody("TenantRequestsThrottled", name))
+		if resp != nil && thr.retryAfter != "" {
+			resp.Header.Set("Retry-After", thr.retryAfter)
+		}
+
+		return resp, err
 	}
 
 	switch {

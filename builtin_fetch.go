@@ -5,13 +5,29 @@ package alzlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/rand/v2"
+	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	// maxThrottleRetries is the number of times a definition is fetched again after Azure Resource
+	// Manager throttled it (HTTP 429) beyond the retries of the Azure SDK.
+	maxThrottleRetries = 5
+	// throttleBaseDelay is the first back-off delay when a throttled response has no Retry-After.
+	throttleBaseDelay = 2 * time.Second
+	// throttleMaxDelay caps every back-off delay, including a requested Retry-After.
+	throttleMaxDelay = 60 * time.Second
 )
 
 // definitionReference is a validated policy definition reference from a built-in policy set definition.
@@ -111,6 +127,7 @@ func groupByName[T any](items []T, name func(T) string) [][]T {
 
 // forEachGroupConcurrently calls fn for every item, running at most limit groups at once.
 // Items within a group are processed in order.
+// An item throttled by Azure Resource Manager is retried, see withThrottleRetry.
 // The first error cancels the remaining work and is returned.
 func forEachGroupConcurrently[T any](
 	ctx context.Context,
@@ -132,7 +149,7 @@ func forEachGroupConcurrently[T any](
 					return err
 				}
 
-				if err := fn(grpCtx, item); err != nil {
+				if err := withThrottleRetry(grpCtx, func() error { return fn(grpCtx, item) }); err != nil {
 					return err
 				}
 			}
@@ -142,4 +159,79 @@ func forEachGroupConcurrently[T any](
 	}
 
 	return grp.Wait()
+}
+
+// withThrottleRetry calls fn and, while it fails because Azure Resource Manager throttled a request
+// (HTTP 429), waits and calls it again, up to maxThrottleRetries times.
+// The Azure SDK already retries throttled requests, but only a few times. Concurrent fetching, and
+// several processes sharing a tenant, can exhaust those retries, so a throttled definition is
+// fetched again after the delay requested by Retry-After, or an exponential back-off.
+// fn must be safe to call again after a failure: the fetch functions first check whether the
+// definition already exists.
+func withThrottleRetry(ctx context.Context, fn func() error) error {
+	for attempt := 0; ; attempt++ {
+		err := fn()
+		if err == nil || attempt == maxThrottleRetries || !isThrottled(err) {
+			return err
+		}
+
+		timer := time.NewTimer(throttleDelay(err, attempt))
+
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+
+			return err
+		case <-timer.C:
+		}
+	}
+}
+
+// isThrottled reports whether err is an Azure Resource Manager HTTP 429 response.
+func isThrottled(err error) bool {
+	var respErr *azcore.ResponseError
+
+	return errors.As(err, &respErr) && respErr.StatusCode == http.StatusTooManyRequests
+}
+
+// throttleDelay returns how long to wait before retrying after a throttled response: the delay
+// requested by the response, or an exponential back-off with jitter, capped at throttleMaxDelay.
+func throttleDelay(err error, attempt int) time.Duration {
+	var respErr *azcore.ResponseError
+	if errors.As(err, &respErr) && respErr.RawResponse != nil {
+		if d, ok := retryAfter(respErr.RawResponse.Header); ok {
+			return min(d, throttleMaxDelay)
+		}
+	}
+
+	backoff := min(throttleBaseDelay<<attempt, throttleMaxDelay)
+
+	return backoff/2 + rand.N(backoff/2+1)
+}
+
+// retryAfter parses the delay requested by a throttled response, from the retry-after-ms,
+// x-ms-retry-after-ms or Retry-After (seconds or HTTP date) header.
+func retryAfter(h http.Header) (time.Duration, bool) {
+	for _, name := range []string{"retry-after-ms", "x-ms-retry-after-ms"} {
+		if v := h.Get(name); v != "" {
+			if ms, err := strconv.Atoi(v); err == nil && ms >= 0 {
+				return time.Duration(ms) * time.Millisecond, true
+			}
+		}
+	}
+
+	v := h.Get("Retry-After")
+	if v == "" {
+		return 0, false
+	}
+
+	if s, err := strconv.Atoi(v); err == nil && s >= 0 {
+		return time.Duration(s) * time.Second, true
+	}
+
+	if t, err := http.ParseTime(v); err == nil {
+		return max(time.Until(t), 0), true
+	}
+
+	return 0, false
 }

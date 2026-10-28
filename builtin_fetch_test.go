@@ -5,6 +5,7 @@ package alzlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -223,6 +224,126 @@ func TestGetDefinitionsFromAzureFirstErrorCancelsRemainingWork(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), reqs[0].ResourceID.Name)
 	assert.Less(t, srv.TotalCalls(), count)
+	assert.Equal(t, 1, srv.Calls(reqs[0].ResourceID.Name), "errors other than HTTP 429 must not be retried")
+}
+
+func TestGetDefinitionsFromAzureRetriesThrottledRequests(t *testing.T) {
+	t.Parallel()
+
+	// The fake client factory disables the Azure SDK's own retries, so every retry here is alzlib's.
+	az, srv := newFakeAlzLib(t, 10)
+	reqs := addFakePolicyDefinitions(t, srv, 20)
+
+	for _, req := range reqs {
+		srv.ThrottleDefinition(req.ResourceID.Name, 2, "0")
+	}
+
+	srv.AddPolicyDefinition("ref-versioned", "1.0.0", "1.1.0")
+	srv.AddPolicyDefinition("ref-latest", "1.0.0")
+	srv.AddPolicySetDefinition("psd", []string{"1.0.0"},
+		fakearm.Reference{Name: "ref-versioned", Version: to.Ptr("1.*.*")},
+		fakearm.Reference{Name: "ref-latest"},
+	)
+
+	for _, name := range []string{"psd", "ref-versioned", "ref-latest"} {
+		srv.ThrottleDefinition(name, maxThrottleRetries, "0")
+	}
+
+	reqs = append(reqs, policySetDefinitionRequest(t, "psd"))
+
+	require.NoError(t, az.GetDefinitionsFromAzure(t.Context(), reqs))
+
+	for _, req := range reqs[:20] {
+		assert.True(t, az.PolicyDefinitionExists(req.ResourceID.Name, nil), req.ResourceID.Name)
+		assert.Equal(t, 3, srv.Calls(req.ResourceID.Name), req.ResourceID.Name)
+	}
+
+	assert.True(t, az.PolicySetDefinitionExists("psd", nil))
+	assert.True(t, az.PolicyDefinitionExists("ref-versioned", to.Ptr("1.*.*")))
+	assert.True(t, az.PolicyDefinitionExists("ref-latest", nil))
+
+	for _, name := range []string{"psd", "ref-versioned", "ref-latest"} {
+		assert.Equal(t, maxThrottleRetries+1, srv.Calls(name), name)
+	}
+}
+
+func TestGetDefinitionsFromAzureGivesUpWhenThrottlingPersists(t *testing.T) {
+	t.Parallel()
+
+	az, srv := newFakeAlzLib(t, 4)
+	reqs := addFakePolicyDefinitions(t, srv, 1)
+	srv.ThrottleDefinition(reqs[0].ResourceID.Name, -1, "0")
+
+	err := az.GetDefinitionsFromAzure(t.Context(), reqs)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "429")
+	assert.Equal(t, maxThrottleRetries+1, srv.Calls(reqs[0].ResourceID.Name))
+}
+
+func TestGetDefinitionsFromAzureThrottleWaitHonoursCancellation(t *testing.T) {
+	t.Parallel()
+
+	az, srv := newFakeAlzLib(t, 4)
+	reqs := addFakePolicyDefinitions(t, srv, 1)
+	srv.ThrottleDefinition(reqs[0].ResourceID.Name, -1, "30")
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err := az.GetDefinitionsFromAzure(ctx, reqs)
+
+	require.Error(t, err)
+	assert.Less(t, time.Since(start), 5*time.Second)
+	assert.Equal(t, 1, srv.Calls(reqs[0].ResourceID.Name))
+}
+
+func TestRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		header http.Header
+		want   time.Duration
+		ok     bool
+	}{
+		{name: "none", header: http.Header{}, ok: false},
+		{name: "seconds", header: http.Header{"Retry-After": {"7"}}, want: 7 * time.Second, ok: true},
+		{name: "zero", header: http.Header{"Retry-After": {"0"}}, want: 0, ok: true},
+		{name: "retry-after-ms", header: http.Header{"Retry-After-Ms": {"250"}}, want: 250 * time.Millisecond, ok: true},
+		{name: "x-ms-retry-after-ms", header: http.Header{"X-Ms-Retry-After-Ms": {"1500"}}, want: 1500 * time.Millisecond, ok: true},
+		{
+			name:   "milliseconds take precedence",
+			header: http.Header{"Retry-After": {"9"}, "Retry-After-Ms": {"100"}},
+			want:   100 * time.Millisecond,
+			ok:     true,
+		},
+		{name: "past date", header: http.Header{"Retry-After": {"Mon, 02 Jan 2006 15:04:05 GMT"}}, want: 0, ok: true},
+		{name: "invalid", header: http.Header{"Retry-After": {"soon"}}, ok: false},
+		{name: "negative", header: http.Header{"Retry-After": {"-1"}}, ok: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := retryAfter(tc.header)
+			assert.Equal(t, tc.ok, ok)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestThrottleDelayBackoffWithoutRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	for attempt := range maxThrottleRetries + 1 {
+		backoff := min(throttleBaseDelay<<attempt, throttleMaxDelay)
+		got := throttleDelay(errors.New("not a response error"), attempt)
+
+		assert.GreaterOrEqual(t, got, backoff/2, "attempt %d", attempt)
+		assert.LessOrEqual(t, got, backoff, "attempt %d", attempt)
+	}
 }
 
 func TestGetDefinitionsFromAzureHonoursCallerCancellation(t *testing.T) {

@@ -70,6 +70,7 @@ type Options struct {
 	// and policy set definitions.
 	// Requests for the same definition name are always made serially.
 	// Set to 1 to fetch all definitions serially.
+	// Requests throttled by Azure Resource Manager (HTTP 429) are retried after the delay it requests.
 	Parallelism int
 	// UniqueRoleDefinitions indicates whether to update the role definitions to be unique per management group.
 	// If this is not set, you may end up with conflicting role definition names.
