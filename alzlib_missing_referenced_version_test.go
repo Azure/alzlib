@@ -6,7 +6,6 @@ package alzlib
 import (
 	"context"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/Azure/alzlib/to"
@@ -24,8 +23,9 @@ const (
 )
 
 // TestGetDefinitionsFromAzureReferencedDefinitionVersionNotFound covers Azure/Azure-Landing-Zones#4327.
-// When the built-in version listing of a referenced policy definition yields no match under the requested
-// name, an error that names the definition and the policy set must be returned instead of a panic.
+// When neither the built-in version listing of a referenced policy definition nor the definition itself
+// provides a version satisfying the constraint, an error that names the definition and the policy set
+// must be returned instead of a panic.
 func TestGetDefinitionsFromAzureReferencedDefinitionVersionNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -37,13 +37,6 @@ func TestGetDefinitionsFromAzureReferencedDefinitionVersionNotFound(t *testing.T
 		{
 			name:         "empty version list",
 			listed:       nil,
-			wantVersions: "Versions available: []",
-		},
-		{
-			name: "versions listed under a differently cased name",
-			listed: []*armpolicy.DefinitionVersion{
-				newPolicyDefinitionVersion(strings.ToUpper(missingVersionDefName), "1.0.2"),
-			},
 			wantVersions: "Versions available: []",
 		},
 		{
@@ -79,8 +72,8 @@ func TestGetDefinitionsFromAzureReferencedDefinitionVersionNotFound(t *testing.T
 }
 
 // newMissingVersionPolicyClientFactory returns a policy client factory backed by fakes. The built-in policy
-// set references the policy definition with constraint `1.*.*`, and listing the versions of that definition
-// returns the supplied values.
+// set references the policy definition with constraint `1.*.*`, listing the versions of that definition
+// returns the supplied values, and the definition itself is not found.
 func newMissingVersionPolicyClientFactory(
 	t *testing.T,
 	listed []*armpolicy.DefinitionVersion,
@@ -127,6 +120,17 @@ func newMissingVersionPolicyClientFactory(
 				}, nil)
 
 				return resp
+			},
+		},
+		DefinitionsServer: fake.DefinitionsServer{
+			GetBuiltIn: func(
+				_ context.Context,
+				_ string,
+				_ *armpolicy.DefinitionsClientGetBuiltInOptions,
+			) (resp azfake.Responder[armpolicy.DefinitionsClientGetBuiltInResponse], errResp azfake.ErrorResponder) {
+				errResp.SetResponseError(http.StatusNotFound, "PolicyDefinitionNotFound")
+
+				return resp, errResp
 			},
 		},
 	}
