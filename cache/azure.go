@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/Azure/alzlib/assets"
+	"github.com/Azure/alzlib/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 )
 
@@ -103,7 +104,7 @@ func (c *Cache) fetchPolicyDefinitions(
 			c.policyDefinitions[*name] = pdvs
 		}
 
-		if err := pdvs.Add(pd, false); err != nil {
+		if err := addListedVersion(ctx, pdvs, pd, policyDefinitionVersion(verClient), logger); err != nil {
 			return fmt.Errorf(
 				"cache.NewCacheFromAzure: adding built-in policy definition version for %s: %w",
 				*name,
@@ -201,7 +202,7 @@ func (c *Cache) fetchPolicySetDefinitions(
 	verClient := client.NewSetDefinitionVersionsClient()
 
 	for name, versionlessDef := range versionlessDefs {
-		if err := c.fetchPolicySetDefinitionVersions(ctx, verClient, name, versionlessDef); err != nil {
+		if err := c.fetchPolicySetDefinitionVersions(ctx, verClient, name, versionlessDef, logger); err != nil {
 			return err
 		}
 	}
@@ -220,6 +221,7 @@ func (c *Cache) fetchPolicySetDefinitionVersions(
 	client *armpolicy.SetDefinitionVersionsClient,
 	name string,
 	versionlessDef *armpolicy.SetDefinition,
+	logger *slog.Logger,
 ) error {
 	pager := client.NewListBuiltInPager(name, nil)
 	psdvs := assets.NewPolicySetDefinitionVersions()
@@ -249,7 +251,7 @@ func (c *Cache) fetchPolicySetDefinitionVersions(
 				)
 			}
 
-			if err := psdvs.Add(psd, false); err != nil {
+			if err := addListedVersion(ctx, psdvs, psd, policySetDefinitionVersion(client), logger); err != nil {
 				return fmt.Errorf(
 					"cache.NewCacheFromAzure: adding built-in policy set definition version for %s: %w",
 					name,
@@ -364,8 +366,9 @@ func (c *Cache) fetchAllPolicyDefinitionVersions(
 
 			// Add with overwrite=false so we don't replace existing entries.
 			// Identical duplicates (same version, same content) return nil from Add and are counted.
-			// Non-identical duplicates or other errors are real problems.
-			if err := pdvs.Add(pd, false); err != nil {
+			// A duplicate with different content is resolved by getting the version on its own.
+			// Any other error is a real problem.
+			if err := addListedVersion(ctx, pdvs, pd, policyDefinitionVersion(client), logger); err != nil {
 				return fmt.Errorf(
 					"cache.NewCacheFromAzure: adding built-in policy definition version for %s: %w",
 					name,
@@ -384,6 +387,89 @@ func (c *Cache) fetchAllPolicyDefinitionVersions(
 	)
 
 	return nil
+}
+
+// addListedVersion adds a built-in definition version listed by Azure to its collection. Azure has been
+// seen to list the same version of a definition twice with different content
+// (Azure/Azure-Landing-Zones#4327). Keeping either copy could keep stale content, which a cache serves for
+// a long time; different roleDefinitionIds, for example, silently change the policy role assignments. The
+// version is therefore got on its own and that content is stored. Only if that fails is the version added
+// first kept. Either way the conflict is logged as a warning and does not fail the cache.
+func addListedVersion[T assets.Versioned](
+	ctx context.Context,
+	c *assets.VersionedPolicyCollection[T],
+	v T,
+	getVersion func(ctx context.Context, name, version string) (T, error),
+	logger *slog.Logger,
+) error {
+	if v.GetVersion() == nil || !c.Exists(v.GetVersion()) {
+		return c.Add(v, false)
+	}
+
+	// The version exists, so Add only fails if the content is different.
+	conflict := c.Add(v, false)
+	if conflict == nil {
+		return nil
+	}
+
+	name, version := to.ValOrZero(v.GetName()), to.ValOrZero(v.GetVersion())
+
+	got, err := getVersion(ctx, name, version)
+	if err == nil && to.ValOrZero(got.GetVersion()) != version {
+		err = fmt.Errorf("got version %s instead", to.ValOrZero(got.GetVersion()))
+	}
+
+	if err == nil {
+		err = c.Add(got, true)
+	}
+
+	if err != nil {
+		logger.Warn("built-in definition version listed twice with different content; getting it on its own failed, "+
+			"keeping the version listed first",
+			slog.String("name", name),
+			slog.String("version", version),
+			slog.String("conflict", conflict.Error()),
+			slog.String("error", err.Error()),
+		)
+
+		return nil
+	}
+
+	logger.Warn("built-in definition version listed twice with different content; stored the version got on its own",
+		slog.String("name", name),
+		slog.String("version", version),
+		slog.String("conflict", conflict.Error()),
+	)
+
+	return nil
+}
+
+// policyDefinitionVersion returns a function that gets a version of a built-in policy definition.
+func policyDefinitionVersion(
+	client *armpolicy.DefinitionVersionsClient,
+) func(context.Context, string, string) (*assets.PolicyDefinition, error) {
+	return func(ctx context.Context, name, version string) (*assets.PolicyDefinition, error) {
+		resp, err := client.GetBuiltIn(ctx, name, version, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return assets.NewPolicyDefinitionFromVersion(resp.DefinitionVersion)
+	}
+}
+
+// policySetDefinitionVersion returns a function that gets a version of a built-in policy set definition.
+func policySetDefinitionVersion(
+	client *armpolicy.SetDefinitionVersionsClient,
+) func(context.Context, string, string) (*assets.PolicySetDefinition, error) {
+	return func(ctx context.Context, name, version string) (*assets.PolicySetDefinition, error) {
+		resp, err := client.GetBuiltIn(ctx, name, version, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return assets.NewPolicySetDefinitionFromVersion(resp.SetDefinitionVersion)
+	}
 }
 
 // discardHandler is a slog.Handler that discards all log records.
