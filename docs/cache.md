@@ -26,6 +26,8 @@ alzlibtool cache create -o alzlib-cache.json.gz
 
 This scans the Azure tenant for all built-in policy definitions and policy set definitions, including historical versions, and writes them to a gzip-compressed JSON file.
 
+If Azure lists the same version of a definition twice with different content, `cache create` gets that version on its own and stores the result, or keeps the version listed first if that request fails. Either way it logs a warning, shown with `--verbose`.
+
 Azure credentials are resolved via the standard `ARM_*` / `AZURE_*` environment variables or Azure CLI (`az login`).
 
 ### Verbose output

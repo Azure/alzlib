@@ -41,7 +41,12 @@ type VersionedPolicyCollection[T Versioned] struct {
 }
 
 // Versions returns a sorted list of all versions in the collection.
+// It is safe to call on a nil collection, which has no versions.
 func (c *VersionedPolicyCollection[T]) Versions() []semver.Version {
+	if c == nil {
+		return nil
+	}
+
 	vers := make([]semver.Version, 0, len(c.versions))
 	for v := range c.versions {
 		vers = append(vers, v)
