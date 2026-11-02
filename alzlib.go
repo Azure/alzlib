@@ -1439,8 +1439,8 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 	}
 
 	if !az.PolicyDefinitionExists(definitionName, ref.DefinitionVersion) {
-		// The listing provides no version satisfying the constraint: get it from the definition itself.
-		fallbackErr := az.addBuiltInPolicyDefinitionVersion(ctx, definitionName, *ref.DefinitionVersion)
+		// The listing provides no version satisfying the constraint: get the versions from the definition itself.
+		fallbackErr := az.addBuiltInPolicyDefinitionVersions(ctx, definitionName, *ref.DefinitionVersion)
 		if fallbackErr == nil {
 			return nil
 		}

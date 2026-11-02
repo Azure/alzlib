@@ -393,8 +393,9 @@ func (c *Cache) fetchAllPolicyDefinitionVersions(
 // seen to list the same version of a definition twice with different content
 // (Azure/Azure-Landing-Zones#4327). Keeping either copy could keep stale content, which a cache serves for
 // a long time; different roleDefinitionIds, for example, silently change the policy role assignments. The
-// version is therefore got on its own and that content is stored. Only if that fails is the version added
-// first kept. Either way the conflict is logged as a warning and does not fail the cache.
+// version is therefore got on its own and that content is stored. Only if that request fails is the version
+// added first kept. Either way the conflict is logged as a warning and does not fail the cache, unless ctx
+// is cancelled or past its deadline: that error is returned.
 func addListedVersion[T assets.Versioned](
 	ctx context.Context,
 	c *assets.VersionedPolicyCollection[T],
@@ -415,6 +416,11 @@ func addListedVersion[T assets.Versioned](
 	name, version := to.ValOrZero(v.GetName()), to.ValOrZero(v.GetVersion())
 
 	got, err := getVersion(ctx, name, version)
+	if err != nil && ctx.Err() != nil {
+		// Keeping the version listed first recovers from a failed request, not from cancellation.
+		return fmt.Errorf("getting built-in definition %s version %s on its own: %w", name, version, ctx.Err())
+	}
+
 	if err == nil && to.ValOrZero(got.GetVersion()) != version {
 		err = fmt.Errorf("got version %s instead", to.ValOrZero(got.GetVersion()))
 	}

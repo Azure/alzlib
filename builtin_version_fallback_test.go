@@ -119,7 +119,7 @@ func (f *fallbackARM) addDefinition(versions ...string) {
 // addReferencingSet makes the policy set fallbackSet available to get. It references
 // fallbackDefinition with constraint.
 func (f *fallbackARM) addReferencingSet(constraint string) {
-	f.sets[fallbackSet] = fallbackPolicySet(fallbackSet, "1.8.0", nil, fallbackReference(fallbackDefinition, constraint))
+	f.sets[fallbackSet] = fallbackPolicySet(nil, fallbackReference(fallbackDefinition, constraint))
 }
 
 func (f *fallbackARM) clientFactory(t *testing.T) *armpolicy.ClientFactory {
@@ -264,16 +264,14 @@ func fallbackReference(name, constraint string) *armpolicy.DefinitionReference {
 	}
 }
 
-func fallbackPolicySet(
-	name, version string, versions []string, refs ...*armpolicy.DefinitionReference,
-) *armpolicy.SetDefinition {
+func fallbackPolicySet(versions []string, refs ...*armpolicy.DefinitionReference) *armpolicy.SetDefinition {
 	return &armpolicy.SetDefinition{
-		ID:   to.Ptr("/providers/Microsoft.Authorization/policySetDefinitions/" + name),
-		Name: to.Ptr(name),
+		ID:   to.Ptr("/providers/Microsoft.Authorization/policySetDefinitions/" + fallbackSet),
+		Name: to.Ptr(fallbackSet),
 		Properties: &armpolicy.SetDefinitionProperties{
 			Description:       to.Ptr("unit test policy set definition"),
 			DisplayName:       to.Ptr("Unit Test Policy Set Definition"),
-			Version:           to.Ptr(version),
+			Version:           to.Ptr("1.8.0"),
 			Versions:          to.SliceOfPtrs(versions...),
 			PolicyDefinitions: append([]*armpolicy.DefinitionReference{}, refs...),
 		},
@@ -309,11 +307,19 @@ func TestVersionFallbackNotUsedWhenListingProvidesVersion(t *testing.T) {
 	}
 }
 
-// T2: an empty listing falls back to the definition, which provides the version.
+// T2: an empty listing falls back to the definition, which provides the version. For a definition
+// referenced by a built-in policy set every version is got and stored, as the listing would have stored
+// them; otherwise only the selected version, as the listing path stores only that one.
 func TestVersionFallbackEmptyListing(t *testing.T) {
 	t.Parallel()
 
-	for _, path := range []string{fallbackPathDirect, fallbackPathReferenced} {
+	for path, want := range map[string]struct {
+		got    []string
+		stored string
+	}{
+		fallbackPathDirect:     {[]string{"1.0.2"}, "[1.0.2]"},
+		fallbackPathReferenced: {[]string{"0.9.0", "1.0.2"}, "[0.9.0 1.0.2]"},
+	} {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
 
@@ -327,7 +333,14 @@ func TestVersionFallbackEmptyListing(t *testing.T) {
 			require.NotNil(t, pd)
 			assert.Equal(t, fallbackDefinition, *pd.Name)
 			assert.Equal(t, "1.0.2", *pd.Properties.Version)
-			assert.Equal(t, append(requestsFor(path), "get "+fallbackDefinition, "get "+fallbackDefinition+"@1.0.2"), f.recorded())
+			assert.Equal(t, want.stored, fmt.Sprint(az.policyDefinitions[fallbackDefinition].Versions()))
+
+			requests := append(requestsFor(path), "get "+fallbackDefinition)
+			for _, v := range want.got {
+				requests = append(requests, "get "+fallbackDefinition+"@"+v)
+			}
+
+			assert.Equal(t, requests, f.recorded())
 		})
 	}
 }
@@ -467,7 +480,7 @@ func TestVersionFallbackPolicySetDefinition(t *testing.T) {
 	t.Parallel()
 
 	f := newFallbackARM()
-	f.sets[fallbackSet] = fallbackPolicySet(fallbackSet, "1.8.0", []string{"1.8.0", "1.6.0"})
+	f.sets[fallbackSet] = fallbackPolicySet([]string{"1.8.0", "1.6.0"})
 
 	for _, v := range []string{"1.8.0", "1.6.0"} {
 		setVersion := newPolicySetDefinitionVersion(fallbackSet, v)
@@ -549,53 +562,155 @@ func TestVersionFallbackNotStartedWithCancelledContext(t *testing.T) {
 
 	f := newFallbackARM()
 	f.addDefinition("1.0.2")
-	f.sets[fallbackSet] = fallbackPolicySet(fallbackSet, "1.8.0", []string{"1.8.0"})
+	f.sets[fallbackSet] = fallbackPolicySet([]string{"1.8.0"})
 
 	az := NewAlzLib(nil)
 	az.AddPolicyClient(f.clientFactory(t))
 
-	require.ErrorIs(t, az.addBuiltInPolicyDefinitionVersion(ctx, fallbackDefinition, "1.*.*"), context.Canceled)
+	require.ErrorIs(t, az.addBuiltInPolicyDefinitionVersions(ctx, fallbackDefinition, "1.*.*"), context.Canceled)
 
-	_, err := az.builtInPolicySetDefinitionVersion(ctx, fallbackSet, "1.*.*")
+	_, err := az.builtInPolicyDefinitionVersion(ctx, fallbackDefinition, "1.*.*")
+	require.ErrorIs(t, err, context.Canceled)
+
+	_, err = az.builtInPolicySetDefinitionVersion(ctx, fallbackSet, "1.*.*")
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Empty(t, f.recorded())
 }
 
 // T10: the fallback selects the version that the listing would have provided, so the selection
-// follows assets.VersionedPolicyCollection.GetVersion, including for preview constraints.
+// follows assets.VersionedPolicyCollection.GetVersion, including for preview constraints, and it stores
+// the versions the listing would have stored.
 func TestVersionFallbackSelectsTheVersionTheListingWould(t *testing.T) {
 	t.Parallel()
 
 	versions := []string{"2.0.0", "1.3.0-preview", "1.2.0", "1.1.0-preview", "1.0.0"}
 
-	for _, constraint := range []string{"1.*.*", "1.*.*-preview", "2.*.*"} {
-		t.Run(constraint, func(t *testing.T) {
+	for _, path := range []string{fallbackPathDirect, fallbackPathReferenced} {
+		for _, constraint := range []string{"1.*.*", "1.*.*-preview", "2.*.*"} {
+			t.Run(path+" "+constraint, func(t *testing.T) {
+				t.Parallel()
+
+				listing := newFallbackARM()
+				for _, v := range versions {
+					listing.listed[fallbackDefinition] = append(listing.listed[fallbackDefinition],
+						newPolicyDefinitionVersion(fallbackDefinition, v))
+				}
+
+				fromListing, err := listing.fetch(t.Context(), t, path, constraint)
+				require.NoError(t, err)
+
+				fallback := newFallbackARM()
+				fallback.addDefinition(versions...)
+
+				fromDefinition, err := fallback.fetch(t.Context(), t, path, constraint)
+				require.NoError(t, err)
+
+				want := fromListing.PolicyDefinition(fallbackDefinition, &constraint)
+				require.NotNil(t, want)
+
+				got := fromDefinition.PolicyDefinition(fallbackDefinition, &constraint)
+				require.NotNil(t, got)
+				assert.Equal(t, *want.Properties.Version, *got.Properties.Version)
+				assert.Equal(t, fmt.Sprint(fromListing.policyDefinitions[fallbackDefinition].Versions()),
+					fmt.Sprint(fromDefinition.policyDefinitions[fallbackDefinition].Versions()))
+				assert.Contains(t, fallback.recorded(), "get "+fallbackDefinition)
+			})
+		}
+	}
+}
+
+// A built-in policy set referencing a definition twice resolves both references as with a healthy listing,
+// whatever their order: the fallback for the first reference stores every version, so the second, broader,
+// reference is not satisfied by an older version alone. Each version is got once and nothing is listed again.
+func TestVersionFallbackIndependentOfReferenceOrder(t *testing.T) {
+	t.Parallel()
+
+	versions := []string{"1.2.0", "1.0.2"}
+
+	resolve := func(t *testing.T, healthy bool, constraints []string) (*AlzLib, *fallbackARM) {
+		t.Helper()
+
+		f := newFallbackARM()
+		f.addDefinition(versions...)
+
+		if healthy {
+			for _, v := range versions {
+				f.listed[fallbackDefinition] = append(f.listed[fallbackDefinition], newPolicyDefinitionVersion(fallbackDefinition, v))
+			}
+		}
+
+		refs := make([]*armpolicy.DefinitionReference, 0, len(constraints))
+		for _, c := range constraints {
+			refs = append(refs, fallbackReference(fallbackDefinition, c))
+		}
+
+		f.sets[fallbackSet] = fallbackPolicySet(nil, refs...)
+
+		az := NewAlzLib(nil)
+		az.AddPolicyClient(f.clientFactory(t))
+		require.NoError(t, az.GetDefinitionsFromAzure(t.Context(),
+			[]BuiltInRequest{fallbackRequest(t, "policySetDefinitions", fallbackSet, nil)}))
+
+		return az, f
+	}
+
+	for _, constraints := range [][]string{{"1.0.*", "1.*.*"}, {"1.*.*", "1.0.*"}} {
+		t.Run(strings.Join(constraints, " then "), func(t *testing.T) {
 			t.Parallel()
 
-			listing := newFallbackARM()
-			for _, v := range versions {
-				listing.listed[fallbackDefinition] = append(listing.listed[fallbackDefinition],
-					newPolicyDefinitionVersion(fallbackDefinition, v))
+			healthy, _ := resolve(t, true, constraints)
+			az, f := resolve(t, false, constraints)
+
+			for _, c := range constraints {
+				want, got := healthy.PolicyDefinition(fallbackDefinition, &c), az.PolicyDefinition(fallbackDefinition, &c)
+				require.NotNil(t, want)
+				require.NotNil(t, got)
+				assert.Equal(t, *want.Properties.Version, *got.Properties.Version, c)
 			}
 
-			fromListing, err := listing.fetch(t.Context(), t, fallbackPathDirect, constraint)
-			require.NoError(t, err)
-
-			fallback := newFallbackARM()
-			fallback.addDefinition(versions...)
-
-			fromDefinition, err := fallback.fetch(t.Context(), t, fallbackPathDirect, constraint)
-			require.NoError(t, err)
-
-			want := fromListing.PolicyDefinition(fallbackDefinition, &constraint)
-			require.NotNil(t, want)
-
-			got := fromDefinition.PolicyDefinition(fallbackDefinition, &constraint)
-			require.NotNil(t, got)
-			assert.Equal(t, *want.Properties.Version, *got.Properties.Version)
-			assert.Contains(t, fallback.recorded(), "get "+fallbackDefinition)
+			assert.Equal(t, "1.2.0", *az.PolicyDefinition(fallbackDefinition, to.Ptr("1.*.*")).Properties.Version)
+			assert.Equal(t, "[1.0.2 1.2.0]", fmt.Sprint(az.policyDefinitions[fallbackDefinition].Versions()))
+			assert.Equal(t, []string{
+				"get-set " + fallbackSet,
+				"list " + fallbackDefinition,
+				"get " + fallbackDefinition,
+				"get " + fallbackDefinition + "@1.0.2",
+				"get " + fallbackDefinition + "@1.2.0",
+			}, f.recorded())
 		})
 	}
+}
+
+// When the listing provides some versions but none satisfying the constraint, the fallback gets only the
+// versions that are not stored yet.
+func TestVersionFallbackGetsOnlyVersionsNotStored(t *testing.T) {
+	t.Parallel()
+
+	f := newFallbackARM()
+	f.addDefinition("2.0.0", "1.0.0")
+	f.listed[fallbackDefinition] = []*armpolicy.DefinitionVersion{newPolicyDefinitionVersion(fallbackDefinition, "1.0.0")}
+
+	az, err := f.fetch(t.Context(), t, fallbackPathReferenced, "2.*.*")
+	require.NoError(t, err)
+	assert.Equal(t, "[1.0.0 2.0.0]", fmt.Sprint(az.policyDefinitions[fallbackDefinition].Versions()))
+	assert.Equal(t, append(requestsFor(fallbackPathReferenced),
+		"get "+fallbackDefinition, "get "+fallbackDefinition+"@2.0.0"), f.recorded())
+}
+
+// The fallback adds nothing unless it gets every version: a partial collection could select another version
+// than the listing for a later reference.
+func TestVersionFallbackAddsNothingIfAVersionCannotBeGot(t *testing.T) {
+	t.Parallel()
+
+	f := newFallbackARM()
+	f.addDefinition("1.2.0", "1.0.2")
+	delete(f.versions, fallbackDefinition+"@1.2.0")
+
+	az, err := f.fetch(t.Context(), t, fallbackPathReferenced, "1.0.*")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "getting built-in policy definition `"+fallbackDefinition+"@1.2.0`")
+	require.ErrorContains(t, err, "404")
+	assert.False(t, az.PolicyDefinitionExists(fallbackDefinition, to.Ptr("1.0.*")))
 }
 
 // The version got must be the one requested; anything else is not stored.

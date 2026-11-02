@@ -16,6 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy/fake"
 	"github.com/stretchr/testify/assert"
@@ -43,7 +44,7 @@ type duplicatesARM struct {
 	setGot map[string]*armpolicy.SetDefinitionVersion
 }
 
-func (d duplicatesARM) clientFactory(t *testing.T) *armpolicy.ClientFactory {
+func (d duplicatesARM) clientFactory(t *testing.T, perCall ...policy.Policy) *armpolicy.ClientFactory {
 	t.Helper()
 
 	srv := fake.ServerFactory{
@@ -130,7 +131,7 @@ func (d duplicatesARM) clientFactory(t *testing.T) *armpolicy.ClientFactory {
 	}
 
 	cf, err := armpolicy.NewClientFactory("", &azfake.TokenCredential{}, &arm.ClientOptions{
-		ClientOptions: azcore.ClientOptions{Transport: fake.NewServerFactoryTransport(&srv)},
+		ClientOptions: azcore.ClientOptions{Transport: fake.NewServerFactoryTransport(&srv), PerCallPolicies: perCall},
 	})
 	require.NoError(t, err)
 
@@ -337,3 +338,54 @@ func TestNewCacheFromAzureFailsOnOtherAddErrors(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "cannot add with different name than existing version")
 }
+
+// A conflicting duplicate whose recovery request fails because the context is cancelled fails the cache,
+// rather than keeping the version listed first. The recovery request here is the last one, so nothing else
+// would report the cancellation.
+func TestNewCacheFromAzureReturnsCancellationDuringRecovery(t *testing.T) {
+	t.Parallel()
+
+	azure := duplicatesARM{
+		bulk: []*armpolicy.DefinitionVersion{
+			duplicatesDefinitionVersion(duplicatesPolicyDefinition, "1.0.1", "bulk listing"),
+		},
+		listed: map[string][]*armpolicy.DefinitionVersion{
+			duplicatesPolicyDefinition: {
+				duplicatesDefinitionVersion(duplicatesPolicyDefinition, "1.0.1", "per-definition listing"),
+				duplicatesDefinitionVersion(duplicatesPolicyDefinition, "1.0.0", "older version"),
+			},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	// Cancels as the version is got on its own and fails that request as the transport would. The fake
+	// server is not involved: cancelling while it handles a request races in the generated fakes.
+	gets := 0
+	cancelOnGet := policyFunc(func(req *policy.Request) (*http.Response, error) {
+		if strings.Contains(req.Raw().URL.Path, "/versions/") {
+			gets++
+
+			cancel()
+
+			return nil, req.Raw().Context().Err()
+		}
+
+		return req.Next()
+	})
+
+	var logs bytes.Buffer
+
+	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn}))
+
+	c, err := NewCacheFromAzure(ctx, azure.clientFactory(t, cancelOnGet), logger)
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, c)
+	assert.Equal(t, 1, gets)
+	assert.NotContains(t, logs.String(), "keeping the version listed first")
+}
+
+type policyFunc func(*policy.Request) (*http.Response, error)
+
+func (f policyFunc) Do(req *policy.Request) (*http.Response, error) { return f(req) }
