@@ -38,6 +38,28 @@ The module uses the following environment variables:
 
 - `ALZLIB_DIR`: The local temporary directory where the libraries will be cloned. Default is `.alzlib`
 - `ALZLIB_LIBRARY_GIT_URL`: The URL of the Azure Landing Zones Library repository. Default is `github.com/Azure/Azure-Landing-Zones-Library`
+- `ALZLIB_LIBRARY_STORE_ENABLED`: Set to `true` to enable the [library store](#library-store). Default is `false`
+
+`LibraryReferences.FetchWithDependencies()` fetches up to four libraries at the same time.
+The libraries are always returned in the same order: each library is listed once, after its dependencies.
+
+### Library store
+
+By default, a library is fetched again each time it is used.
+When the library store is enabled, with the `ALZLIB_LIBRARY_STORE_ENABLED` environment variable or with `alzlib.LibraryStoreEnabled.Store(true)`, the libraries that cannot change are fetched once into `<ALZLIB_DIR>/store`, and then reused, also by other processes that use the same `ALZLIB_DIR`:
+
+- ALZ Library members, which are fetched at release tags. Release tags are assumed never to move.
+- Libraries with a go-getter git URL whose `ref` is a full, 40-character, commit SHA, for example `git::https://github.com/contoso/alz-library//platform?ref=<commit SHA>`.
+
+Other libraries, such as local directories, or git branches and tags, are fetched as when the store is disabled.
+
+Each library is kept in `<ALZLIB_DIR>/store/<hash of the go-getter URL>`, with the library in `lib` and a `fetch.json` file that describes it.
+`fetch.json` records the URL without credentials, such as the user information of the URL or an `sshkey` parameter, and identifies the complete URL by its SHA-256 hash.
+A library is fetched into a temporary directory of the store, which is then renamed, so that processes never use a library that is only partly fetched.
+A fetch that is interrupted can leave such a `tmp-*` directory behind: it is never used and can be deleted.
+A store directory that is incomplete or has been changed is neither used nor changed: delete it to fetch the library into the store again.
+Nothing is removed from the store: delete `<ALZLIB_DIR>/store` to clear it.
+In CI/CD pipelines, you can cache `ALZLIB_DIR` with a key based on your library references.
 
 ## Contributing
 
