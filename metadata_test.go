@@ -42,7 +42,7 @@ func TestFetchLibrariesWithDependencies(t *testing.T) {
 		result[i] = lib.String()
 	}
 
-	assert.ElementsMatch(t, expcted, result)
+	assert.Equal(t, expcted, result)
 }
 
 // TestFetchLibrariesWithCommonDependency checks that a libraries having a common dependency is
@@ -71,7 +71,7 @@ func TestFetchLibrariesWithCommonDependency(t *testing.T) {
 		result[i] = lib.String()
 	}
 
-	assert.ElementsMatch(t, expcted, result)
+	assert.Equal(t, expcted, result)
 }
 
 // TestNewAlzLibraryReferenceFromFS verifies that Fetch returns the pre-supplied fs.FS

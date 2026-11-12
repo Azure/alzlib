@@ -45,15 +45,13 @@ func (m LibraryReferences) FSs() []fs.FS {
 // The destination directory a hash value that will be appended to the `.alzlib` directory in the
 // current working
 // directory unless overridden by the `ALZLIB_DIR` environment variable.
+// Libraries are fetched concurrently, but the result is always in the same order: each library is
+// listed once, after its dependencies, in the order of a depth-first walk of the references and their
+// dependencies.
 func (m LibraryReferences) FetchWithDependencies(ctx context.Context) (LibraryReferences, error) {
-	processed := make(map[string]bool)
-	result := make(LibraryReferences, 0, InitialLibraryReferencesCapacity)
-
-	for _, lib := range m {
-		err := fetchLibraryWithDependencies(ctx, processed, lib, &result)
-		if err != nil {
-			return nil, err
-		}
+	result, err := fetchLibrariesWithDependencies(ctx, m...)
+	if err != nil {
+		return nil, err
 	}
 
 	return result, nil
@@ -68,6 +66,7 @@ type LibraryReference interface {
 		desinationDirectory string,
 	) (fs.FS, error) // Fetch fetches the library member to the `.alzlib/destinationDirectory`.
 	// Override the base dir using `ALZLIB_DIR` env var.
+	// Libraries in the library store are fetched to the store instead, see LibraryStoreEnabled.
 	FetchWithDependencies(
 		ctx context.Context,
 	) (LibraryReferences, error) // FetchWithDependencies fetches the library member and its dependencies.
@@ -77,6 +76,9 @@ type LibraryReference interface {
 var (
 	_ LibraryReference = (*AlzLibraryReference)(nil)
 	_ LibraryReference = (*CustomLibraryReference)(nil)
+
+	_ prefetchableLibraryReference = (*AlzLibraryReference)(nil)
+	_ prefetchableLibraryReference = (*CustomLibraryReference)(nil)
 )
 
 // AlzLibraryReference is a struct that represents a dependency of a library member that is fetched
@@ -154,6 +156,11 @@ func (m *AlzLibraryReference) FS() fs.FS {
 	return m.filesystem
 }
 
+// setFS sets the filesystem of the library member, as Fetch does.
+func (m *AlzLibraryReference) setFS(filesystem fs.FS) {
+	m.filesystem = filesystem
+}
+
 // String returns the formatted path and the tag of the library member.
 func (m *AlzLibraryReference) String() string {
 	return strings.Join([]string{m.path, m.ref}, "@")
@@ -175,10 +182,7 @@ func (m *AlzLibraryReference) Ref() string {
 func (m *AlzLibraryReference) FetchWithDependencies(
 	ctx context.Context,
 ) (LibraryReferences, error) {
-	processed := make(map[string]bool)
-	result := make(LibraryReferences, 0, InitialLibraryReferencesCapacity)
-
-	return result, fetchLibraryWithDependencies(ctx, processed, m, &result)
+	return fetchLibrariesWithDependencies(ctx, m)
 }
 
 // CustomLibraryReference is a struct that represents a dependency of a library member that is
@@ -237,6 +241,11 @@ func (m *CustomLibraryReference) FS() fs.FS {
 	return m.filesystem
 }
 
+// setFS sets the filesystem of the library member, as Fetch does.
+func (m *CustomLibraryReference) setFS(filesystem fs.FS) {
+	m.filesystem = filesystem
+}
+
 // String returns the URL of the custom go-getter.
 func (m *CustomLibraryReference) String() string {
 	return m.url
@@ -248,10 +257,7 @@ func (m *CustomLibraryReference) String() string {
 func (m *CustomLibraryReference) FetchWithDependencies(
 	ctx context.Context,
 ) (LibraryReferences, error) {
-	processed := make(map[string]bool)
-	result := make(LibraryReferences, 0, InitialLibraryReferencesCapacity)
-
-	return result, fetchLibraryWithDependencies(ctx, processed, m, &result)
+	return fetchLibrariesWithDependencies(ctx, m)
 }
 
 // NewMetadata creates a new Metadata instance from the processor.LibMetadata and a LibraryReference.
