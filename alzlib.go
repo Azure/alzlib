@@ -165,7 +165,7 @@ func (az *AlzLib) AddPolicyDefinitions(pds ...*assets.PolicyDefinition) error {
 
 		if pdvc, exists := az.policyDefinitions[*pd.Name]; exists {
 			if err := pdvc.Add(pd, az.Options.AllowOverwrite); err != nil {
-				merr = multierror.Append(merr, pdvc.Upsert(pdvc, az.Options.AllowOverwrite))
+				merr = multierror.Append(merr, err)
 			}
 
 			continue
@@ -1144,15 +1144,15 @@ func (az *AlzLib) addVersionedPolicyDefinition(
 ) error {
 	pager := client.NewListBuiltInPager(req.ResourceID.Name, nil)
 
-	pdvs, err := az.collectPolicyDefinitionVersions(ctx, pager, req)
+	pdvs, listing, err := az.collectPolicyDefinitionVersions(ctx, pager, req)
 	if err != nil {
 		return err
 	}
 
-	refVer, err := pdvs.GetVersion(req.Version)
+	refVer, err := az.resolvePolicyDefinitionVersion(ctx, pdvs, listing, req.Version)
 	if err != nil || refVer == nil {
 		return fmt.Errorf(
-			"Alzlib.getBuiltInPolicySets: error getting specific version `%s` of built-in policy definition for `%s`: %w",
+			"Alzlib.getBuiltInPolicies: error getting specific version `%s` of built-in policy definition for `%s`: %w",
 			*req.Version,
 			req.ResourceID.Name,
 			err,
@@ -1174,13 +1174,14 @@ func (az *AlzLib) collectPolicyDefinitionVersions(
 	ctx context.Context,
 	pager policyDefinitionVersionsPager,
 	req BuiltInRequest,
-) (*assets.PolicyDefinitionVersions, error) {
+) (*assets.PolicyDefinitionVersions, *versionListing, error) {
 	pdvs := assets.NewPolicyDefinitionVersions()
+	listing := &versionListing{name: req.ResourceID.Name}
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"Alzlib.getBuiltInPolicies: listing built-in policy definition versions for `%s`: %w",
 				JoinNameAndVersion(req.ResourceID.Name, req.Version),
 				err,
@@ -1190,31 +1191,38 @@ func (az *AlzLib) collectPolicyDefinitionVersions(
 		for _, v := range page.Value {
 			pdv, err := assets.NewPolicyDefinitionFromVersionValidate(*v)
 			if err != nil {
-				return nil, fmt.Errorf(
-					"Alzlib.getBuiltInPolicySets: validating built-in policy definition version for `%s`: %w",
+				return nil, nil, fmt.Errorf(
+					"Alzlib.getBuiltInPolicies: validating built-in policy definition version for `%s`: %w",
 					JoinNameAndVersion(req.ResourceID.Name, req.Version),
 					err,
 				)
 			}
 
+			name, ok := listing.accept(pdv.Name, pdv.Properties.Version)
+			if !ok {
+				continue
+			}
+
+			pdv.Name = name
 			pdvs.Add(pdv, false) // nolint:errcheck
 		}
 	}
 
-	return pdvs, nil
+	return pdvs, listing, nil
 }
 
 func (az *AlzLib) collectPolicySetDefinitionVersions(
 	ctx context.Context,
 	pager policySetDefinitionVersionsPager,
 	req BuiltInRequest,
-) (*assets.PolicySetDefinitionVersions, error) {
+) (*assets.PolicySetDefinitionVersions, *versionListing, error) {
 	psdvs := assets.NewPolicySetDefinitionVersions()
+	listing := &versionListing{name: req.ResourceID.Name}
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"Alzlib.getBuiltInPolicySets: listing built-in policy set definition versions for `%s`: %w",
 				JoinNameAndVersion(req.ResourceID.Name, req.Version),
 				err,
@@ -1224,18 +1232,24 @@ func (az *AlzLib) collectPolicySetDefinitionVersions(
 		for _, v := range page.Value {
 			psd, err := assets.NewPolicySetDefinitionFromVersionValidate(*v)
 			if err != nil {
-				return nil, fmt.Errorf(
+				return nil, nil, fmt.Errorf(
 					"Alzlib.getBuiltInPolicySets: validating built-in policy set definition version for `%s`: %w",
 					JoinNameAndVersion(req.ResourceID.Name, req.Version),
 					err,
 				)
 			}
 
+			name, ok := listing.accept(psd.Name, psd.Properties.Version)
+			if !ok {
+				continue
+			}
+
+			psd.Name = name
 			psdvs.Add(psd, false) // nolint:errcheck
 		}
 	}
 
-	return psdvs, nil
+	return psdvs, listing, nil
 }
 
 func (az *AlzLib) addLatestPolicySetDefinition(
@@ -1279,12 +1293,12 @@ func (az *AlzLib) addVersionedPolicySetDefinition(
 ) (*assets.PolicySetDefinition, error) {
 	pager := client.NewListBuiltInPager(req.ResourceID.Name, nil)
 
-	psdvs, err := az.collectPolicySetDefinitionVersions(ctx, pager, req)
+	psdvs, listing, err := az.collectPolicySetDefinitionVersions(ctx, pager, req)
 	if err != nil {
 		return nil, err
 	}
 
-	refVer, err := psdvs.GetVersion(req.Version)
+	refVer, err := az.resolvePolicySetDefinitionVersion(ctx, psdvs, listing, req.Version)
 	if err != nil || refVer == nil {
 		return nil, fmt.Errorf(
 			"Alzlib.getBuiltInPolicySets: error getting specific version `%s` of built-in policy set definition for `%s`: %w",
@@ -1416,6 +1430,7 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 	ref *armpolicy.DefinitionReference,
 ) error {
 	pager := client.NewListBuiltInPager(definitionName, nil)
+	listing := &versionListing{name: definitionName}
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -1441,12 +1456,24 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 				)
 			}
 
+			name, ok := listing.accept(pdv.Name, pdv.Properties.Version)
+			if !ok {
+				continue
+			}
+
+			pdv.Name = name
 			az.AddPolicyDefinitions(pdv) // nolint:errcheck
 		}
 	}
 
 	if !az.PolicyDefinitionExists(definitionName, ref.DefinitionVersion) {
-		return fmt.Errorf(
+		// The listing provides no version satisfying the constraint: get the versions from the definition itself.
+		fallbackErr := az.addBuiltInPolicyDefinitionVersions(ctx, definitionName, *ref.DefinitionVersion)
+		if fallbackErr == nil {
+			return nil
+		}
+
+		notFound := fmt.Errorf(
 			"Alzlib.getBuiltInPolicySets: finding specific version constraint `%s` of built-in policy definition "+
 				"for `%s`, referenced in policy set `%s`. Versions available: %v",
 			*ref.DefinitionVersion,
@@ -1454,6 +1481,8 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 			JoinNameAndVersion(*setDefinition.Name, setDefinition.Properties.Version),
 			az.policyDefinitionVersionsString(definitionName),
 		)
+
+		return listing.notFound(notFound, fallbackErr)
 	}
 
 	return nil
@@ -1512,9 +1541,10 @@ func (az *AlzLib) fetchLatestReferencedPolicyDefinition(
 func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 	var merr error
 
+	// Merge into the stored collection so that later libraries win.
 	for k, v := range res.PolicyDefinitions {
 		if pdv, exists := az.policyDefinitions[k]; exists {
-			if err := v.Upsert(pdv, az.Options.AllowOverwrite); err != nil {
+			if err := pdv.Upsert(v, az.Options.AllowOverwrite); err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("policy definition %s: %w", k, err))
 			}
 
@@ -1532,7 +1562,7 @@ func (az *AlzLib) addPolicyAndRoleAssets(res *processor.Result) error {
 
 	for k, v := range res.PolicySetDefinitions {
 		if psdv, exists := az.policySetDefinitions[k]; exists {
-			if err := v.Upsert(psdv, az.Options.AllowOverwrite); err != nil {
+			if err := psdv.Upsert(v, az.Options.AllowOverwrite); err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("policy set definition %s: %w", k, err))
 			}
 

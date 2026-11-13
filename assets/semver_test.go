@@ -120,3 +120,25 @@ func TestPolicyVersionConstraintToSemVerConstraint(t *testing.T) {
 		})
 	}
 }
+
+func TestPolicyVersionConstraintPrerelease(t *testing.T) {
+	tests := []struct {
+		constraint string
+		want       string
+	}{
+		{"1.*.*-preview", "preview"},
+		{"1.3.*-preview", "preview"},
+		{"1.*.*-deprecated", "deprecated"},
+		{">= 0.0.*-preview", "preview"},
+		{"1.*.*", ""},
+		{"1.2.*", ""},
+		{">= 0.0.*", ""},
+		{"1.2", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.constraint, func(t *testing.T) {
+			assert.Equal(t, tt.want, policyVersionConstraintPrerelease(tt.constraint))
+		})
+	}
+}

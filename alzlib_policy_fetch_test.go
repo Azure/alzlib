@@ -97,7 +97,7 @@ func TestCollectPolicyDefinitionVersionsSuccess(t *testing.T) {
 
 	az := NewAlzLib(nil)
 
-	versions, err := az.collectPolicyDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID})
+	versions, _, err := az.collectPolicyDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID})
 	require.NoError(t, err)
 	require.NotNil(t, versions)
 	require.Len(t, versions.Versions(), 2)
@@ -125,7 +125,7 @@ func TestCollectPolicyDefinitionVersionsPagerError(t *testing.T) {
 
 	az := NewAlzLib(nil)
 
-	_, err = az.collectPolicyDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
+	_, _, err = az.collectPolicyDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "listing built-in policy definition versions")
 }
@@ -157,7 +157,7 @@ func TestCollectPolicyDefinitionVersionsValidationError(t *testing.T) {
 
 	az := NewAlzLib(nil)
 
-	_, err = az.collectPolicyDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
+	_, _, err = az.collectPolicyDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "validating built-in policy definition version")
 }
@@ -193,7 +193,7 @@ func TestCollectPolicySetDefinitionVersionsSuccess(t *testing.T) {
 
 	az := NewAlzLib(nil)
 
-	versions, err := az.collectPolicySetDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID})
+	versions, _, err := az.collectPolicySetDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID})
 	require.NoError(t, err)
 	require.NotNil(t, versions)
 	require.Len(t, versions.Versions(), 2)
@@ -221,7 +221,7 @@ func TestCollectPolicySetDefinitionVersionsPagerError(t *testing.T) {
 
 	az := NewAlzLib(nil)
 
-	_, err = az.collectPolicySetDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
+	_, _, err = az.collectPolicySetDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "listing built-in policy set definition versions")
 }
@@ -254,7 +254,7 @@ func TestCollectPolicySetDefinitionVersionsValidationError(t *testing.T) {
 
 	az := NewAlzLib(nil)
 
-	_, err = az.collectPolicySetDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
+	_, _, err = az.collectPolicySetDefinitionVersions(context.Background(), pager, BuiltInRequest{ResourceID: resID, Version: to.Ptr("1.0.0")})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "validating built-in policy set definition version")
 }

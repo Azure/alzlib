@@ -110,9 +110,8 @@ func Test_generateArchitectureCmd_overwriteEnabled(t *testing.T) {
 }
 
 // Test_generateArchitectureCmd_outputAssetContract pins what actually lands in the deployment
-// artifact: the member policy assignment wins, but a redefined policy definition still comes
-// from the dependency, because the engine keeps the dependency version for policy (set)
-// definitions.
+// artifact: the member version wins for both the policy assignment and the redefined policy
+// definition.
 func Test_generateArchitectureCmd_outputAssetContract(t *testing.T) {
 	memberOut := t.TempDir()
 
@@ -131,9 +130,8 @@ func Test_generateArchitectureCmd_outputAssetContract(t *testing.T) {
 
 	definition := readGeneratedAsset(t, pdMemberOut, "dependency-pd")
 
-	assert.Contains(t, definition, "PD from dependency",
-		"policy definitions keep the dependency version, see the flag help")
-	assert.NotContains(t, definition, "PD from pdmember")
+	assert.Contains(t, definition, "PD from pdmember")
+	assert.NotContains(t, definition, "PD from dependency")
 }
 
 func readGeneratedAsset(t *testing.T, dir, name string) string {

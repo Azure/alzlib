@@ -29,8 +29,8 @@ initialization with an "already exists in the library" error and no checks are r
 Assets are replaced in full, they are not merged field by field, so the redefining file
 must contain the complete asset. Policy assignments, role definitions, archetypes,
 architectures and policy default values are replaced by this member's version. Policy
-definitions and policy set definitions are not: for those the flag only suppresses the
-duplicate error and the dependency version is kept. Duplicate archetype override names
+definitions and policy set definitions are replaced per version: a redefined version
+replaces the dependency's, other versions are kept. Duplicate archetype override names
 remain an error regardless of this flag.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -131,8 +131,7 @@ func init() {
 	libraryCmd.Flags().
 		Bool(
 			"library-overwrite-enabled", false,
-			"Allow this library member to redefine assets provided by its dependencies. Policy "+
-				"assignments, role definitions, archetypes, architectures and policy default values are "+
-				"replaced in full, not merged field by field. Policy (set) definitions keep the "+
-				"dependency version; for those the flag only suppresses the duplicate error.")
+			"Allow this library member to redefine assets provided by its dependencies. Redefined "+
+				"assets are replaced in full, not merged field by field; policy (set) definitions are "+
+				"replaced per version. Duplicate archetype override names remain an error.")
 }

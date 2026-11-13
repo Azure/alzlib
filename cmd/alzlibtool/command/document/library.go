@@ -20,10 +20,10 @@ Use --library-overwrite-enabled when this library member intentionally redefines
 are also provided by its dependencies. Without it, documentation generation fails during
 library initialization with an "already exists in the library" error.
 
-The generated documentation follows the current overwrite semantics: policy assignments, role
-definitions, archetypes, architectures and policy default values are replaced in full by this
-member's version. Policy definitions and policy set definitions are not, the dependency
-version is kept. Duplicate archetype override names remain an error regardless of this flag.`,
+The generated documentation uses this member's version of redefined assets, replaced in full
+rather than merged field by field. Policy definitions and policy set definitions are replaced
+per version: a redefined version replaces the dependency's, other versions are kept.
+Duplicate archetype override names remain an error regardless of this flag.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		thislib := alzlib.NewCustomLibraryReference(args[0])
@@ -46,8 +46,7 @@ version is kept. Duplicate archetype override names remain an error regardless o
 		if libraryOverwriteEnabled {
 			// stderr only, so the Markdown on stdout stays usable in a pipeline.
 			cmd.PrintErrln(
-				"Warning: generated documentation follows the existing overwrite semantics; " +
-					"policy (set) definition redefinitions retain the dependency version, and " +
+				"Warning: redefined assets replace the dependency's in full, not field by field, and " +
 					"duplicate archetype override names remain an error.")
 		}
 
@@ -63,8 +62,7 @@ func init() {
 	documentLibraryBaseCmd.Flags().
 		Bool(
 			"library-overwrite-enabled", false,
-			"Document the library using the current overwrite semantics. Policy assignments, role "+
-				"definitions, archetypes, architectures and policy default values are replaced in full, "+
-				"not merged field by field. Policy (set) definitions keep the dependency version; for "+
-				"those the flag only suppresses the duplicate error.")
+			"Allow this library member to redefine assets provided by its dependencies. Redefined "+
+				"assets are replaced in full, not merged field by field; policy (set) definitions are "+
+				"replaced per version. Duplicate archetype override names remain an error.")
 }
