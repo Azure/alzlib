@@ -12,7 +12,6 @@ import (
 	"github.com/Azure/alzlib/internal/tools/checks"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
 
@@ -62,17 +61,14 @@ remain an error regardless of this flag.`,
 				os.Exit(1)
 			}
 
-			cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
+			if err := az.AddPolicyClientFromCredential(creds, &arm.ClientOptions{
 				ClientOptions: policy.ClientOptions{
 					Cloud: auth.GetCloudFromEnv(),
 				},
-			})
-			if err != nil {
+			}); err != nil {
 				cmd.PrintErrf("%s could not create Azure policy client factory: %v\n", cmd.ErrPrefix(), err)
 				os.Exit(1)
 			}
-
-			az.AddPolicyClient(cf)
 		}
 
 		thisRef := alzlib.NewCustomLibraryReference(args[0])

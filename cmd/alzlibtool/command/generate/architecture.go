@@ -15,7 +15,6 @@ import (
 	"github.com/Azure/alzlib/internal/auth"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/spf13/cobra"
 )
 
@@ -92,17 +91,14 @@ output before deploying it.`,
 			os.Exit(1)
 		}
 
-		cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
+		if err := az.AddPolicyClientFromCredential(creds, &arm.ClientOptions{
 			ClientOptions: policy.ClientOptions{
 				Cloud: auth.GetCloudFromEnv(),
 			},
-		})
-		if err != nil {
+		}); err != nil {
 			cmd.PrintErrf("%s could not add client to alzlib: %v\n", cmd.ErrPrefix(), err)
 			os.Exit(1)
 		}
-
-		az.AddPolicyClient(cf)
 
 		if err := az.Init(cmd.Context(), allLibs...); err != nil {
 			cmd.PrintErrf("%s could not initialize alzlib: %v\n", cmd.ErrPrefix(), err)

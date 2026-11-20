@@ -165,20 +165,17 @@ to update a cache in-place.`,
 				os.Exit(1)
 			}
 
-			cf, err := armpolicy.NewClientFactory("", creds, &arm.ClientOptions{
+			if err := az.AddPolicyClientFromCredential(creds, &arm.ClientOptions{
 				ClientOptions: policy.ClientOptions{
 					Cloud: auth.GetCloudFromEnv(),
 				},
-			})
-			if err != nil {
+			}); err != nil {
 				cmd.PrintErrf(
 					"%s could not create Azure policy client factory: %v\n",
 					cmd.ErrPrefix(), err,
 				)
 				os.Exit(1)
 			}
-
-			az.AddPolicyClient(cf)
 
 			if err := az.Init(cmd.Context(), allLibs...); err != nil {
 				cmd.PrintErrf("%s could not initialize alzlib: %v\n", cmd.ErrPrefix(), err)

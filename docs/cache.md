@@ -81,7 +81,8 @@ az.AddCache(c)
 // No Azure policy client is needed if the cache covers all
 // built-in definitions referenced by the library.
 // If a definition is missing from the cache, AlzLib falls back
-// to the Azure client (if one has been set via AddPolicyClient).
+// to the Azure client (if one has been set via AddPolicyClientFromCredential
+// or AddPolicyClient).
 // The cache is kept until explicitly released — call az.AddCache(nil)
 // to allow the garbage collector to reclaim its memory.
 ```
