@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/alzlib/assets"
 	"github.com/Azure/alzlib/cache"
 	"github.com/Azure/alzlib/internal/processor"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
 	"github.com/brunoga/deep"
@@ -55,10 +56,16 @@ type AlzLib struct {
 	// fetchMu serialises concurrent GetDefinitionsFromAzure callers sharing this AlzLib, so that they
 	// do not fetch and add the same definitions at the same time.
 	fetchMu sync.Mutex
+	// bulk is the bulk listing of built-in policy definition versions of the GetDefinitionsFromAzure call
+	// in progress. It is guarded by fetchMu, and nil outside such a call.
+	bulk *bulkListing
 }
 
 type azureClients struct {
 	policyClient *armpolicy.ClientFactory
+	// armClient lists built-in policy definition versions in bulk. It is only set with policyClient by
+	// AddPolicyClientFromCredential, so both use the same credential and options.
+	armClient *arm.Client
 }
 
 // Options are options for the AlzLib.
@@ -649,11 +656,47 @@ func isBuiltInPolicySetDefinitionVersions(psdvs *assets.PolicySetDefinitionVersi
 
 // AddPolicyClient adds an authenticated *armpolicy.ClientFactory to the AlzLib struct.
 // This is needed to get policy objects from Azure.
+// The versions of built-in policy definitions are then listed one definition at a time. Use
+// [AlzLib.AddPolicyClientFromCredential] instead to list them in bulk.
 func (az *AlzLib) AddPolicyClient(client *armpolicy.ClientFactory) {
 	az.mu.Lock()
 	defer az.mu.Unlock()
 
 	az.clients.policyClient = client
+	// An Azure Resource Manager client added before could use another credential or cloud.
+	az.clients.armClient = nil
+}
+
+// AddPolicyClientFromCredential creates the Azure Policy client factory, and the Azure Resource Manager
+// client used to list built-in policy definition versions in bulk, from the same credential and options,
+// and adds them to the AlzLib struct. Use it instead of [AlzLib.AddPolicyClient].
+//
+// [AlzLib.GetDefinitionsFromAzure] then lists the versions of every built-in policy definition in a few
+// requests, instead of one request per definition, when it needs the versions of enough definitions. The
+// definitions it adds are the same. If the bulk listing fails, the versions are listed one definition at a
+// time. The policy client factory cannot do this on its own: it only gets the first page of the listing.
+func (az *AlzLib) AddPolicyClientFromCredential(cred azcore.TokenCredential, opts *arm.ClientOptions) error {
+	if cred == nil {
+		return errors.New("Alzlib.AddPolicyClientFromCredential: credential is nil")
+	}
+
+	policyClient, err := armpolicy.NewClientFactory("", cred, opts)
+	if err != nil {
+		return fmt.Errorf("Alzlib.AddPolicyClientFromCredential: creating the policy client factory: %w", err)
+	}
+
+	armClient, err := arm.NewClient(alzlibModulePath, alzlibModuleVersion(), cred, opts)
+	if err != nil {
+		return fmt.Errorf("Alzlib.AddPolicyClientFromCredential: creating the Azure Resource Manager client: %w", err)
+	}
+
+	az.mu.Lock()
+	defer az.mu.Unlock()
+
+	az.clients.policyClient = policyClient
+	az.clients.armClient = armClient
+
+	return nil
 }
 
 // Init processes ALZ libraries, supplied as `LibraryReference` interfaces.
@@ -733,9 +776,17 @@ func (az *AlzLib) Init(ctx context.Context, libs ...LibraryReference) error {
 // The cache is retained for the lifetime of AlzLib; callers can explicitly clear it by calling
 // AddCache(nil) when they no longer need it.
 // Definitions are fetched concurrently, bounded by [Options.Parallelism].
+// If the policy client was added with [AlzLib.AddPolicyClientFromCredential], and the versions of at least
+// 10 built-in policy definitions need to be listed, the versions of every built-in policy definition are
+// listed in bulk, once per call, and used in place of the version listing of each definition.
 func (az *AlzLib) GetDefinitionsFromAzure(ctx context.Context, reqs []BuiltInRequest) error {
 	az.fetchMu.Lock()
 	defer az.fetchMu.Unlock()
+
+	// The bulk listing is only used within this call, so that definitions added to Azure later are found.
+	az.bulk = az.newBulkListing()
+
+	defer func() { az.bulk = nil }()
 
 	policyDefsToGet := make([]BuiltInRequest, 0, len(reqs))
 	policySetDefsToGet := make([]BuiltInRequest, 0, len(reqs))
@@ -945,6 +996,8 @@ func (az *AlzLib) getBuiltInPolicies(ctx context.Context, reqs []BuiltInRequest)
 		client = policyClient.NewDefinitionsClient()
 	}
 
+	az.bulk.prepare(ctx, az.effectiveParallelism(), func() int { return az.policyDefinitionsToList(reqs) })
+
 	return forEachGroupConcurrently(
 		ctx,
 		az.effectiveParallelism(),
@@ -1142,7 +1195,7 @@ func (az *AlzLib) addVersionedPolicyDefinition(
 	client *armpolicy.DefinitionVersionsClient,
 	req BuiltInRequest,
 ) error {
-	pager := client.NewListBuiltInPager(req.ResourceID.Name, nil)
+	pager := az.policyDefinitionVersionsPager(client, req.ResourceID.Name)
 
 	pdvs, listing, err := az.collectPolicyDefinitionVersions(ctx, pager, req)
 	if err != nil {
@@ -1348,6 +1401,15 @@ func (az *AlzLib) ensureReferencedPolicyDefinitions(
 		return nil
 	}
 
+	az.bulk.prepare(ctx, az.effectiveParallelism(), func() int {
+		reqs := make([]BuiltInRequest, len(refs))
+		for i, r := range refs {
+			reqs[i] = BuiltInRequest{ResourceID: r.resID, Version: r.ref.DefinitionVersion}
+		}
+
+		return az.policyDefinitionsToList(reqs)
+	})
+
 	var (
 		definitionsClient          *armpolicy.DefinitionsClient
 		definitionsVersionedClient *armpolicy.DefinitionVersionsClient
@@ -1429,7 +1491,7 @@ func (az *AlzLib) fetchReferencedPolicyDefinitionVersions(
 	setDefinition *assets.PolicySetDefinition,
 	ref *armpolicy.DefinitionReference,
 ) error {
-	pager := client.NewListBuiltInPager(definitionName, nil)
+	pager := az.policyDefinitionVersionsPager(client, definitionName)
 	listing := &versionListing{name: definitionName}
 
 	for pager.More() {
