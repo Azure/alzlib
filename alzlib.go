@@ -27,7 +27,9 @@ const (
 	defaultUniqueRoleDefinitions = true // default to unique role definitions per management group
 	// InitialMetadataSliceCapacity is the initial capacity for the metadata slice.
 	InitialMetadataSliceCapacity = 10
-	// MaxRecursionDepth is the maximum depth for recursive operations.
+	// MaxRecursionDepth is the maximum zero-based depth of a management group in an architecture.
+	// The root management groups of an architecture are at depth 0, so an architecture can contain
+	// MaxRecursionDepth + 1 levels of management groups: the Azure limit of six levels below the tenant root group.
 	MaxRecursionDepth = 5
 	// PolicySetDefinitionsType is the lowercase type for policy set definitions, without the resource provider.
 	PolicySetDefinitionsType = "policysetdefinitions"
@@ -1873,10 +1875,6 @@ func architectureRecursion(
 	az *AlzLib,
 	depth int,
 ) error {
-	if depth > MaxRecursionDepth {
-		return errors.New("architectureRecursion: recursion depth exceeded")
-	}
-
 	newParents := mapset.NewThreadUnsafeSet[string]()
 
 	if len(libArch.ManagementGroups) == 0 {
@@ -1896,6 +1894,18 @@ func architectureRecursion(
 
 			if !parents.Contains(*mg.ParentID) {
 				continue
+			}
+
+			// The depth is checked when a management group would be added, because the search for
+			// children always recurses one level below the deepest management groups.
+			if depth > MaxRecursionDepth {
+				return fmt.Errorf(
+					"architectureRecursion: management group %s is at level %d, "+
+						"but an architecture can contain at most %d levels of management groups",
+					mg.ID,
+					depth+1,
+					MaxRecursionDepth+1,
+				)
 			}
 
 			if !arch.mgs[*mg.ParentID].exists && mg.Exists {

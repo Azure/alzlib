@@ -648,6 +648,72 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 			expectedNotNil: "architecture1",
 		},
 		{
+			name: "management group hierarchy at maximum depth",
+			setupAlzLib: func(az *AlzLib) {
+				az.archetypes["archetype1"] = &Archetype{
+					PolicyDefinitions:    mapset.NewThreadUnsafeSet("policy1"),
+					PolicyAssignments:    mapset.NewThreadUnsafeSet("assignment1"),
+					PolicySetDefinitions: mapset.NewThreadUnsafeSet("policySet1"),
+					RoleDefinitions:      mapset.NewThreadUnsafeSet("role1"),
+					name:                 "archetype1",
+				}
+			},
+			processorOutput: &processor.Result{
+				LibArchitectures: map[string]*processor.LibArchitecture{
+					"maxdepth": {
+						Name: "maxdepth",
+						ManagementGroups: []processor.LibArchitectureManagementGroup{
+							{
+								ID:          "level0",
+								ParentID:    nil,
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level0",
+								Exists:      false,
+							},
+							{
+								ID:          "level1",
+								ParentID:    to.Ptr("level0"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level1",
+								Exists:      false,
+							},
+							{
+								ID:          "level2",
+								ParentID:    to.Ptr("level1"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level2",
+								Exists:      false,
+							},
+							{
+								ID:          "level3",
+								ParentID:    to.Ptr("level2"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level3",
+								Exists:      false,
+							},
+							{
+								ID:          "level4",
+								ParentID:    to.Ptr("level3"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level4",
+								Exists:      false,
+							},
+							{
+								ID:          "level5",
+								ParentID:    to.Ptr("level4"),
+								Archetypes:  mapset.NewThreadUnsafeSet("archetype1"),
+								DisplayName: "level5",
+								Exists:      false,
+							},
+						},
+					},
+				},
+			},
+			expectedError:  "",
+			expectedLength: 1,
+			expectedNotNil: "maxdepth",
+		},
+		{
 			name: "management group hierarchy too deep",
 			setupAlzLib: func(az *AlzLib) {
 				az.archetypes["archetype1"] = &Archetype{
@@ -718,7 +784,8 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 			},
 			expectedLength: 1,
 			expectedNotNil: "toodeep",
-			expectedError:  "architectureRecursion: recursion depth exceeded",
+			expectedError: "architectureRecursion: management group level6 is at level 7, " +
+				"but an architecture can contain at most 6 levels of management groups",
 		},
 	}
 
@@ -732,6 +799,10 @@ func TestGenerateArchitecturesTbt(t *testing.T) {
 				require.NoError(t, err)
 				assert.Len(t, az.architectures, tc.expectedLength)
 				assert.NotNil(t, az.architectures[tc.expectedNotNil])
+
+				for name, libArch := range tc.processorOutput.LibArchitectures {
+					assert.Len(t, az.architectures[name].mgs, len(libArch.ManagementGroups))
+				}
 			} else {
 				require.ErrorContains(t, err, tc.expectedError)
 			}
